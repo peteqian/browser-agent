@@ -1,6 +1,6 @@
 # Browser Agent Expansion Plans
 
-This directory captures an ordered roadmap for expanding `@jobseeker/browser-agent` while keeping this package local-first and TypeScript-focused.
+This directory captures an ordered roadmap for expanding `@browser-agent/core` while keeping this package local-first and TypeScript-focused.
 
 Numbered paths define order of precedence. Lower numbers are more foundational and should be completed before higher-numbered feature layers depend on them.
 
