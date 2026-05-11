@@ -97,7 +97,9 @@ async function readViewport(page: Page): Promise<{ width: number; height: number
 }
 
 async function readTabs(page: Page, session?: BrowserSession): Promise<TabState[]> {
-  const targetIds = session ? await session.listPageTargetIds() : [page.targetId];
+  const targetIds = session
+    ? await session.listPageTargetIds().catch(() => [page.targetId])
+    : [page.targetId];
   return targetIds.map((targetId) => ({ targetId, active: targetId === page.targetId }));
 }
 

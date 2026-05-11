@@ -255,7 +255,18 @@ export async function executeAction(
         const currentSession = requireSession(session, action.name);
         const tab = await currentSession.newPage();
         if (action.params.url) {
-          await tab.goto(action.params.url);
+          const health = await tab.navigateWithHealthCheck(action.params.url);
+          if (!health.ok) {
+            return fail(`Opened new tab, but navigation to ${action.params.url} reported ${health.status}. ${health.warning ?? ""}`.trim(), {
+              data: { navigation: health },
+              activeTargetId: tab.targetId,
+            });
+          }
+          return ok(`Opened new tab ${tab.targetId} with ${action.params.url}`, {
+            longTermMemory: `Opened new tab ${tab.targetId}`,
+            data: { navigation: health },
+            activeTargetId: tab.targetId,
+          });
         }
         return ok(`Opened new tab ${tab.targetId}${action.params.url ? ` with ${action.params.url}` : ""}`, {
           longTermMemory: `Opened new tab ${tab.targetId}`,

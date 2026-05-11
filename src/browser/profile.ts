@@ -1,4 +1,12 @@
 import type { BrowserChannel } from "../cdp/discovery";
+import type Protocol from "devtools-protocol";
+
+export type BrowserPermission = Protocol.Browser.PermissionType;
+
+export interface BrowserPermissionGrant {
+  permissions: BrowserPermission[];
+  origin?: string;
+}
 
 export interface BrowserProfileInit {
   cdpUrl?: string;
@@ -25,6 +33,7 @@ export interface BrowserProfileInit {
   reconnectMaxDelayMs?: number;
   captchaSolver?: boolean;
   downloadsDir?: string;
+  permissionGrants?: BrowserPermissionGrant[];
 }
 
 export class BrowserProfile {
@@ -52,6 +61,7 @@ export class BrowserProfile {
   reconnectMaxDelayMs: number;
   captchaSolver: boolean;
   downloadsDir: string | undefined;
+  permissionGrants: BrowserPermissionGrant[];
 
   constructor(init: BrowserProfileInit = {}) {
     this.cdpUrl = init.cdpUrl;
@@ -78,6 +88,11 @@ export class BrowserProfile {
     this.reconnectMaxDelayMs = init.reconnectMaxDelayMs ?? 8_000;
     this.captchaSolver = init.captchaSolver ?? true;
     this.downloadsDir = init.downloadsDir;
+    this.permissionGrants =
+      init.permissionGrants?.map((grant) => ({
+        ...grant,
+        permissions: [...grant.permissions],
+      })) ?? [];
   }
 
   isRemoteConnection(): boolean {

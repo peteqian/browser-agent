@@ -164,7 +164,16 @@ async function runAgentInner<TData = unknown>(
   );
 
   if (options.startUrl) {
-    await page.navigateWithHealthCheck(options.startUrl);
+    const health = await page.navigateWithHealthCheck(options.startUrl);
+    if (!health.ok) {
+      return {
+        success: false,
+        reason: "failed",
+        summary: `Start URL navigation failed: ${health.warning ?? health.status}`,
+        data: null,
+        steps: 0,
+      };
+    }
   }
 
   const actionHistory: Array<{ action: string; result: string }> = [];
@@ -220,18 +229,22 @@ async function runAgentInner<TData = unknown>(
           actionCatalog: actionRegistry.describeForPrompt(),
         };
         const parentSignal = combineSignals(options.signal, options.control?.signal);
-        decision = await withRetry(
-          (sig) =>
-            withDecideTimeout(
-              options.decide,
-              decideInput,
-              decisionTimeoutMs,
-              `Model decision timed out after ${decisionTimeoutMs}ms`,
-              sig,
-            ),
-          options.decideRetry,
-          parentSignal,
-        );
+        try {
+          decision = await withRetry(
+            (sig) =>
+              withDecideTimeout(
+                options.decide,
+                decideInput,
+                decisionTimeoutMs,
+                `Model decision timed out after ${decisionTimeoutMs}ms`,
+                sig,
+              ),
+            options.decideRetry,
+            parentSignal.signal,
+          );
+        } finally {
+          parentSignal.cleanup();
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const isTimeout = message.includes("Model decision timed out");
@@ -276,14 +289,20 @@ async function runAgentInner<TData = unknown>(
 
         await session?.eventBus?.emit({ type: "action_start", step, action });
         await emitEvent(options, { type: "action_start", step, action });
-        const result = await executeActionWithTimeout(
-          page,
-          action,
-          session,
-          actionRegistry,
-          actionTimeoutMs,
-          combineSignals(options.signal, options.control?.signal),
-        );
+        const parentSignal = combineSignals(options.signal, options.control?.signal);
+        let result: ActionResult;
+        try {
+          result = await executeActionWithTimeout(
+            page,
+            action,
+            session,
+            actionRegistry,
+            actionTimeoutMs,
+            parentSignal.signal,
+          );
+        } finally {
+          parentSignal.cleanup();
+        }
         actionResults.push({ ok: result.ok, message: result.message });
         if (result.activeTargetId && session) {
           page = session.getPage(result.activeTargetId);
@@ -621,19 +640,34 @@ async function executeActionWithTimeout(
  * Returns undefined when all inputs are undefined to avoid allocating a
  * controller for the common case.
  */
-function combineSignals(...signals: Array<AbortSignal | undefined>): AbortSignal | undefined {
+function combineSignals(...signals: Array<AbortSignal | undefined>): {
+  signal: AbortSignal | undefined;
+  cleanup: () => void;
+} {
   const filtered = signals.filter((s): s is AbortSignal => Boolean(s));
-  if (filtered.length === 0) return undefined;
-  if (filtered.length === 1) return filtered[0];
-  const controller = new AbortController();
-  for (const signal of filtered) {
-    if (signal.aborted) {
-      controller.abort(signal.reason);
-      return controller.signal;
-    }
-    signal.addEventListener("abort", () => controller.abort(signal.reason), { once: true });
+  if (filtered.length === 0) return { signal: undefined, cleanup: () => {} };
+  if (filtered.length === 1) return { signal: filtered[0], cleanup: () => {} };
+
+  const alreadyAborted = filtered.find((s) => s.aborted);
+  if (alreadyAborted) {
+    const controller = new AbortController();
+    controller.abort(alreadyAborted.reason);
+    return { signal: controller.signal, cleanup: () => {} };
   }
-  return controller.signal;
+
+  const controller = new AbortController();
+  const cleanups: Array<() => void> = [];
+  for (const signal of filtered) {
+    const onAbort = () => controller.abort(signal.reason);
+    signal.addEventListener("abort", onAbort, { once: true });
+    cleanups.push(() => signal.removeEventListener("abort", onAbort));
+  }
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      for (const cleanup of cleanups) cleanup();
+    },
+  };
 }
 
 interface StepContext {
@@ -693,8 +727,8 @@ async function tryFinalFailureRecovery<TData>(input: {
           sig,
         ),
       input.options.decideRetry,
-      recoverySignal,
-    );
+      recoverySignal.signal,
+    ).finally(() => recoverySignal.cleanup());
 
     const doneAction = decision.actions
       ?.map((rawAction) => input.actionRegistry.parse(rawAction.name, rawAction.params))

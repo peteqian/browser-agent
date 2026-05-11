@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 
-import { BrowserProfile } from "../browser/profile";
+import { BrowserProfile, type BrowserPermissionGrant } from "../browser/profile";
 import {
   discoverBrowserExecutable,
   installChromiumWithPlaywright,
@@ -31,6 +31,7 @@ export interface LaunchOptions {
   maxRetries?: number;
   autoInstallBrowser?: boolean;
   downloadsDir?: string;
+  permissionGrants?: BrowserPermissionGrant[];
 }
 
 export interface LaunchedBrowser {

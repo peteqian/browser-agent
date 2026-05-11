@@ -9,7 +9,7 @@ export { launchBrowser } from "./cdp/launch";
 export type { LaunchOptions, LaunchedBrowser } from "./cdp/launch";
 
 export { BrowserProfile } from "./browser/profile";
-export type { BrowserProfileInit } from "./browser/profile";
+export type { BrowserPermission, BrowserPermissionGrant, BrowserProfileInit } from "./browser/profile";
 export type { NavigationHealthResult, NavigationHealthStatus } from "./browser/session";
 
 export { serializePage, formatSnapshotForLLM } from "./dom/serialize";

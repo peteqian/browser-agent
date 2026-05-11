@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { BrowserEvent } from "./events";
+import type { BrowserPermissionGrant } from "./profile";
 import { BrowserEventBus } from "./events";
 import { BrowserSession, Page } from "./session";
 
@@ -76,6 +77,24 @@ describe("Page navigation watchdog", () => {
       data: result,
     });
   });
+
+  test("returns cdp_error health when Page.navigate reports errorText", async () => {
+    const { page, events } = createNavigationPage({
+      navigate: () => ({ errorText: "net::ERR_NAME_NOT_RESOLVED" }),
+    });
+    const result = await page.navigateWithHealthCheck("https://missing.invalid/");
+
+    expect(result.ok).toBe(false);
+    expect(result.status).toBe("cdp_error");
+    expect(result.warning).toContain("net::ERR_NAME_NOT_RESOLVED");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      type: "browser_event",
+      name: "navigation_watchdog",
+      targetId: "page-1",
+      data: result,
+    });
+  });
 });
 
 describe("BrowserSession reconnect watchdog", () => {
@@ -129,6 +148,95 @@ describe("BrowserSession reconnect watchdog", () => {
       type: "browser_event",
       name: "cdp_reconnect_failed",
       data: { reason: "max_attempts_exhausted", maxAttempts: 1 },
+    });
+  });
+});
+
+describe("BrowserSession permissions watchdog", () => {
+  test("maps launch permission grants into the profile", () => {
+    const permissionGrants: BrowserPermissionGrant[] = [
+      { origin: "https://example.com", permissions: ["geolocation"] },
+    ];
+    const session = new BrowserSession({ launch: { permissionGrants } });
+
+    expect(session.profile.permissionGrants).toEqual(permissionGrants);
+  });
+
+  test("preserves profile permission grants when launch options are also provided", () => {
+    const permissionGrants: BrowserPermissionGrant[] = [
+      { origin: "https://example.com", permissions: ["geolocation"] },
+    ];
+    const session = new BrowserSession({ profile: { permissionGrants }, launch: { headless: true } });
+
+    expect(session.profile.permissionGrants).toEqual(permissionGrants);
+  });
+
+  test("copies permission grants during profile construction", () => {
+    const permissionGrants: BrowserPermissionGrant[] = [
+      { origin: "https://example.com", permissions: ["geolocation"] },
+    ];
+    const session = new BrowserSession({ profile: { permissionGrants } });
+
+    permissionGrants[0]!.permissions.push("notifications");
+
+    expect(session.profile.permissionGrants).toEqual([
+      { origin: "https://example.com", permissions: ["geolocation"] },
+    ]);
+  });
+
+  test("grants configured permissions and emits enabled events", async () => {
+    const session = new BrowserSession({
+      profile: {
+        permissionGrants: [
+          { origin: "https://example.com", permissions: ["geolocation", "notifications"] },
+          { permissions: [] },
+        ],
+      },
+    });
+    const commands: Array<{ method: string; params: Record<string, unknown> }> = [];
+    const client = {
+      send: async (method: string, params: Record<string, unknown>) => {
+        commands.push({ method, params });
+      },
+    };
+
+    await session.configurePermissions(client as never);
+
+    expect(commands).toEqual([
+      {
+        method: "Browser.grantPermissions",
+        params: { origin: "https://example.com", permissions: ["geolocation", "notifications"] },
+      },
+    ]);
+    expect(session.eventBus.history).toContainEqual({
+      type: "browser_event",
+      name: "permissions_watchdog_enabled",
+      data: { origin: "https://example.com", permissions: ["geolocation", "notifications"] },
+    });
+  });
+
+  test("emits browser_error when permission grants fail", async () => {
+    const session = new BrowserSession({
+      profile: { permissionGrants: [{ permissions: ["geolocation"] }] },
+    });
+    const error = new Error("permission grant failed");
+    const client = {
+      send: async () => {
+        throw error;
+      },
+    };
+
+    await session.configurePermissions(client as never);
+
+    expect(session.eventBus.history).toContainEqual({
+      type: "browser_event",
+      name: "permissions_watchdog_failed",
+      data: { permissions: ["geolocation"], origin: undefined, error: "permission grant failed" },
+    });
+    expect(session.eventBus.history).toContainEqual({
+      type: "browser_error",
+      message: "Failed to configure permission grants",
+      error,
     });
   });
 });

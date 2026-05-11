@@ -14,7 +14,7 @@ Read this file first. It is the compact routing table for the deeper plan files.
 ## Current Focus
 
 - `HIGH-VALUE-FEATURES.md`: dependency-ordered roadmap for the highest-value functionality gaps.
-- `02-browser-runtime/02-watchdogs.md`: active navigation watchdog slice; runtime reliability should precede DOM/action/extraction expansion.
+- `02-browser-runtime/02-watchdogs.md`: watchdog slices are complete through permissions; storage state remains the next runtime reliability candidate.
 - `05-quality/01-testing-strategy.md`: add focused watchdog tests with each runtime/action feature slice.
 
 ## Done
@@ -44,7 +44,7 @@ Read this file first. It is the compact routing table for the deeper plan files.
 
 ## Backlog
 
-- Layer 1: local watchdogs for navigation, crash/dead websocket, popup/dialog, downloads, storage state, and permissions.
+- Layer 1: local watchdogs are complete through navigation, crash/dead websocket, popup/dialog, downloads, and permissions; storage state remains backlog.
 - Layer 2: CDP DOMSnapshot + accessibility tree enrichment with stable selector maps and prompt budgets.
 - Layer 3: safer click/type/upload semantics, new-tab detection, coordinate scaling, and page-specific action filtering.
 - Layer 4: clean markdown extraction, structure-aware chunking, schema extraction, extraction LLM hook, and pagination dedupe.

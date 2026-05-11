@@ -149,6 +149,37 @@ describe("runAgent action timeouts", () => {
 });
 
 describe("runAgent browser lifecycle", () => {
+  test("fails before the first decision when startUrl navigation is unhealthy", async () => {
+    let decisions = 0;
+    const result = await runAgent({
+      task: "open a bad start url",
+      page: createFakePage({
+        navigateWithHealthCheck: async () => ({
+          ok: false,
+          status: "cdp_error",
+          url: "https://missing.invalid/",
+          durationMs: 5,
+          warning: "Navigation failed for https://missing.invalid/: net::ERR_NAME_NOT_RESOLVED",
+        }),
+      }),
+      startUrl: "https://missing.invalid/",
+      decide: async () => {
+        decisions += 1;
+        return { actions: [], done: false };
+      },
+    });
+
+    expect(decisions).toBe(0);
+    expect(result).toEqual({
+      success: false,
+      reason: "failed",
+      summary:
+        "Start URL navigation failed: Navigation failed for https://missing.invalid/: net::ERR_NAME_NOT_RESOLVED",
+      data: null,
+      steps: 0,
+    });
+  });
+
   test("close_browser closes the supplied session and ends the run", async () => {
     let closed = false;
     const steps: StepInfo[] = [];

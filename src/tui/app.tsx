@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Box, render, Text, useApp, useInput } from "ink";
+import { Box, render, Text, useInput } from "ink";
 
 import { AgentController, runAgent } from "../agent/loop";
 import type {
@@ -59,9 +59,11 @@ export async function runTui<TData>(options: AgentOptions<TData>): Promise<Agent
     />,
   );
 
-  const result = await resultPromise;
-  app.unmount();
-  return result;
+  try {
+    return await resultPromise;
+  } finally {
+    app.unmount();
+  }
 }
 
 function BrowserAgentTui({
@@ -75,7 +77,6 @@ function BrowserAgentTui({
   onDone: (result: AgentResult) => void;
   onError: (error: unknown) => void;
 }) {
-  const { exit } = useApp();
   const [state, setState] = useState<TuiState>(initialState);
   const [logOffset, setLogOffset] = useState(0);
 
@@ -108,8 +109,7 @@ function BrowserAgentTui({
   useInput((input, key) => {
     if (input === "q" || key.escape) {
       control.stop("user requested stop from TUI");
-        setState((current: TuiState) => ({ ...current, status: "stopped" }));
-      exit();
+      setState((current: TuiState) => ({ ...current, status: "stopped" }));
       return;
     }
     if (input === "p") {

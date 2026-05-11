@@ -70,13 +70,21 @@ Track `Browser.downloadWillBegin` and `Browser.downloadProgress`, then surface c
 - [x] Emit `download_started`, `download_progress`, `download_completed`, and `download_failed` events.
 - [x] Prefer event-only reporting first; action correlation remains deferred until reliable.
 
+## Completed Slice: Permissions
+
+Grant configured browser permissions through the profile/launch config without enabling anything by default.
+
+### Completed
+
+- [x] Add explicit `permissionGrants` profile/launch configuration.
+- [x] Configure grants with `Browser.grantPermissions` during session connection.
+- [x] Emit `permissions_watchdog_enabled` for successful grants.
+- [x] Emit `permissions_watchdog_failed` and `browser_error` when grants fail without crashing session startup.
+- [x] Add focused unit tests and an opt-in local geolocation permission integration test.
+
 ## Follow-Up Watchdogs
 
-Implement these only after the navigation watchdog establishes the event/result pattern.
-
-### Permissions
-
-Add only when a concrete caller needs it. Prefer profile-driven grants via `Browser.grantPermissions`.
+Implement these only after defining caller needs and persistence shapes.
 
 ### Storage State
 

@@ -14,12 +14,12 @@ Add confidence around contracts and local browser behavior without requiring hos
 - Integration smoke tests for local Chrome launch and navigation.
 - MCP startup smoke test.
 
-## Active Slice: Navigation Watchdog
+## Watchdog Coverage
 
 - Unit-test navigation health result shaping for success, timeout/error, and empty-page warnings.
 - Unit-test that navigate action results include `data.navigation`.
 - Unit-test that health-checked navigation emits `browser_event` named `navigation_watchdog`.
-- Add a local fixture-page browser test for navigation success, empty-page warning, and timeout behavior when the fixture infrastructure exists.
+- Opt-in local browser integration tests cover navigation, downloads, and permission grants.
 
 ## Rules
 

@@ -50,4 +50,29 @@ describe("executeAction navigation watchdog metadata", () => {
     expect(result.message).toContain("page appears empty");
     expect(result.data).toEqual({ navigation: health });
   });
+
+  test("uses navigation health metadata for new_tab URLs", async () => {
+    const health: NavigationHealthResult = {
+      ok: true,
+      status: "loaded",
+      url: "https://example.com/",
+      finalUrl: "https://example.com/",
+      readyState: "complete",
+      durationMs: 12,
+    };
+    const tab = createPageWithNavigation(health);
+    const session = {
+      newPage: async () => tab,
+    };
+
+    const result = await executeAction(
+      createPageWithNavigation(health),
+      { name: "new_tab", params: { url: "https://example.com/" } },
+      session as never,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.data).toEqual({ navigation: health });
+    expect(result.activeTargetId).toBe("page-1");
+  });
 });

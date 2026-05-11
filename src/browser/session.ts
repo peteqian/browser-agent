@@ -1,6 +1,6 @@
 import { mkdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { basename, dirname, join, relative, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 
 import { CDPClient } from "../cdp/client";
@@ -159,6 +159,20 @@ function createJavaScriptDialogWatchdogData(event: JavascriptDialogOpeningEvent)
   };
 }
 
+/**
+ * Resolves a safe download path inside `downloadsDir`.
+ * `basename` strips any directory components from `suggestedFilename`, so
+ * subdirectories are flattened to the root of `downloadsDir`.
+ */
+function safeDownloadPath(downloadsDir: string, suggestedFilename: string): string {
+  const targetPath = resolve(downloadsDir, basename(suggestedFilename));
+  const relativePath = relative(resolve(downloadsDir), targetPath);
+  if (relativePath.startsWith("..") || relativePath === "") {
+    return resolve(downloadsDir, "download");
+  }
+  return targetPath;
+}
+
 const AD_DOMAINS = [
   "doubleclick.net",
   "googlesyndication.com",
@@ -260,6 +274,7 @@ export class BrowserSession {
             maxLaunchRetries: launch.maxRetries,
             autoInstallBrowser: launch.autoInstallBrowser,
             downloadsDir: launch.downloadsDir,
+            permissionGrants: launch.permissionGrants ?? options.profile?.permissionGrants,
           }
         : {}),
       cdpUrl: options.cdpUrl ?? options.profile?.cdpUrl,
@@ -339,6 +354,7 @@ export class BrowserSession {
       this.captchaWatchdog.attach(client);
     }
 
+    await this.configurePermissions(client);
     await this.configureDownloads(client);
 
     client.on("Browser.downloadWillBegin", (params) => {
@@ -349,7 +365,7 @@ export class BrowserSession {
         suggestedFilename: event.suggestedFilename,
         startedAt: new Date().toISOString(),
         ...(this.profile.downloadsDir
-          ? { targetPath: join(this.profile.downloadsDir, event.suggestedFilename) }
+          ? { targetPath: safeDownloadPath(this.profile.downloadsDir, event.suggestedFilename) }
           : {}),
       };
       this.downloads.set(event.guid, info);
@@ -386,18 +402,29 @@ export class BrowserSession {
       });
     });
 
-    client.on("Target.attachedToTarget", async (params) => {
+    client.on("Target.attachedToTarget", (params) => {
       const event = params as AttachedTargetEvent;
       if (event.targetInfo.type !== "page") return;
-      this.targetToSession.set(event.targetInfo.targetId, event.sessionId);
-      this.sessionToTarget.set(event.sessionId, event.targetInfo.targetId);
-      void this.eventBus.emit({
-        type: "browser_event",
-        name: "target_attached",
-        targetId: event.targetInfo.targetId,
-        data: event.targetInfo,
-      });
-      await this.enableDomains(event.sessionId);
+      void this.enableDomains(event.sessionId)
+        .then(() => {
+          this.targetToSession.set(event.targetInfo.targetId, event.sessionId);
+          this.sessionToTarget.set(event.sessionId, event.targetInfo.targetId);
+          void this.eventBus.emit({
+            type: "browser_event",
+            name: "target_attached",
+            targetId: event.targetInfo.targetId,
+            data: event.targetInfo,
+          });
+        })
+        .catch((error) => {
+          if (this.intentionalStop) return;
+          void this.eventBus.emit({
+            type: "browser_error",
+            message: "Failed to enable page domains",
+            targetId: event.targetInfo.targetId,
+            error,
+          });
+        });
     });
 
     client.on("Target.detachedFromTarget", (params) => {
@@ -466,6 +493,42 @@ export class BrowserSession {
         message: "Failed to enable download watchdog",
         error,
       });
+    }
+  }
+
+  async configurePermissions(client: CDPClient): Promise<void> {
+    for (const grant of this.profile.permissionGrants) {
+      if (grant.permissions.length === 0) continue;
+
+      const params: Record<string, unknown> = { permissions: grant.permissions };
+      if (grant.origin) params.origin = grant.origin;
+
+      try {
+        await client.send("Browser.grantPermissions", params);
+        void this.eventBus.emit({
+          type: "browser_event",
+          name: "permissions_watchdog_enabled",
+          data: {
+            permissions: grant.permissions,
+            origin: grant.origin,
+          },
+        });
+      } catch (error) {
+        void this.eventBus.emit({
+          type: "browser_event",
+          name: "permissions_watchdog_failed",
+          data: {
+            permissions: grant.permissions,
+            origin: grant.origin,
+            error: error instanceof Error ? error.message : String(error),
+          },
+        });
+        void this.eventBus.emit({
+          type: "browser_error",
+          message: "Failed to configure permission grants",
+          error,
+        });
+      }
     }
   }
 
@@ -621,9 +684,9 @@ export class BrowserSession {
       targetId,
       flatten: true,
     });
+    await this.enableDomains(sessionId);
     this.targetToSession.set(targetId, sessionId);
     this.sessionToTarget.set(sessionId, targetId);
-    await this.enableDomains(sessionId);
     return sessionId;
   }
 
@@ -671,8 +734,10 @@ export class BrowserSession {
   }
 
   async closePage(targetId: string): Promise<void> {
+    const sessionId = this.targetToSession.get(targetId);
     await this.send("Target.closeTarget", { targetId });
     this.targetToSession.delete(targetId);
+    if (sessionId) this.sessionToTarget.delete(sessionId);
     this.pageCache.delete(targetId);
   }
 
@@ -742,7 +807,14 @@ export class Page {
   }
 
   async goto(url: string, waitUntil: "load" | "domcontentloaded" = "load"): Promise<void> {
-    await this.session.sendToTarget(this.targetId, "Page.navigate", { url });
+    const navigation = await this.session.sendToTarget<{ errorText?: string }>(
+      this.targetId,
+      "Page.navigate",
+      { url },
+    );
+    if (navigation.errorText) {
+      throw new Error(`Navigation failed for ${url}: ${navigation.errorText}`);
+    }
 
     const startedAt = Date.now();
     const timeoutMs = 30_000;
