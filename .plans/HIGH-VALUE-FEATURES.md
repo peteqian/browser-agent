@@ -45,9 +45,11 @@ Detailed plans:
 
 Why first: DOM and action improvements are hard to verify if tabs, navigation, downloads, and session recovery are unreliable.
 
-## Layer 2: DOM Snapshot And Element Identity
+## Layer 2: DOM Snapshot And Element Identity — DONE
 
 Goal: Give the model a trustworthy, bounded view of the page and make indexed actions map back to the same snapshot.
+
+Status: complete. Implemented in `src/dom/cdp-snapshot.ts`, threaded through `BrowserStateSummary.selectorMap` and `AgentOptions.domBudgets`. Action dispatch resolves via `DOM.resolveNode` + `Runtime.callFunctionOn`; stale lookups surface `"Element [N] no longer exists in the DOM"`.
 
 Highest-value features:
 

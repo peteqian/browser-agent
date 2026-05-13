@@ -32,6 +32,7 @@ Read this file first. It is the compact routing table for the deeper plan files.
 - Repeated failures can optionally trigger one final terminal recovery response via `AgentOptions.finalResponseAfterFailure`.
 - Repeated action/page loops now stop deterministically via `AgentOptions.loopDetectionEnabled` and `AgentOptions.loopDetectionWindow`.
 - Agent runs can be paused, resumed, and stopped via exported `AgentController` / `AgentControl`.
+- DOM snapshot now uses CDP `DOMSnapshot.captureSnapshot` + `Accessibility.getFullAXTree` with a stable `SelectorMap` (index → backendNodeId). Actions resolve via `DOM.resolveNode` + `Runtime.callFunctionOn`, returning a deterministic "Element [N] no longer exists in the DOM" on stale lookups. Prompt budgets exposed via `AgentOptions.domBudgets`.
 
 ## Skip Unless Relevant
 
@@ -45,7 +46,7 @@ Read this file first. It is the compact routing table for the deeper plan files.
 ## Backlog
 
 - Layer 1: local watchdogs are complete through navigation, crash/dead websocket, popup/dialog, downloads, permissions, and storage state.
-- Layer 2: CDP DOMSnapshot + accessibility tree enrichment with stable selector maps and prompt budgets.
+- Layer 2: complete — CDP DOMSnapshot + accessibility tree enrichment with stable selector maps and prompt budgets is shipped. See Done.
 - Layer 3: safer click/type/upload semantics, new-tab detection, coordinate scaling, and page-specific action filtering.
 - Layer 4: clean markdown extraction, structure-aware chunking, schema extraction, extraction LLM hook, and pagination dedupe.
 - Layer 5: loop nudges, opt-in strict loop stopping, message compaction, persistent run memory, and optional final judge.
