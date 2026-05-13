@@ -252,6 +252,56 @@ describe("BrowserSession permissions watchdog", () => {
   });
 });
 
+describe("Page backendNodeId actions", () => {
+  function createActionPage(
+    handler: (method: string, params: Record<string, unknown>) => unknown,
+  ): {
+    page: Page;
+    calls: Array<{ method: string; params: Record<string, unknown> }>;
+  } {
+    const calls: Array<{ method: string; params: Record<string, unknown> }> = [];
+    const session = {
+      eventBus: new BrowserEventBus(),
+      sendToTarget: async (
+        _targetId: string,
+        method: string,
+        params: Record<string, unknown> = {},
+      ) => {
+        calls.push({ method, params });
+        return handler(method, params);
+      },
+    } as unknown as BrowserSession;
+    return { page: new Page(session, "page-1"), calls };
+  }
+
+  test("clickByBackendNodeId resolves node and calls click function", async () => {
+    const { page, calls } = createActionPage((method) => {
+      if (method === "DOM.resolveNode") return { object: { objectId: "obj-99" } };
+      if (method === "Runtime.callFunctionOn") return { result: {} };
+      if (method === "Runtime.releaseObject") return {};
+      throw new Error(`Unexpected method: ${method}`);
+    });
+
+    const result = await page.clickByBackendNodeId(42);
+    expect(result).toEqual({ ok: true });
+    const resolve = calls.find((c) => c.method === "DOM.resolveNode");
+    expect(resolve?.params).toEqual({ backendNodeId: 42 });
+    const call = calls.find((c) => c.method === "Runtime.callFunctionOn");
+    expect(call?.params.objectId).toBe("obj-99");
+    expect(calls.some((c) => c.method === "Runtime.releaseObject")).toBe(true);
+  });
+
+  test("clickByBackendNodeId returns index_stale when resolveNode fails", async () => {
+    const { page } = createActionPage((method) => {
+      if (method === "DOM.resolveNode") throw new Error("No node with given id");
+      return {};
+    });
+
+    const result = await page.clickByBackendNodeId(42);
+    expect(result).toEqual({ ok: false, reason: "index_stale" });
+  });
+});
+
 describe("BrowserSession storage state config", () => {
   test("maps launch storage state options into the profile", () => {
     const session = new BrowserSession({

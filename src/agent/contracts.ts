@@ -4,6 +4,7 @@ import type { LaunchOptions } from "../cdp/launch";
 import type { BrowserSession, Page } from "../browser/session";
 import type { BrowserEvent } from "../browser/events";
 import type { BrowserStateSummary } from "../browser/state";
+import type { DomBudgetOptions } from "../dom/cdp-snapshot";
 import type { RetryOptions } from "./retry";
 import type { z } from "zod";
 
@@ -251,4 +252,6 @@ export interface AgentOptions<TData = unknown> {
    * step so consumers see which transport / fallback was selected.
    */
   transportResolution?: TransportResolution;
+  /** Caps on per-step DOM snapshot capture and prompt formatting. */
+  domBudgets?: DomBudgetOptions;
 }

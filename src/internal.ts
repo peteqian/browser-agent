@@ -18,6 +18,13 @@ export type { NavigationHealthResult, NavigationHealthStatus } from "./browser/s
 export type { BrowserOriginStorageState, BrowserStorageState } from "./browser/storage-state";
 
 export { serializePage, formatSnapshotForLLM } from "./dom/serialize";
+export { captureCdpSnapshot, withBudgetDefaults, DEFAULT_DOM_BUDGETS } from "./dom/cdp-snapshot";
+export type {
+  DomBudgetOptions,
+  SelectorMap,
+  SelectorMapEntry,
+  RequiredDomBudgets,
+} from "./dom/cdp-snapshot";
 export type { ElementInfo, ElementBBox, PageSnapshot } from "./dom/types";
 export { captureBrowserState } from "./browser/state";
 export type { BrowserStateSummary, ScreenshotState } from "./browser/state";

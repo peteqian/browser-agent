@@ -3,6 +3,7 @@ import type { z } from "zod";
 import { executeAction, type ActionResult } from "./execute";
 import { actionSchemas, type Action, type ActionName } from "./types";
 import type { BrowserSession, Page } from "../browser/session";
+import type { SelectorMap } from "../dom/cdp-snapshot";
 
 export interface RegisteredAction {
   name: string;
@@ -13,6 +14,7 @@ export interface ActionContext {
   page: Page;
   session?: BrowserSession;
   signal?: AbortSignal;
+  selectorMap?: SelectorMap;
 }
 
 export interface ActionDefinition<TName extends string = string, TParams = unknown> {
@@ -84,7 +86,13 @@ export function createDefaultActions(): ActionDefinition[] {
     description: defaultActionDescription(name as ActionName),
     schema,
     run: async (params, context) =>
-      executeAction(context.page, { name, params } as Action, context.session, context.signal),
+      executeAction(
+        context.page,
+        { name, params } as Action,
+        context.session,
+        context.signal,
+        context.selectorMap,
+      ),
   }));
 }
 

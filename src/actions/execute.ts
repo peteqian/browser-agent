@@ -1,5 +1,24 @@
 import type { BrowserSession, Page } from "../browser/session";
+import type { SelectorMap } from "../dom/cdp-snapshot";
 import type { Action } from "./types";
+
+function resolveBackendId(
+  selectorMap: SelectorMap | undefined,
+  index: number,
+): { ok: true; backendNodeId: number } | { ok: false; message: string } {
+  if (!selectorMap) {
+    return { ok: false, message: `Index [${index}] is not present in the current snapshot` };
+  }
+  const entry = selectorMap.byIndex.get(index);
+  if (!entry) {
+    return { ok: false, message: `Index [${index}] is not present in the current snapshot` };
+  }
+  return { ok: true, backendNodeId: entry.backendNodeId };
+}
+
+function staleMessage(index: number): string {
+  return `Element [${index}] no longer exists in the DOM`;
+}
 
 export interface ActionResult {
   ok: boolean;
@@ -125,6 +144,7 @@ export async function executeAction(
   action: Action,
   session?: BrowserSession,
   signal?: AbortSignal,
+  selectorMap?: SelectorMap,
 ): Promise<ActionResult> {
   if (signal?.aborted) {
     return fail(`Action ${action.name} aborted before execution`);
@@ -171,34 +191,50 @@ export async function executeAction(
           return fail("Click action requires index or coordinateX+coordinateY");
         }
 
-        const success = await page.clickByIndex(action.params.index);
-        return success
+        const resolved = resolveBackendId(selectorMap, action.params.index);
+        if (!resolved.ok) return fail(resolved.message);
+        const result = await page.clickByBackendNodeId(resolved.backendNodeId);
+        return result.ok
           ? ok(`Clicked element [${action.params.index}]`, {
               longTermMemory: `Clicked element [${action.params.index}]`,
             })
-          : fail(`Element [${action.params.index}] not found or not clickable`);
+          : fail(staleMessage(action.params.index));
       }
 
       case "type": {
-        const success = await page.typeByIndex(
-          action.params.index,
+        const resolved = resolveBackendId(selectorMap, action.params.index);
+        if (!resolved.ok) return fail(resolved.message);
+        const result = await page.typeByBackendNodeId(
+          resolved.backendNodeId,
           action.params.text,
           action.params.submit ?? false,
         );
-        return success
-          ? ok(
-              `Typed into [${action.params.index}]${action.params.submit ? " and submitted" : ""}`,
-              {
-                longTermMemory: `Typed into [${action.params.index}]`,
-              },
-            )
-          : fail(`Element [${action.params.index}] not typable`);
+        if (result.ok) {
+          return ok(
+            `Typed into [${action.params.index}]${action.params.submit ? " and submitted" : ""}`,
+            { longTermMemory: `Typed into [${action.params.index}]` },
+          );
+        }
+        return fail(
+          result.reason === "index_stale"
+            ? staleMessage(action.params.index)
+            : `Element [${action.params.index}] not typable`,
+        );
       }
 
       case "scroll": {
         const pages =
           action.params.pages ?? (action.params.amount ? action.params.amount / 1000 : 1.0);
-        await page.scrollByPages(action.params.direction, pages, action.params.index);
+        let backendNodeId: number | undefined;
+        if (typeof action.params.index === "number") {
+          const resolved = resolveBackendId(selectorMap, action.params.index);
+          if (!resolved.ok) return fail(resolved.message);
+          backendNodeId = resolved.backendNodeId;
+        }
+        const result = await page.scrollByPages(action.params.direction, pages, backendNodeId);
+        if (!result.ok) {
+          return fail(staleMessage(action.params.index ?? -1));
+        }
         return ok(
           `Scrolled ${action.params.direction}${action.params.index !== undefined ? ` on [${action.params.index}]` : ""}`,
         );
@@ -215,21 +251,36 @@ export async function executeAction(
       }
 
       case "select_option": {
-        const success = await page.selectOptionByIndex(action.params.index, action.params.value);
-        return success
-          ? ok(`Selected option on [${action.params.index}]`, {
-              longTermMemory: `Selected option on [${action.params.index}]`,
-            })
-          : fail(`Could not select option on [${action.params.index}]`);
+        const resolved = resolveBackendId(selectorMap, action.params.index);
+        if (!resolved.ok) return fail(resolved.message);
+        const result = await page.selectOptionByBackendNodeId(
+          resolved.backendNodeId,
+          action.params.value,
+        );
+        if (result.ok) {
+          return ok(`Selected option on [${action.params.index}]`, {
+            longTermMemory: `Selected option on [${action.params.index}]`,
+          });
+        }
+        return fail(
+          result.reason === "index_stale"
+            ? staleMessage(action.params.index)
+            : `Could not select option on [${action.params.index}]`,
+        );
       }
 
       case "upload_file": {
-        const success = await page.uploadFilesByIndex(action.params.index, action.params.paths);
-        return success
+        const resolved = resolveBackendId(selectorMap, action.params.index);
+        if (!resolved.ok) return fail(resolved.message);
+        const result = await page.uploadFilesByBackendNodeId(
+          resolved.backendNodeId,
+          action.params.paths,
+        );
+        return result.ok
           ? ok(`Uploaded ${action.params.paths.length} file(s) to [${action.params.index}]`, {
               longTermMemory: `Uploaded file(s) to [${action.params.index}]`,
             })
-          : fail(`Could not upload to [${action.params.index}]`);
+          : fail(staleMessage(action.params.index));
       }
 
       case "wait_for_text": {
@@ -376,7 +427,9 @@ export async function executeAction(
       }
 
       case "get_dropdown_options": {
-        const options = await page.getDropdownOptionsByIndex(action.params.index);
+        const resolved = resolveBackendId(selectorMap, action.params.index);
+        if (!resolved.ok) return fail(resolved.message);
+        const options = await page.getDropdownOptionsByBackendNodeId(resolved.backendNodeId);
         const optionsText =
           options.length === 0
             ? `No dropdown options found at [${action.params.index}]`

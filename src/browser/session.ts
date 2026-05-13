@@ -1170,6 +1170,13 @@ export class Page {
     });
   }
 
+  async sendCDP<TResult = unknown>(
+    method: string,
+    params: Record<string, unknown> = {},
+  ): Promise<TResult> {
+    return this.session.sendToTarget<TResult>(this.targetId, method, params);
+  }
+
   async evaluate<TResult = unknown>(expression: string): Promise<TResult> {
     const result = await this.session.sendToTarget<{
       result: { value?: TResult };
@@ -1228,18 +1235,78 @@ export class Page {
     return result.result.objectId;
   }
 
-  async clickByIndex(index: number): Promise<boolean> {
-    return this.evaluate<boolean>(`(() => {
-      const el = document.querySelector('[data-agent-idx="${index}"]');
-      if (!el) return false;
-      el.scrollIntoView({ block: "center", inline: "center" });
-      if (typeof el.click === "function") {
-        el.click();
-        return true;
+  private async resolveBackendNode(backendNodeId: number): Promise<string | null> {
+    try {
+      const res = await this.session.sendToTarget<{ object?: { objectId?: string } }>(
+        this.targetId,
+        "DOM.resolveNode",
+        { backendNodeId },
+      );
+      return res.object?.objectId ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private async releaseObject(objectId: string): Promise<void> {
+    await this.session
+      .sendToTarget(this.targetId, "Runtime.releaseObject", { objectId })
+      .catch(() => {});
+  }
+
+  /**
+   * Call a function on a node identified by backendNodeId. Returns
+   * `{ ok: false, reason: "index_stale" }` when the node no longer exists.
+   */
+  async callOnBackendNode<TResult = unknown>(
+    backendNodeId: number,
+    functionDeclaration: string,
+    args: unknown[] = [],
+  ): Promise<
+    | { ok: true; value: TResult }
+    | { ok: false; reason: "index_stale" }
+    | { ok: false; reason: "exception"; error: string }
+  > {
+    const objectId = await this.resolveBackendNode(backendNodeId);
+    if (!objectId) return { ok: false, reason: "index_stale" };
+    try {
+      const res = await this.session.sendToTarget<{
+        result: { value?: TResult };
+        exceptionDetails?: RuntimeExceptionDetails;
+      }>(this.targetId, "Runtime.callFunctionOn", {
+        functionDeclaration,
+        objectId,
+        returnByValue: true,
+        awaitPromise: true,
+        arguments: args.map((value) => ({ value })),
+      });
+      if (res.exceptionDetails) {
+        return {
+          ok: false,
+          reason: "exception",
+          error: formatRuntimeException(res.exceptionDetails),
+        };
       }
-      el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
-      return true;
-    })()`);
+      return { ok: true, value: res.result.value as TResult };
+    } finally {
+      await this.releaseObject(objectId);
+    }
+  }
+
+  async clickByBackendNodeId(
+    backendNodeId: number,
+  ): Promise<{ ok: true } | { ok: false; reason: "index_stale" }> {
+    const result = await this.callOnBackendNode<void>(
+      backendNodeId,
+      `function() {
+        this.scrollIntoView({ block: "center", inline: "center" });
+        if (typeof this.click === "function") { this.click(); return; }
+        this.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      }`,
+    );
+    if (result.ok) return { ok: true };
+    if (result.reason === "index_stale") return { ok: false, reason: "index_stale" };
+    return { ok: false, reason: "index_stale" };
   }
 
   async clickAtCoordinates(x: number, y: number): Promise<void> {
@@ -1266,65 +1333,81 @@ export class Page {
     });
   }
 
-  async typeByIndex(index: number, text: string, submit = false): Promise<boolean> {
-    const escapedText = JSON.stringify(text);
-    return this.evaluate<boolean>(`(() => {
-      const el = document.querySelector('[data-agent-idx="${index}"]');
-      if (!el) return false;
-
-      const tag = el.tagName;
-      const isInputLike = tag === "INPUT" || tag === "TEXTAREA";
-      if (!isInputLike && !el.isContentEditable) return false;
-
-      el.focus();
-
-      if (el.isContentEditable) {
-        el.textContent = ${escapedText};
-      } else {
-        const nativeSetter = Object.getOwnPropertyDescriptor(
-          tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
-          "value",
-        )?.set;
-        if (nativeSetter) {
-          nativeSetter.call(el, ${escapedText});
+  async typeByBackendNodeId(
+    backendNodeId: number,
+    text: string,
+    submit = false,
+  ): Promise<
+    { ok: true } | { ok: false; reason: "index_stale" } | { ok: false; reason: "not_typable" }
+  > {
+    const result = await this.callOnBackendNode<"ok" | "not_typable">(
+      backendNodeId,
+      `function(text, submit) {
+        const tag = this.tagName;
+        const isInputLike = tag === "INPUT" || tag === "TEXTAREA";
+        if (!isInputLike && !this.isContentEditable) return "not_typable";
+        this.focus();
+        if (this.isContentEditable) {
+          this.textContent = text;
         } else {
-          el.value = ${escapedText};
+          const setter = Object.getOwnPropertyDescriptor(
+            tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+            "value",
+          ) && Object.getOwnPropertyDescriptor(
+            tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+            "value",
+          ).set;
+          if (setter) setter.call(this, text); else this.value = text;
         }
-      }
-
-      el.dispatchEvent(new Event("input", { bubbles: true }));
-      el.dispatchEvent(new Event("change", { bubbles: true }));
-
-      if (${submit ? "true" : "false"}) {
-        const form = el.form;
-        if (form) {
-          form.requestSubmit ? form.requestSubmit() : form.submit();
-        } else {
-          el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-          el.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true }));
+        this.dispatchEvent(new Event("input", { bubbles: true }));
+        this.dispatchEvent(new Event("change", { bubbles: true }));
+        if (submit) {
+          const form = this.form;
+          if (form) {
+            if (form.requestSubmit) form.requestSubmit(); else form.submit();
+          } else {
+            this.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            this.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true }));
+          }
         }
-      }
-
-      return true;
-    })()`);
+        return "ok";
+      }`,
+      [text, submit],
+    );
+    if (!result.ok) {
+      return result.reason === "index_stale"
+        ? { ok: false, reason: "index_stale" }
+        : { ok: false, reason: "index_stale" };
+    }
+    if (result.value === "not_typable") return { ok: false, reason: "not_typable" };
+    return { ok: true };
   }
 
-  async selectOptionByIndex(index: number, valueOrLabel: string): Promise<boolean> {
-    const escaped = JSON.stringify(valueOrLabel);
-    return this.evaluate<boolean>(`(() => {
-      const el = document.querySelector('[data-agent-idx="${index}"]');
-      if (!el || el.tagName !== "SELECT") return false;
-      const select = el;
-      const options = Array.from(select.options || []);
-      const byValue = options.find((opt) => opt.value === ${escaped});
-      const byLabel = options.find((opt) => (opt.label || opt.textContent || "").trim() === ${escaped});
-      const match = byValue || byLabel;
-      if (!match) return false;
-      select.value = match.value;
-      select.dispatchEvent(new Event("input", { bubbles: true }));
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-      return true;
-    })()`);
+  async selectOptionByBackendNodeId(
+    backendNodeId: number,
+    valueOrLabel: string,
+  ): Promise<
+    { ok: true } | { ok: false; reason: "index_stale" } | { ok: false; reason: "no_match" }
+  > {
+    const result = await this.callOnBackendNode<"ok" | "no_match" | "wrong_tag">(
+      backendNodeId,
+      `function(target) {
+        if (this.tagName !== "SELECT") return "wrong_tag";
+        const options = Array.from(this.options || []);
+        const byValue = options.find((opt) => opt.value === target);
+        const byLabel = options.find((opt) => (opt.label || opt.textContent || "").trim() === target);
+        const match = byValue || byLabel;
+        if (!match) return "no_match";
+        this.value = match.value;
+        this.dispatchEvent(new Event("input", { bubbles: true }));
+        this.dispatchEvent(new Event("change", { bubbles: true }));
+        return "ok";
+      }`,
+      [valueOrLabel],
+    );
+    if (!result.ok) return { ok: false, reason: "index_stale" };
+    if (result.value !== "ok") return { ok: false, reason: "no_match" };
+    return { ok: true };
   }
 
   async sendKeys(keys: string): Promise<void> {
@@ -1382,92 +1465,86 @@ export class Page {
     }
   }
 
-  async uploadFilesByIndex(index: number, filePaths: string[]): Promise<boolean> {
+  async uploadFilesByBackendNodeId(
+    backendNodeId: number,
+    filePaths: string[],
+  ): Promise<{ ok: true } | { ok: false; reason: "index_stale" }> {
     if (filePaths.length === 0) {
-      throw new Error("uploadFilesByIndex requires at least one file path");
+      throw new Error("uploadFilesByBackendNodeId requires at least one file path");
     }
-
-    const handle = await this.evaluateHandle(
-      `(() => document.querySelector('[data-agent-idx="${index}"]'))()`,
-    ).catch(() => null);
-    if (!handle) return false;
-
     try {
-      const node = await this.session.sendToTarget<{ nodeId?: number }>(
-        this.targetId,
-        "DOM.requestNode",
-        {
-          objectId: handle,
-        },
-      );
-      if (!node.nodeId) return false;
-
       await this.session.sendToTarget(this.targetId, "DOM.setFileInputFiles", {
-        nodeId: node.nodeId,
+        backendNodeId,
         files: filePaths,
       });
-      return true;
-    } finally {
-      await this.session
-        .sendToTarget(this.targetId, "Runtime.releaseObject", {
-          objectId: handle,
-        })
-        .catch(() => {
-          // ignore release failures
-        });
+      return { ok: true };
+    } catch {
+      return { ok: false, reason: "index_stale" };
     }
   }
 
   async scroll(
     direction: "up" | "down" | "top" | "bottom",
     amount = 800,
-    index?: number,
-  ): Promise<void> {
-    const scrollBy = (axis: string) =>
-      index !== undefined
-        ? `(() => { const el = document.querySelector('[data-agent-idx="${index}"]'); if (el) el.scrollBy(0, ${axis}${amount}); })()`
-        : `window.scrollBy(0, ${axis}${amount})`;
-
-    const expr =
-      direction === "up"
-        ? scrollBy("-")
-        : direction === "down"
-          ? scrollBy("")
-          : direction === "top"
-            ? index !== undefined
-              ? `(() => { const el = document.querySelector('[data-agent-idx="${index}"]'); if (el) el.scrollTop = 0; })()`
-              : "window.scrollTo(0, 0)"
-            : index !== undefined
-              ? `(() => { const el = document.querySelector('[data-agent-idx="${index}"]'); if (el) el.scrollTop = el.scrollHeight; })()`
+    backendNodeId?: number,
+  ): Promise<{ ok: true } | { ok: false; reason: "index_stale" }> {
+    if (backendNodeId === undefined) {
+      const expr =
+        direction === "up"
+          ? `window.scrollBy(0, -${amount})`
+          : direction === "down"
+            ? `window.scrollBy(0, ${amount})`
+            : direction === "top"
+              ? "window.scrollTo(0, 0)"
               : "window.scrollTo(0, document.body.scrollHeight)";
+      await this.evaluate(expr);
+      return { ok: true };
+    }
 
-    await this.evaluate(expr);
+    const fnBody =
+      direction === "up"
+        ? `function(amount) { this.scrollBy(0, -amount); }`
+        : direction === "down"
+          ? `function(amount) { this.scrollBy(0, amount); }`
+          : direction === "top"
+            ? `function() { this.scrollTop = 0; }`
+            : `function() { this.scrollTop = this.scrollHeight; }`;
+
+    const result = await this.callOnBackendNode<void>(backendNodeId, fnBody, [amount]);
+    if (!result.ok) return { ok: false, reason: "index_stale" };
+    return { ok: true };
   }
 
   async scrollByPages(
     direction: "up" | "down" | "top" | "bottom",
     pages = 1.0,
-    index?: number,
-  ): Promise<void> {
+    backendNodeId?: number,
+  ): Promise<{ ok: true } | { ok: false; reason: "index_stale" }> {
     const viewportHeight = await this.evaluate<number>("window.innerHeight || 1000").catch(
       () => 1000,
     );
     if (direction === "top" || direction === "bottom") {
-      await this.scroll(direction, viewportHeight, index);
-      return;
+      return this.scroll(direction, viewportHeight, backendNodeId);
     }
 
     const fullPages = Math.max(0, Math.floor(pages));
     const fractional = Math.max(0, pages - fullPages);
 
     for (let i = 0; i < fullPages; i += 1) {
-      await this.scroll(direction, viewportHeight, index);
+      const r = await this.scroll(direction, viewportHeight, backendNodeId);
+      if (!r.ok) return r;
       await delay(150);
     }
 
     if (fractional > 0) {
-      await this.scroll(direction, Math.max(1, Math.floor(fractional * viewportHeight)), index);
+      const r = await this.scroll(
+        direction,
+        Math.max(1, Math.floor(fractional * viewportHeight)),
+        backendNodeId,
+      );
+      if (!r.ok) return r;
     }
+    return { ok: true };
   }
 
   async waitForText(text: string, timeoutMs = 10_000): Promise<boolean> {
@@ -1844,16 +1921,22 @@ export class Page {
     })()`);
   }
 
-  async getDropdownOptionsByIndex(index: number): Promise<Array<{ value: string; text: string }>> {
-    return this.evaluate(`(() => {
-      const el = document.querySelector('[data-agent-idx="${index}"]');
-      if (!el || el.tagName !== 'SELECT') return [];
-      const options = [];
-      for (const option of Array.from(el.options || [])) {
-        options.push({ value: option.value, text: (option.label || option.textContent || '').trim() });
-      }
-      return options;
-    })()`);
+  async getDropdownOptionsByBackendNodeId(
+    backendNodeId: number,
+  ): Promise<Array<{ value: string; text: string }>> {
+    const result = await this.callOnBackendNode<Array<{ value: string; text: string }>>(
+      backendNodeId,
+      `function() {
+        if (this.tagName !== "SELECT") return [];
+        const out = [];
+        for (const option of Array.from(this.options || [])) {
+          out.push({ value: option.value, text: (option.label || option.textContent || "").trim() });
+        }
+        return out;
+      }`,
+    );
+    if (!result.ok) return [];
+    return result.value ?? [];
   }
 
   async waitForTimeout(ms: number): Promise<void> {

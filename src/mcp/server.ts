@@ -399,7 +399,7 @@ export function createServer(): McpServer {
     },
     async ({ sessionId }) => {
       const { page } = getSession(sessionId);
-      const snapshot = await serializePage(page);
+      const { snapshot } = await serializePage(page);
       return textResult(formatSnapshotForLLM(snapshot));
     },
   );

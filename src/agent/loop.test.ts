@@ -5,21 +5,53 @@ import type { AgentEvent, DecisionInput, StepInfo } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
 import { AgentController, buildDecisionPrompt, buildDecisionUserPrompt, runAgent } from "./loop";
 
+function makeFakeCdpSnapshot() {
+  // Two interactive button elements at indexes 0 and 1, with backendNodeIds 0 and 1.
+  const strings = ["https://example.com/", "Example", "BUTTON", "block", "visible", "1"];
+  return {
+    documents: [
+      {
+        documentURL: 0,
+        title: 1,
+        nodes: {
+          nodeName: [2, 2],
+          backendNodeId: [0, 1],
+          attributes: [[], []],
+        },
+        layout: {
+          nodeIndex: [0, 1],
+          bounds: [
+            [0, 0, 10, 10],
+            [0, 0, 10, 10],
+          ],
+          styles: [
+            [3, 4, 5, -1, -1, -1, -1],
+            [3, 4, 5, -1, -1, -1, -1],
+          ],
+          text: [-1, -1],
+          paintOrders: [0, 1],
+        },
+      },
+    ],
+    strings,
+  };
+}
+
 function createFakePage(overrides: Partial<Page> = {}): Page {
   const page = {
     targetId: "page-1",
     waitForStablePage: async () => {},
     getPendingNetworkRequests: async () => [],
-    evaluate: async () => ({
-      url: "https://example.com/",
-      title: "Example",
-      elements: [],
-      stability: { readyState: "complete", pendingRequestCount: 0 },
-    }),
+    evaluate: async () => ({ readyState: "complete", pendingRequestCount: 0 }),
+    sendCDP: async (method: string) => {
+      if (method === "Accessibility.getFullAXTree") return { nodes: [] };
+      if (method === "DOMSnapshot.captureSnapshot") return makeFakeCdpSnapshot();
+      return {};
+    },
     waitForTimeout: async () => {
       await new Promise(() => {});
     },
-    clickByIndex: async () => false,
+    clickByBackendNodeId: async () => ({ ok: false as const, reason: "index_stale" as const }),
     ...overrides,
   };
 
@@ -316,7 +348,7 @@ describe("runAgent consecutive failures", () => {
 
     expect(result.success).toBe(false);
     expect(result.summary).toBe(
-      "Stopped after 2 consecutive failed steps: Element [99] not found or not clickable",
+      "Stopped after 2 consecutive failed steps: Index [99] is not present in the current snapshot",
     );
     expect(result.steps).toBe(2);
   });
@@ -339,7 +371,7 @@ describe("runAgent consecutive failures", () => {
 
     expect(result.success).toBe(false);
     expect(result.summary).toBe(
-      "Stopped after 2 consecutive failed steps: Element [100] not found or not clickable",
+      "Stopped after 2 consecutive failed steps: Index [100] is not present in the current snapshot",
     );
     expect(result.steps).toBe(2);
   });
@@ -349,7 +381,8 @@ describe("runAgent consecutive failures", () => {
     const result = await runAgent({
       task: "partial success resets counter",
       page: createFakePage({
-        clickByIndex: async (index: number) => index === 1,
+        clickByBackendNodeId: async (id: number) =>
+          id === 1 ? { ok: true } : { ok: false, reason: "index_stale" },
       }),
       maxSteps: 3,
       maxFailures: 2,
@@ -395,7 +428,9 @@ describe("runAgent consecutive failures", () => {
         }
 
         expect(input.observation).toContain("FINAL RECOVERY");
-        expect(input.history.at(-1)?.result).toBe("Element [99] not found or not clickable");
+        expect(input.history.at(-1)?.result).toBe(
+          "Index [99] is not present in the current snapshot",
+        );
         return {
           actions: [
             {
@@ -438,7 +473,7 @@ describe("runAgent consecutive failures", () => {
 
     expect(calls).toBe(2);
     expect(result.summary).toBe(
-      "Stopped after 2 consecutive failed steps: Element [99] not found or not clickable",
+      "Stopped after 2 consecutive failed steps: Index [99] is not present in the current snapshot",
     );
   });
 
@@ -448,7 +483,8 @@ describe("runAgent consecutive failures", () => {
     const result = await runAgent({
       task: "recover between failures",
       page: createFakePage({
-        clickByIndex: async (index: number) => index === 1,
+        clickByBackendNodeId: async (id: number) =>
+          id === 1 ? { ok: true } : { ok: false, reason: "index_stale" },
       }),
       maxSteps: 4,
       maxFailures: 2,
@@ -500,7 +536,7 @@ describe("runAgent loop detection", () => {
     const result = await runAgent({
       task: "detect repeated loop",
       page: createFakePage({
-        clickByIndex: async () => true,
+        clickByBackendNodeId: async () => ({ ok: true }),
       }),
       maxSteps: 5,
       loopDetectionWindow: 3,
@@ -523,7 +559,7 @@ describe("runAgent loop detection", () => {
     const result = await runAgent({
       task: "allow repeated loop",
       page: createFakePage({
-        clickByIndex: async () => true,
+        clickByBackendNodeId: async () => ({ ok: true }),
       }),
       maxSteps: 3,
       loopDetectionEnabled: false,
@@ -547,7 +583,7 @@ describe("runAgent loop detection", () => {
     const result = await runAgent({
       task: "fallback loop window",
       page: createFakePage({
-        clickByIndex: async () => true,
+        clickByBackendNodeId: async () => ({ ok: true }),
       }),
       maxSteps: 4,
       loopDetectionWindow: Number.NaN,
@@ -574,7 +610,7 @@ describe("AgentController", () => {
 
     const runPromise = runAgent({
       task: "pause and resume",
-      page: createFakePage({ clickByIndex: async () => true }),
+      page: createFakePage({ clickByBackendNodeId: async () => ({ ok: true }) }),
       control,
       loopDetectionEnabled: false,
       maxSteps: 2,
@@ -641,7 +677,7 @@ describe("AgentController", () => {
 
     await runAgent({
       task: "emit events",
-      page: createFakePage({ clickByIndex: async () => true }),
+      page: createFakePage({ clickByBackendNodeId: async () => ({ ok: true }) }),
       maxSteps: 1,
       decide: async () => ({
         actions: [

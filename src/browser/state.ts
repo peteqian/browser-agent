@@ -1,3 +1,4 @@
+import type { DomBudgetOptions, SelectorMap } from "../dom/cdp-snapshot";
 import { formatSnapshotForLLM, serializePage } from "../dom/serialize";
 import type { ElementInfo, PageSnapshot } from "../dom/types";
 import type { BrowserSession, Page, PendingNetworkRequest } from "./session";
@@ -25,6 +26,7 @@ export interface BrowserStateSummary {
   readyState: string;
   pendingRequests: PendingNetworkRequest[];
   elements: ElementInfo[];
+  selectorMap: SelectorMap;
   observation: string;
   screenshot?: ScreenshotState;
 }
@@ -32,6 +34,7 @@ export interface BrowserStateSummary {
 export interface BrowserStateOptions {
   includeScreenshot?: boolean;
   screenshotDetail?: "auto" | "low" | "high";
+  domBudgets?: DomBudgetOptions;
 }
 
 export async function captureBrowserState(
@@ -43,7 +46,7 @@ export async function captureBrowserState(
     // A usable state is better than failing the whole step because the page is busy.
   });
 
-  const snapshot = await serializePage(page);
+  const { snapshot, selectorMap } = await serializePage(page, options.domBudgets);
   const pendingRequests = await page.getPendingNetworkRequests(5).catch(() => []);
   const viewport = await readViewport(page);
   const tabs = await readTabs(page, session);
@@ -53,7 +56,7 @@ export async function captureBrowserState(
       )
     : undefined;
 
-  const observation = buildObservation(snapshot, pendingRequests, screenshot);
+  const observation = buildObservation(snapshot, pendingRequests, screenshot, options.domBudgets);
 
   return {
     url: snapshot.url,
@@ -64,6 +67,7 @@ export async function captureBrowserState(
     readyState: snapshot.stability.readyState,
     pendingRequests,
     elements: snapshot.elements,
+    selectorMap,
     observation,
     ...(screenshot ? { screenshot } : {}),
   };
@@ -72,7 +76,8 @@ export async function captureBrowserState(
 function buildObservation(
   snapshot: PageSnapshot,
   pendingRequests: PendingNetworkRequest[],
-  screenshot?: ScreenshotState,
+  screenshot: ScreenshotState | undefined,
+  budgets: DomBudgetOptions | undefined,
 ): string {
   const pendingSummary =
     pendingRequests.length === 0
@@ -84,7 +89,7 @@ function buildObservation(
     ? `SCREENSHOT: image/png ${screenshot.width}x${screenshot.height} detail=${screenshot.detail}`
     : "SCREENSHOT: not captured";
 
-  return `${formatSnapshotForLLM(snapshot)}\n${pendingSummary}\n${screenshotSummary}`;
+  return `${formatSnapshotForLLM(snapshot, budgets)}\n${pendingSummary}\n${screenshotSummary}`;
 }
 
 async function readViewport(page: Page): Promise<{ width: number; height: number }> {

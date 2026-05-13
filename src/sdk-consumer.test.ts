@@ -9,12 +9,12 @@ function createSdkPage(overrides: Partial<Page> = {}): Page {
     targetId: "page-1",
     waitForStablePage: async () => {},
     getPendingNetworkRequests: async () => [],
-    evaluate: async () => ({
-      url: "https://example.com/",
-      title: "Example",
-      elements: [],
-      stability: { readyState: "complete", pendingRequestCount: 0 },
-    }),
+    evaluate: async () => ({ readyState: "complete", pendingRequestCount: 0 }),
+    sendCDP: async (method: string) => {
+      if (method === "Accessibility.getFullAXTree") return { nodes: [] };
+      if (method === "DOMSnapshot.captureSnapshot") return { documents: [], strings: [] };
+      return {};
+    },
     ...overrides,
   };
 

@@ -190,7 +190,7 @@ async function runAgentInner<TData = unknown>(
       let context: StepContext;
       try {
         context = await withRejectingTimeout(
-          buildStepContext(page, session, vision),
+          buildStepContext(page, session, vision, options.domBudgets),
           stepTimeoutMs,
           `Step context preparation timed out after ${stepTimeoutMs}ms`,
         );
@@ -301,6 +301,7 @@ async function runAgentInner<TData = unknown>(
             actionRegistry,
             actionTimeoutMs,
             parentSignal.signal,
+            browserState.selectorMap,
           );
         } finally {
           parentSignal.cleanup();
@@ -604,7 +605,8 @@ async function executeActionWithTimeout(
   session: BrowserSession | undefined,
   actionRegistry: ActionRegistry,
   timeoutMs: number,
-  parentSignal?: AbortSignal,
+  parentSignal: AbortSignal | undefined,
+  selectorMap: import("../dom/cdp-snapshot").SelectorMap,
 ): Promise<ActionResult> {
   const controller = new AbortController();
   const onParentAbort = () => controller.abort(parentSignal?.reason);
@@ -617,7 +619,12 @@ async function executeActionWithTimeout(
 
   try {
     return await Promise.race([
-      actionRegistry.execute(action, { page, session, signal: controller.signal }),
+      actionRegistry.execute(action, {
+        page,
+        session,
+        signal: controller.signal,
+        selectorMap,
+      }),
       new Promise<ActionResult>((resolve) => {
         timeout = setTimeout(() => {
           controller.abort();
@@ -682,10 +689,12 @@ async function buildStepContext(
   page: Page,
   session: BrowserSession | undefined,
   vision: boolean | "auto",
+  domBudgets: import("../dom/cdp-snapshot").DomBudgetOptions | undefined,
 ): Promise<StepContext> {
   const browserState = await captureBrowserState(page, session, {
     includeScreenshot: vision !== false,
     screenshotDetail: "auto",
+    domBudgets,
   });
   const tabs = browserState.tabs.map((tab) => tab.targetId);
   return { browserState, observation: browserState.observation, tabs };

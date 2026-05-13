@@ -1,3 +1,5 @@
+import type { SelectorMap } from "./cdp-snapshot";
+
 export interface ElementBBox {
   x: number;
   y: number;
@@ -7,12 +9,14 @@ export interface ElementBBox {
 
 export interface ElementInfo {
   index: number;
+  backendNodeId: number;
   framePath: string;
   tag: string;
   role: string | null;
   text: string;
   href: string | null;
   name: string | null;
+  ariaName: string | null;
   type: string | null;
   placeholder: string | null;
   value: string | null;
@@ -32,3 +36,5 @@ export interface PageSnapshot {
   elements: ElementInfo[];
   stability: PageStabilityInfo;
 }
+
+export type { SelectorMap };

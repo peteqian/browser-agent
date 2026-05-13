@@ -38,6 +38,8 @@ export { createClaudeCliDecide } from "./agent/claudeCliDecide";
 export type { ClaudeCliOptions } from "./agent/claudeCliDecide";
 export { createClaudeSdkDecide } from "./agent/claudeSdkDecide";
 export type { ClaudeSdkOptions } from "./agent/claudeSdkDecide";
+export type { DomBudgetOptions, SelectorMap } from "./dom/cdp-snapshot";
+export type { ElementInfo, ElementBBox, PageSnapshot } from "./dom/types";
 export type {
   AgentControl,
   AgentEvent,
