@@ -79,7 +79,8 @@ Output:
   --json                     Stream events as JSONL on stdout instead of result blob.
   --tui                      Show an interactive terminal dashboard.
   --output-file <path>       Write final result JSON to file (still printed on stdout).
-  --verbose, -v              Print raw model output + step traces to stderr.
+  --verbose, -v              Print every AgentEvent and step trace as
+                             timestamped JSONL on stderr. Composes with --json.
 
 Other:
   --config <path>            Load defaults from JSON file (CLI flags override).
@@ -270,7 +271,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
 }
 
 function writeVerbose(event: string, data: unknown): void {
-  console.error(JSON.stringify({ event, data }));
+  console.error(JSON.stringify({ t: new Date().toISOString(), event, data }));
 }
 
 function writeJsonl(event: AgentEvent): void {
@@ -305,6 +306,18 @@ async function main(): Promise<number> {
     onCodexRaw: opts.verbose ? (raw, step) => writeVerbose("model.raw", { step, raw }) : undefined,
   });
 
+  const jsonlOnEvent = opts.json ? writeJsonl : undefined;
+  const verboseOnEvent = opts.verbose
+    ? (event: AgentEvent) => writeVerbose(`event.${event.type}`, event)
+    : undefined;
+  const onEvent: ((event: AgentEvent) => void) | undefined =
+    jsonlOnEvent && verboseOnEvent
+      ? (event) => {
+          verboseOnEvent(event);
+          jsonlOnEvent(event);
+        }
+      : (jsonlOnEvent ?? verboseOnEvent);
+
   const agentOptions = {
     task: opts.task,
     startUrl: opts.url,
@@ -317,7 +330,7 @@ async function main(): Promise<number> {
     decide,
     transportResolution: resolution,
     vision: "auto" as const,
-    onEvent: opts.json ? writeJsonl : undefined,
+    onEvent,
     onStep: (step: StepInfo) => {
       if (opts.verbose) {
         writeVerbose("agent.step", step);
