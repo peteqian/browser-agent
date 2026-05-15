@@ -13,10 +13,15 @@ import { PACKAGE_NAME, VERSION } from "../version";
 interface SessionRecord {
   session: BrowserSession;
   page: Page;
+  lastAccessedAt: number;
 }
 
 const sessions = new Map<string, SessionRecord>();
 let sessionCounter = 0;
+
+const MCP_SESSION_TTL_MS = Number(process.env.MCP_SESSION_TTL_MS ?? 30 * 60 * 1000);
+const MCP_SESSION_SWEEP_MS = Number(process.env.MCP_SESSION_SWEEP_MS ?? 10 * 60 * 1000);
+let sweepTimer: ReturnType<typeof setInterval> | undefined;
 
 function nextSessionId(): string {
   sessionCounter += 1;
@@ -28,7 +33,44 @@ function getSession(sessionId: string): SessionRecord {
   if (!record) {
     throw new Error(`Unknown sessionId: ${sessionId}`);
   }
+  record.lastAccessedAt = Date.now();
   return record;
+}
+
+async function disposeSession(sessionId: string): Promise<void> {
+  const record = sessions.get(sessionId);
+  if (!record) return;
+  sessions.delete(sessionId);
+  await record.session.close().catch(() => {});
+}
+
+export async function sweepIdleSessions(now: number = Date.now()): Promise<string[]> {
+  const expired: string[] = [];
+  for (const [id, record] of sessions) {
+    if (now - record.lastAccessedAt > MCP_SESSION_TTL_MS) {
+      expired.push(id);
+    }
+  }
+  await Promise.all(expired.map((id) => disposeSession(id)));
+  return expired;
+}
+
+function ensureSweeper(): void {
+  if (sweepTimer) return;
+  if (MCP_SESSION_SWEEP_MS <= 0 || MCP_SESSION_TTL_MS <= 0) return;
+  sweepTimer = setInterval(() => {
+    void sweepIdleSessions();
+  }, MCP_SESSION_SWEEP_MS);
+  if (typeof sweepTimer.unref === "function") sweepTimer.unref();
+}
+
+export async function shutdownAllSessions(): Promise<void> {
+  if (sweepTimer) {
+    clearInterval(sweepTimer);
+    sweepTimer = undefined;
+  }
+  const ids = Array.from(sessions.keys());
+  await Promise.all(ids.map((id) => disposeSession(id)));
 }
 
 function setCurrentPage(record: SessionRecord, targetId: string): void {
@@ -122,7 +164,8 @@ export function createServer(): McpServer {
       });
       const page = await session.newPage();
       const sessionId = nextSessionId();
-      sessions.set(sessionId, { session, page });
+      sessions.set(sessionId, { session, page, lastAccessedAt: Date.now() });
+      ensureSweeper();
       if (startUrl) {
         await page.goto(startUrl);
       }
