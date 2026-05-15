@@ -442,3 +442,44 @@ describe("executeAction upload_file validation and nearest-input discovery", () 
     expect(result.message).toContain("no longer exists");
   });
 });
+
+describe("executeAction extract_content error mapping", () => {
+  test("classifies navigation-in-flight errors and surfaces structured data", async () => {
+    const page = {
+      extractContent: async () => {
+        throw new Error("Execution context was destroyed");
+      },
+    } as unknown as Page;
+    const result = await executeAction(page, {
+      name: "extract_content",
+      params: { query: "anything" },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("navigation_in_flight");
+    expect(result.data).toEqual({
+      extractionError: {
+        reason: "navigation_in_flight",
+        message: "Execution context was destroyed",
+      },
+    });
+  });
+
+  test("classifies timeouts and surfaces structured data", async () => {
+    const page = {
+      extractContent: async () => {
+        throw new Error("Operation timeout after 30000ms");
+      },
+    } as unknown as Page;
+    const result = await executeAction(page, {
+      name: "extract_content",
+      params: { query: "x" },
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("timeout");
+    expect((result.data as { extractionError: { reason: string } }).extractionError.reason).toBe(
+      "timeout",
+    );
+  });
+});

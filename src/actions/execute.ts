@@ -543,13 +543,27 @@ export async function executeAction(
       }
 
       case "extract_content": {
-        const result = await page.extractContent({
-          query: action.params.query,
-          extractLinks: action.params.extractLinks,
-          extractImages: action.params.extractImages,
-          startFromChar: action.params.startFromChar,
-          maxChars: action.params.maxChars,
-        });
+        let result;
+        try {
+          result = await page.extractContent({
+            query: action.params.query,
+            extractLinks: action.params.extractLinks,
+            extractImages: action.params.extractImages,
+            startFromChar: action.params.startFromChar,
+            maxChars: action.params.maxChars,
+          });
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          const reason = /execution context|context was destroyed|frame.*detached/i.test(message)
+            ? "navigation_in_flight"
+            : /timeout/i.test(message)
+              ? "timeout"
+              : "unknown";
+          return fail(`Extraction failed (${reason}): ${message}`, {
+            longTermMemory: `Extraction failed: ${reason}`,
+            data: { extractionError: { reason, message } },
+          });
+        }
 
         const wrapped =
           `<url>\n${result.url}\n</url>\n<query>\n${result.query}\n</query>\n` +
