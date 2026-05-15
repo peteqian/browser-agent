@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { NavigationHealthResult, Page } from "../browser/session";
+import type { BrowserSession, NavigationHealthResult, Page } from "../browser/session";
 import type { SelectorMap } from "../dom/cdp-snapshot";
 import { executeAction } from "./execute";
 
@@ -211,5 +211,98 @@ describe("executeAction type secrets and verification", () => {
     expect(result.message).not.toContain("hunter2");
     expect(result.message).not.toContain("expected");
     expect(result.extractedContent ?? "").not.toContain("hunter2");
+  });
+});
+
+function createClickPage(): { page: Page } {
+  const page = {
+    targetId: "page-1",
+    clickByBackendNodeId: async () => ({ ok: true }) as const,
+  } as unknown as Page;
+  return { page };
+}
+
+function createSessionWithTabSpawn(newTargetId: string | null): BrowserSession {
+  return {
+    waitForNewPageTarget: async (_timeoutMs: number) => newTargetId,
+  } as unknown as BrowserSession;
+}
+
+describe("executeAction click new-tab detection", () => {
+  test("switches active page when click spawns a new tab", async () => {
+    const { page } = createClickPage();
+    const session = createSessionWithTabSpawn("page-2");
+    const result = await executeAction(
+      page,
+      { name: "click", params: { index: 3 } },
+      session,
+      undefined,
+      singleEntrySelectorMap(3, 99),
+      undefined,
+      500,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.activeTargetId).toBe("page-2");
+    expect(result.message).toContain("page-2");
+    expect(result.longTermMemory).toContain("page-2");
+  });
+
+  test("does not set activeTargetId when click does not spawn a tab", async () => {
+    const { page } = createClickPage();
+    const session = createSessionWithTabSpawn(null);
+    const result = await executeAction(
+      page,
+      { name: "click", params: { index: 3 } },
+      session,
+      undefined,
+      singleEntrySelectorMap(3, 99),
+      undefined,
+      500,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.activeTargetId).toBeUndefined();
+    expect(result.message).not.toContain("switched");
+  });
+
+  test("ignores spawned tab when it matches current page targetId", async () => {
+    const { page } = createClickPage();
+    const session = createSessionWithTabSpawn("page-1");
+    const result = await executeAction(
+      page,
+      { name: "click", params: { index: 3 } },
+      session,
+      undefined,
+      singleEntrySelectorMap(3, 99),
+      undefined,
+      500,
+    );
+
+    expect(result.activeTargetId).toBeUndefined();
+  });
+
+  test("skips detection when newTabDetectMs is 0", async () => {
+    const { page } = createClickPage();
+    let watched = false;
+    const session = {
+      waitForNewPageTarget: async () => {
+        watched = true;
+        return "page-2";
+      },
+    } as unknown as BrowserSession;
+    const result = await executeAction(
+      page,
+      { name: "click", params: { index: 3 } },
+      session,
+      undefined,
+      singleEntrySelectorMap(3, 99),
+      undefined,
+      0,
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.activeTargetId).toBeUndefined();
+    expect(watched).toBe(false);
   });
 });

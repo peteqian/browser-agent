@@ -16,6 +16,7 @@ export interface ActionContext {
   signal?: AbortSignal;
   selectorMap?: SelectorMap;
   sensitiveData?: Record<string, string>;
+  newTabDetectMs?: number;
 }
 
 export interface ActionDefinition<TName extends string = string, TParams = unknown> {
@@ -94,6 +95,7 @@ export function createDefaultActions(): ActionDefinition[] {
         context.signal,
         context.selectorMap,
         context.sensitiveData,
+        context.newTabDetectMs,
       ),
   }));
 }

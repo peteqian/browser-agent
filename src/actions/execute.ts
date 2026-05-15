@@ -163,6 +163,7 @@ export async function executeAction(
   signal?: AbortSignal,
   selectorMap?: SelectorMap,
   sensitiveData?: Record<string, string>,
+  newTabDetectMs?: number,
 ): Promise<ActionResult> {
   if (signal?.aborted) {
     return fail(`Action ${action.name} aborted before execution`);
@@ -195,14 +196,32 @@ export async function executeAction(
       }
 
       case "click": {
+        const detectMs = newTabDetectMs ?? 500;
+        // Subscribe BEFORE issuing the click so Target.attachedToTarget cannot race us.
+        const tabWatch = session && detectMs > 0 ? session.waitForNewPageTarget(detectMs) : null;
+
+        const subject =
+          typeof action.params.index === "number"
+            ? `element [${action.params.index}]`
+            : `coordinates (${action.params.coordinateX}, ${action.params.coordinateY})`;
+
+        const finalizeOk = async (): Promise<ActionResult> => {
+          const target = tabWatch ? await tabWatch : null;
+          if (target && target !== page.targetId) {
+            return ok(`Clicked ${subject} — switched to new tab ${target}`, {
+              longTermMemory: `Clicked ${subject} and switched to new tab ${target}`,
+              activeTargetId: target,
+            });
+          }
+          return ok(`Clicked ${subject}`, { longTermMemory: `Clicked ${subject}` });
+        };
+
         if (
           typeof action.params.coordinateX === "number" &&
           typeof action.params.coordinateY === "number"
         ) {
           await page.clickAtCoordinates(action.params.coordinateX, action.params.coordinateY);
-          return ok(
-            `Clicked coordinates (${action.params.coordinateX}, ${action.params.coordinateY})`,
-          );
+          return finalizeOk();
         }
 
         if (typeof action.params.index !== "number") {
@@ -212,11 +231,8 @@ export async function executeAction(
         const resolved = resolveBackendId(selectorMap, action.params.index);
         if (!resolved.ok) return fail(resolved.message);
         const result = await page.clickByBackendNodeId(resolved.backendNodeId);
-        return result.ok
-          ? ok(`Clicked element [${action.params.index}]`, {
-              longTermMemory: `Clicked element [${action.params.index}]`,
-            })
-          : fail(staleMessage(action.params.index));
+        if (!result.ok) return fail(staleMessage(action.params.index));
+        return finalizeOk();
       }
 
       case "type": {

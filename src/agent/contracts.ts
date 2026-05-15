@@ -266,4 +266,11 @@ export interface AgentOptions<TData = unknown> {
    * - Rich text editors that sanitize input may trigger `value_mismatch`.
    */
   sensitiveData?: Record<string, string>;
+  /**
+   * Window after a `click` action during which a newly attached page target
+   * (e.g. `target=_blank`, OAuth popup) is treated as the click's intended
+   * destination and becomes the loop's active page. Set to 0 to disable
+   * detection. Default: 500ms.
+   */
+  newTabDetectMs?: number;
 }

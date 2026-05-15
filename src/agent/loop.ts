@@ -303,6 +303,7 @@ async function runAgentInner<TData = unknown>(
             parentSignal.signal,
             browserState.selectorMap,
             options.sensitiveData,
+            options.newTabDetectMs,
           );
         } finally {
           parentSignal.cleanup();
@@ -609,6 +610,7 @@ async function executeActionWithTimeout(
   parentSignal: AbortSignal | undefined,
   selectorMap: import("../dom/cdp-snapshot").SelectorMap,
   sensitiveData: Record<string, string> | undefined,
+  newTabDetectMs: number | undefined,
 ): Promise<ActionResult> {
   const controller = new AbortController();
   const onParentAbort = () => controller.abort(parentSignal?.reason);
@@ -627,6 +629,7 @@ async function executeActionWithTimeout(
         signal: controller.signal,
         selectorMap,
         sensitiveData,
+        newTabDetectMs,
       }),
       new Promise<ActionResult>((resolve) => {
         timeout = setTimeout(() => {

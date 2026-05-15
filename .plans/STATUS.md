@@ -34,6 +34,7 @@ Read this file first. It is the compact routing table for the deeper plan files.
 - Agent runs can be paused, resumed, and stopped via exported `AgentController` / `AgentControl`.
 - DOM snapshot now uses CDP `DOMSnapshot.captureSnapshot` + `Accessibility.getFullAXTree` with a stable `SelectorMap` (index → backendNodeId). Actions resolve via `DOM.resolveNode` + `Runtime.callFunctionOn`, returning a deterministic "Element [N] no longer exists in the DOM" on stale lookups. Prompt budgets exposed via `AgentOptions.domBudgets`.
 - `type` action accepts `mode: "replace" | "append"` (default `replace`, clears via select-all + value setter), substitutes `<secret>KEY</secret>` tokens against `AgentOptions.sensitiveData` at execute time so real values never enter prompts/history/events, and verifies the resulting `.value` against expected — surfacing a deterministic `value_mismatch` failure on divergence. Unknown placeholder keys fail before any CDP call.
+- `click` action detects a `target=_blank`/popup tab spawned by the click and switches the loop's active page to it. Watcher subscribes to `Target.attachedToTarget` via `BrowserSession.waitForNewPageTarget` before the click so the event cannot be missed; `AgentOptions.newTabDetectMs` (default 500ms, 0 disables) bounds the wait.
 
 ## Skip Unless Relevant
 

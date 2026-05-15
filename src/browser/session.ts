@@ -857,6 +857,35 @@ export class BrowserSession {
     return pages.map((page) => page.targetId);
   }
 
+  /**
+   * Resolve with the targetId of the next attached page target, or `null` if
+   * no new page attaches within `timeoutMs`. Call before triggering an action
+   * that may spawn a tab (e.g. `target=_blank` click) so the subscription is
+   * already active when `Target.attachedToTarget` fires.
+   */
+  waitForNewPageTarget(timeoutMs: number): Promise<string | null> {
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (targetId: string | null) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        unsubscribe();
+        resolve(targetId);
+      };
+      const unsubscribe = this.eventBus.on((event) => {
+        if (
+          event.type === "browser_event" &&
+          event.name === "target_attached" &&
+          typeof event.targetId === "string"
+        ) {
+          finish(event.targetId);
+        }
+      });
+      const timer = setTimeout(() => finish(null), timeoutMs);
+    });
+  }
+
   async close(): Promise<void> {
     await this.dispose("stopped", (browser) => browser.close());
   }
