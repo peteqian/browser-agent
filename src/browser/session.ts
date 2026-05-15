@@ -1337,29 +1337,42 @@ export class Page {
     backendNodeId: number,
     text: string,
     submit = false,
+    mode: "replace" | "append" = "replace",
   ): Promise<
-    { ok: true } | { ok: false; reason: "index_stale" } | { ok: false; reason: "not_typable" }
+    | { ok: true }
+    | { ok: false; reason: "index_stale" }
+    | { ok: false; reason: "not_typable" }
+    | { ok: false; reason: "value_mismatch" }
   > {
-    const result = await this.callOnBackendNode<"ok" | "not_typable">(
+    type TypeJsResult =
+      | "not_typable"
+      | { kind: "ok" }
+      | { kind: "value_mismatch"; expected: string; actual: string };
+    const result = await this.callOnBackendNode<TypeJsResult>(
       backendNodeId,
-      `function(text, submit) {
+      `function(text, submit, mode) {
         const tag = this.tagName;
         const isInputLike = tag === "INPUT" || tag === "TEXTAREA";
         if (!isInputLike && !this.isContentEditable) return "not_typable";
         this.focus();
-        if (this.isContentEditable) {
-          this.textContent = text;
-        } else {
-          const setter = Object.getOwnPropertyDescriptor(
-            tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
-            "value",
-          ) && Object.getOwnPropertyDescriptor(
-            tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
-            "value",
-          ).set;
-          if (setter) setter.call(this, text); else this.value = text;
+        const setValue = (v) => {
+          if (this.isContentEditable) { this.textContent = v; return; }
+          const proto = tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+          const desc = Object.getOwnPropertyDescriptor(proto, "value");
+          const setter = desc && desc.set;
+          if (setter) setter.call(this, v); else this.value = v;
+        };
+        if (mode === "replace") {
+          try { if (typeof this.select === "function") this.select(); } catch (_) {}
+          setValue("");
+          this.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
         }
-        this.dispatchEvent(new Event("input", { bubbles: true }));
+        const prefix = mode === "append"
+          ? (this.isContentEditable ? (this.textContent || "") : (this.value || ""))
+          : "";
+        const expected = prefix + text;
+        setValue(expected);
+        this.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
         this.dispatchEvent(new Event("change", { bubbles: true }));
         if (submit) {
           const form = this.form;
@@ -1370,16 +1383,21 @@ export class Page {
             this.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true }));
           }
         }
-        return "ok";
+        const actual = this.isContentEditable ? (this.textContent || "") : (this.value || "");
+        if (actual !== expected) return { kind: "value_mismatch", expected: expected, actual: actual };
+        return { kind: "ok" };
       }`,
-      [text, submit],
+      [text, submit, mode],
     );
     if (!result.ok) {
-      return result.reason === "index_stale"
-        ? { ok: false, reason: "index_stale" }
-        : { ok: false, reason: "index_stale" };
+      if (result.reason === "index_stale") return { ok: false, reason: "index_stale" };
+      return { ok: false, reason: "not_typable" };
     }
     if (result.value === "not_typable") return { ok: false, reason: "not_typable" };
+    if (typeof result.value === "object" && result.value.kind === "value_mismatch") {
+      // Discard expected/actual at this boundary — they may contain a secret.
+      return { ok: false, reason: "value_mismatch" };
+    }
     return { ok: true };
   }
 

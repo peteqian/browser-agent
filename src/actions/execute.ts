@@ -20,6 +20,23 @@ function staleMessage(index: number): string {
   return `Element [${index}] no longer exists in the DOM`;
 }
 
+const SECRET_RE = /<secret>([a-zA-Z0-9_.-]+)<\/secret>/g;
+
+function substituteSecrets(
+  text: string,
+  secrets: Record<string, string> | undefined,
+): { ok: true; value: string } | { ok: false; key: string } {
+  let missing: string | null = null;
+  const replaced = text.replace(SECRET_RE, (match, key: string) => {
+    if (secrets && Object.prototype.hasOwnProperty.call(secrets, key)) {
+      return secrets[key] as string;
+    }
+    if (!missing) missing = key;
+    return match;
+  });
+  return missing ? { ok: false, key: missing } : { ok: true, value: replaced };
+}
+
 export interface ActionResult {
   ok: boolean;
   message: string;
@@ -145,6 +162,7 @@ export async function executeAction(
   session?: BrowserSession,
   signal?: AbortSignal,
   selectorMap?: SelectorMap,
+  sensitiveData?: Record<string, string>,
 ): Promise<ActionResult> {
   if (signal?.aborted) {
     return fail(`Action ${action.name} aborted before execution`);
@@ -204,22 +222,29 @@ export async function executeAction(
       case "type": {
         const resolved = resolveBackendId(selectorMap, action.params.index);
         if (!resolved.ok) return fail(resolved.message);
+
+        const sub = substituteSecrets(action.params.text, sensitiveData);
+        if (!sub.ok) {
+          return fail(`Type aborted: unknown secret placeholder <secret>${sub.key}</secret>`);
+        }
+
         const result = await page.typeByBackendNodeId(
           resolved.backendNodeId,
-          action.params.text,
+          sub.value,
           action.params.submit ?? false,
+          action.params.mode,
         );
         if (result.ok) {
-          return ok(
-            `Typed into [${action.params.index}]${action.params.submit ? " and submitted" : ""}`,
-            { longTermMemory: `Typed into [${action.params.index}]` },
-          );
+          const summary = `Typed into [${action.params.index}]${
+            action.params.mode === "append" ? " (appended)" : ""
+          }${action.params.submit ? " and submitted" : ""}`;
+          return ok(summary, { longTermMemory: `Typed into [${action.params.index}]` });
         }
-        return fail(
-          result.reason === "index_stale"
-            ? staleMessage(action.params.index)
-            : `Element [${action.params.index}] not typable`,
-        );
+        if (result.reason === "index_stale") return fail(staleMessage(action.params.index));
+        if (result.reason === "not_typable") {
+          return fail(`Element [${action.params.index}] not typable`);
+        }
+        return fail(`Element [${action.params.index}] failed value verification`);
       }
 
       case "scroll": {

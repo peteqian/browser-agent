@@ -15,6 +15,7 @@ export interface ActionContext {
   session?: BrowserSession;
   signal?: AbortSignal;
   selectorMap?: SelectorMap;
+  sensitiveData?: Record<string, string>;
 }
 
 export interface ActionDefinition<TName extends string = string, TParams = unknown> {
@@ -92,6 +93,7 @@ export function createDefaultActions(): ActionDefinition[] {
         context.session,
         context.signal,
         context.selectorMap,
+        context.sensitiveData,
       ),
   }));
 }

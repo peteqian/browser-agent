@@ -504,18 +504,23 @@ export function createServer(): McpServer {
   server.registerTool(
     "type",
     {
-      description: "Type text into element [index]. Set submit=true to press Enter.",
+      description:
+        "Type text into element [index]. Set submit=true to press Enter. mode='replace' (default) clears the field first; mode='append' keeps the existing value.",
       inputSchema: z.object({
         sessionId: z.string(),
         index: z.number().int().nonnegative(),
         text: z.string(),
         submit: z.boolean().optional(),
+        mode: z.enum(["replace", "append"]).optional(),
       }),
     },
-    async ({ sessionId, index, text, submit }) => {
+    async ({ sessionId, index, text, submit, mode }) => {
       const { page } = getSession(sessionId);
       return jsonResult(
-        await executeAction(page, { name: "type", params: { index, text, submit } }),
+        await executeAction(page, {
+          name: "type",
+          params: { index, text, submit, mode: mode ?? "replace" },
+        }),
       );
     },
   );

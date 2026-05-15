@@ -46,4 +46,11 @@ describe("ActionRegistry", () => {
     expect(catalog).toContain("navigate");
     expect(catalog).toContain("done");
   });
+
+  test("type action defaults mode to replace when omitted", () => {
+    const registry = createDefaultActionRegistry();
+    const parsed = registry.parse("type", { index: 0, text: "x" });
+    expect(parsed).not.toBeNull();
+    expect((parsed!.params as { mode: string }).mode).toBe("replace");
+  });
 });

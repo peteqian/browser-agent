@@ -254,4 +254,16 @@ export interface AgentOptions<TData = unknown> {
   transportResolution?: TransportResolution;
   /** Caps on per-step DOM snapshot capture and prompt formatting. */
   domBudgets?: DomBudgetOptions;
+  /**
+   * Map of placeholder key -> real secret. The model emits
+   * `<secret>key</secret>` tokens in `type.text`; the agent substitutes
+   * the real value at execute time. Real values never appear in prompts,
+   * action history, events, or JSONL output. Unknown keys fail the
+   * action. Currently applied to the `type` action only.
+   *
+   * Caveats:
+   * - Password inputs return raw `.value` (not masked) for verification.
+   * - Rich text editors that sanitize input may trigger `value_mismatch`.
+   */
+  sensitiveData?: Record<string, string>;
 }

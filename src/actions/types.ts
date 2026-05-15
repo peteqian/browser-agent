@@ -39,6 +39,7 @@ export const typeAction = z.object({
   index: z.number().int().nonnegative(),
   text: z.string(),
   submit: z.boolean().optional(),
+  mode: z.enum(["replace", "append"]).default("replace"),
 });
 
 export const scrollAction = z.object({
