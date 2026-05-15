@@ -11,6 +11,7 @@ import type {
   AgentResult,
   Decision,
   DecisionInput,
+  ExtractionLLMFn,
 } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
 import { withRetry } from "./retry";
@@ -366,6 +367,7 @@ async function runAgentInner<TData = unknown>(
             browserState.selectorMap,
             options.sensitiveData,
             options.newTabDetectMs,
+            options.extractionLLM,
           );
         } finally {
           parentSignal.cleanup();
@@ -723,6 +725,7 @@ async function executeActionWithTimeout(
   selectorMap: import("../dom/cdp-snapshot").SelectorMap,
   sensitiveData: Record<string, string> | undefined,
   newTabDetectMs: number | undefined,
+  extractionLLM: ExtractionLLMFn | undefined,
 ): Promise<ActionResult> {
   const controller = new AbortController();
   const onParentAbort = () => controller.abort(parentSignal?.reason);
@@ -742,6 +745,7 @@ async function executeActionWithTimeout(
         selectorMap,
         sensitiveData,
         newTabDetectMs,
+        extractionLLM,
       }),
       new Promise<ActionResult>((resolve) => {
         timeout = setTimeout(() => {

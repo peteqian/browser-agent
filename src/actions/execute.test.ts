@@ -495,6 +495,121 @@ describe("executeAction extract_content error mapping", () => {
     expect(captured.params?.alreadyCollected).toEqual(["https://x/1", "https://x/2"]);
   });
 
+  test("routes markdown through extractionLLM when schemaJson is supplied", async () => {
+    const page = {
+      extractContent: async () => ({
+        url: "https://example.com",
+        query: "jobs",
+        content: "# job 1\n# job 2",
+        stats: {
+          totalChars: 14,
+          startFromChar: 0,
+          returnedChars: 14,
+          truncated: false,
+          nextStartChar: null,
+          linksCount: 0,
+          imagesCount: 0,
+        },
+      }),
+    } as unknown as Page;
+
+    const captured: { markdown?: string; schemaJson?: string; query?: string } = {};
+    const result = await executeAction(
+      page,
+      {
+        name: "extract_content",
+        params: { query: "jobs", schemaJson: '{"type":"array"}' },
+      },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      async (input) => {
+        captured.markdown = input.markdown;
+        captured.schemaJson = input.schemaJson;
+        captured.query = input.query;
+        return { data: [{ title: "job 1" }, { title: "job 2" }] };
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(captured.markdown).toBe("# job 1\n# job 2");
+    expect(captured.schemaJson).toBe('{"type":"array"}');
+    expect(captured.query).toBe("jobs");
+    const data = result.data as { structured?: unknown };
+    expect(data.structured).toEqual([{ title: "job 1" }, { title: "job 2" }]);
+  });
+
+  test("schemaJson without an extractionLLM hook is ignored", async () => {
+    const page = {
+      extractContent: async () => ({
+        url: "u",
+        query: "q",
+        content: "c",
+        stats: {
+          totalChars: 1,
+          startFromChar: 0,
+          returnedChars: 1,
+          truncated: false,
+          nextStartChar: null,
+          linksCount: 0,
+          imagesCount: 0,
+        },
+      }),
+    } as unknown as Page;
+
+    const result = await executeAction(page, {
+      name: "extract_content",
+      params: { query: "q", schemaJson: '{"type":"object"}' },
+    });
+
+    expect(result.ok).toBe(true);
+    const data = result.data as { structured?: unknown; structuredError?: string };
+    expect(data.structured).toBeUndefined();
+    expect(data.structuredError).toBeUndefined();
+  });
+
+  test("extractionLLM rejection surfaces as data.structuredError without failing the action", async () => {
+    const page = {
+      extractContent: async () => ({
+        url: "u",
+        query: "q",
+        content: "c",
+        stats: {
+          totalChars: 1,
+          startFromChar: 0,
+          returnedChars: 1,
+          truncated: false,
+          nextStartChar: null,
+          linksCount: 0,
+          imagesCount: 0,
+        },
+      }),
+    } as unknown as Page;
+
+    const result = await executeAction(
+      page,
+      {
+        name: "extract_content",
+        params: { query: "q", schemaJson: '{"type":"object"}' },
+      },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      async () => {
+        throw new Error("model returned 429");
+      },
+    );
+
+    expect(result.ok).toBe(true);
+    const data = result.data as { structured?: unknown; structuredError?: string };
+    expect(data.structured).toBeUndefined();
+    expect(data.structuredError).toBe("model returned 429");
+  });
+
   test("classifies timeouts and surfaces structured data", async () => {
     const page = {
       extractContent: async () => {

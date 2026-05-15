@@ -148,6 +148,13 @@ export const extractContentAction = z.object({
    * same items.
    */
   alreadyCollected: z.array(z.string()).max(5_000).optional(),
+  /**
+   * Optional JSON Schema (as a string) describing the desired structured
+   * output. When `AgentOptions.extractionLLM` is configured, the executor
+   * routes the extracted markdown plus this schema through the hook and
+   * exposes its result as `data.structured`. Ignored if no hook is wired.
+   */
+  schemaJson: z.string().max(8_000).optional(),
 });
 
 export const doneAction = z.object({

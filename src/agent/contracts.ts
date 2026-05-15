@@ -151,6 +151,22 @@ export type TerminalReason =
  * `reason: "judge_failed"`. Receives the final `DecisionInput` along
  * with the model's terminal summary and (when present) typed data.
  */
+/**
+ * Hook for structured extraction. When `AgentOptions.extractionLLM` is set
+ * and the model's `extract_content` action carries a `schemaJson`, the
+ * executor passes the extracted markdown plus the schema to this hook and
+ * surfaces the result as `data.structured` alongside the existing markdown
+ * content. Validation is owned by the hook — the loop does not parse
+ * `data` against the schema.
+ */
+export type ExtractionLLMFn = (input: {
+  url: string;
+  query: string;
+  markdown: string;
+  schemaJson?: string;
+  signal?: AbortSignal;
+}) => Promise<{ data: unknown }>;
+
 export type JudgeFn<TData = unknown> = (input: {
   finalInput: DecisionInput;
   summary: string;
@@ -340,4 +356,11 @@ export interface AgentOptions<TData = unknown> {
    * detection. Default: 500ms.
    */
   newTabDetectMs?: number;
+  /**
+   * Optional structured-extraction hook. When set, an `extract_content`
+   * action carrying a `schemaJson` param routes its extracted markdown
+   * through this function; the hook's returned `data` is exposed as
+   * `result.data.structured`. Without this hook, `schemaJson` is ignored.
+   */
+  extractionLLM?: ExtractionLLMFn;
 }

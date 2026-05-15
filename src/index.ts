@@ -57,6 +57,7 @@ export type {
   TransportResolution,
   PlanItem,
   JudgeFn,
+  ExtractionLLMFn,
 } from "./agent/contracts";
 
 export { runTui } from "./tui/app";

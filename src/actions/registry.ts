@@ -5,6 +5,7 @@ import { actionSchemas, type Action, type ActionName } from "./types";
 import type { BrowserSession, Page } from "../browser/session";
 import type { BrowserStateSummary } from "../browser/state";
 import type { SelectorMap } from "../dom/cdp-snapshot";
+import type { ExtractionLLMFn } from "../agent/contracts";
 
 export interface RegisteredAction {
   name: string;
@@ -18,6 +19,7 @@ export interface ActionContext {
   selectorMap?: SelectorMap;
   sensitiveData?: Record<string, string>;
   newTabDetectMs?: number;
+  extractionLLM?: ExtractionLLMFn;
 }
 
 export interface ActionDefinition<TName extends string = string, TParams = unknown> {
@@ -108,6 +110,7 @@ export function createDefaultActions(): ActionDefinition[] {
         context.selectorMap,
         context.sensitiveData,
         context.newTabDetectMs,
+        context.extractionLLM,
       ),
   }));
 }

@@ -3,6 +3,7 @@ import { existsSync, statSync } from "node:fs";
 import type { BrowserSession, Page } from "../browser/session";
 import type { SelectorMap } from "../dom/cdp-snapshot";
 import type { Action } from "./types";
+import type { ExtractionLLMFn } from "../agent/contracts";
 
 function resolveBackendId(
   selectorMap: SelectorMap | undefined,
@@ -166,6 +167,7 @@ export async function executeAction(
   selectorMap?: SelectorMap,
   sensitiveData?: Record<string, string>,
   newTabDetectMs?: number,
+  extractionLLM?: ExtractionLLMFn,
 ): Promise<ActionResult> {
   if (signal?.aborted) {
     return fail(`Action ${action.name} aborted before execution`);
@@ -576,7 +578,28 @@ export async function executeAction(
             ? ` (truncated, continue with startFromChar=${result.stats.nextStartChar})`
             : "");
 
-        return ok(statsMsg, { extractedContent: wrapped, data: result });
+        let structured: unknown;
+        let structuredError: string | undefined;
+        if (action.params.schemaJson && extractionLLM) {
+          try {
+            const hookResult = await extractionLLM({
+              url: result.url,
+              query: result.query,
+              markdown: result.content,
+              schemaJson: action.params.schemaJson,
+              signal,
+            });
+            structured = hookResult.data;
+          } catch (err) {
+            structuredError = err instanceof Error ? err.message : String(err);
+          }
+        }
+
+        const data: Record<string, unknown> = { ...result };
+        if (structured !== undefined) data.structured = structured;
+        if (structuredError) data.structuredError = structuredError;
+
+        return ok(statsMsg, { extractedContent: wrapped, data });
       }
 
       case "done":
