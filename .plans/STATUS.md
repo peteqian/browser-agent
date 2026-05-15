@@ -43,6 +43,7 @@ Read this file first. It is the compact routing table for the deeper plan files.
 - On the final allowed step, the decision loop prepends a `FINAL STEP (N/N)` directive to the observation instructing the model to respond with the `done` action (success=true or false with a summary). Earlier steps see no change.
 - Loop detection default flipped from hard-stop to **escalating nudges**. `AgentOptions.loopDetectionMode` defaults to `"nudge"` (inject a stagnation notice into the next observation, up to `loopDetectionNudgeBudget` times before escalating to a hard stop); `"strict"` preserves the immediate hard-stop behavior; `"off"` disables detection entirely. Each nudge fires a `loop_nudge` AgentEvent with `nudgesUsed` and `budget` fields. Legacy `loopDetectionEnabled === false` still maps to `"off"`.
 - Persistent per-run memory threads through the decision loop. `AgentOptions.memory` seeds it; the loop publishes the current value as `DecisionInput.memory` and updates it whenever a `Decision` returns a new `memory` string. `buildDecisionUserPrompt` includes a `Current memory:` block so all SDK adapters surface it without changes.
+- Optional final judge via `AgentOptions.judge: JudgeFn`. After the model emits a successful `done`, the judge receives the final `DecisionInput`, the model's summary, and the validated `data`; returning `pass: false` produces a terminal with `reason: "judge_failed"` and the judge's `reason` appended to the summary. Failures (`done` with `success: false`) skip the judge entirely.
 
 ## Skip Unless Relevant
 

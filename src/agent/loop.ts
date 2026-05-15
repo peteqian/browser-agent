@@ -243,20 +243,20 @@ async function runAgentInner<TData = unknown>(
           ? observation
           : `${prefixSegments.join("\n\n")}\n\n${observation}`;
 
+      const decideInput: DecisionInput = {
+        task: options.task,
+        step,
+        maxSteps,
+        browserState,
+        observation: effectiveObservation,
+        tabs,
+        activeTab: page.targetId,
+        history: actionHistory.slice(-HISTORY_WINDOW),
+        actionCatalog: actionRegistry.describeForPrompt(browserState),
+        memory: currentMemory,
+      };
       let decision: Decision;
       try {
-        const decideInput = {
-          task: options.task,
-          step,
-          maxSteps,
-          browserState,
-          observation: effectiveObservation,
-          tabs,
-          activeTab: page.targetId,
-          history: actionHistory.slice(-HISTORY_WINDOW),
-          actionCatalog: actionRegistry.describeForPrompt(browserState),
-          memory: currentMemory,
-        };
         const parentSignal = combineSignals(options.signal, options.control?.signal);
         try {
           decision = await withRetry(
@@ -371,6 +371,37 @@ async function runAgentInner<TData = unknown>(
               data: null,
               steps: step,
             };
+          } else if (doneParams.success && options.judge) {
+            const judgeSignal = combineSignals(options.signal, options.control?.signal);
+            try {
+              const verdict = await options.judge({
+                finalInput: decideInput,
+                summary: doneParams.summary,
+                data: terminalData.data,
+                signal: judgeSignal.signal,
+              });
+              if (verdict.pass) {
+                terminalResult = {
+                  success: true,
+                  reason: "completed",
+                  summary: doneParams.summary,
+                  data: terminalData.data,
+                  steps: step,
+                };
+              } else {
+                terminalResult = {
+                  success: false,
+                  reason: "judge_failed",
+                  summary: verdict.reason
+                    ? `${doneParams.summary} (judge rejected: ${verdict.reason})`
+                    : `${doneParams.summary} (judge rejected)`,
+                  data: terminalData.data,
+                  steps: step,
+                };
+              }
+            } finally {
+              judgeSignal.cleanup();
+            }
           } else {
             terminalResult = {
               success: doneParams.success,

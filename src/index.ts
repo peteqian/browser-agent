@@ -56,6 +56,7 @@ export type {
   TransportId,
   TransportResolution,
   PlanItem,
+  JudgeFn,
 } from "./agent/contracts";
 
 export { runTui } from "./tui/app";

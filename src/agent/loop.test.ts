@@ -757,6 +757,61 @@ describe("AgentController", () => {
   });
 });
 
+describe("runAgent final judge", () => {
+  test("rejects a successful done when the judge returns pass: false", async () => {
+    const result = await runAgent({
+      task: "judge rejects",
+      page: createFakePage({ waitForTimeout: async () => {} }),
+      maxSteps: 2,
+      decide: async () => ({
+        actions: [{ name: "done", params: { success: true, summary: "claims done" } }],
+        done: true,
+      }),
+      judge: async () => ({ pass: false, reason: "missing requirements" }),
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.reason).toBe("judge_failed");
+    expect(result.summary).toContain("missing requirements");
+  });
+
+  test("confirms a successful done when the judge returns pass: true", async () => {
+    const result = await runAgent({
+      task: "judge accepts",
+      page: createFakePage({ waitForTimeout: async () => {} }),
+      maxSteps: 2,
+      decide: async () => ({
+        actions: [{ name: "done", params: { success: true, summary: "all good" } }],
+        done: true,
+      }),
+      judge: async () => ({ pass: true }),
+    });
+
+    expect(result.success).toBe(true);
+    expect(result.reason).toBe("completed");
+  });
+
+  test("does not run the judge when done is success=false", async () => {
+    let called = 0;
+    const result = await runAgent({
+      task: "skip judge on failure",
+      page: createFakePage({ waitForTimeout: async () => {} }),
+      maxSteps: 2,
+      decide: async () => ({
+        actions: [{ name: "done", params: { success: false, summary: "gave up" } }],
+        done: true,
+      }),
+      judge: async () => {
+        called += 1;
+        return { pass: true };
+      },
+    });
+
+    expect(called).toBe(0);
+    expect(result.reason).toBe("failed");
+  });
+});
+
 describe("runAgent persistent memory", () => {
   test("seeds DecisionInput.memory from options and propagates Decision.memory updates", async () => {
     const seen: Array<string | undefined> = [];

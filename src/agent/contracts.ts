@@ -141,7 +141,22 @@ export type TerminalReason =
   | "step_timeout"
   | "decision_timeout"
   | "schema_violation"
-  | "decide_error";
+  | "decide_error"
+  | "judge_failed";
+
+/**
+ * Final-validation hook. When `AgentOptions.judge` is set, the loop
+ * invokes it after the model emits a successful `done` action and uses
+ * the verdict to either confirm success or fail the run with
+ * `reason: "judge_failed"`. Receives the final `DecisionInput` along
+ * with the model's terminal summary and (when present) typed data.
+ */
+export type JudgeFn<TData = unknown> = (input: {
+  finalInput: DecisionInput;
+  summary: string;
+  data: TData | null;
+  signal?: AbortSignal;
+}) => Promise<{ pass: boolean; reason?: string }>;
 
 /** Terminal summary returned by the browser-agent loop. */
 export interface AgentResult<TData = unknown> {
@@ -251,6 +266,15 @@ export interface AgentOptions<TData = unknown> {
    * constraints) that should outlive single observations.
    */
   memory?: string;
+  /**
+   * Optional final validator. Runs after the model emits a successful
+   * `done` action and decides whether to confirm or fail the run.
+   * Receives the last `DecisionInput`, the model's summary, and any
+   * `outputSchema`-typed `data`. Returning `pass: false` produces a
+   * terminal with `reason: "judge_failed"` and the judge's `reason`
+   * appended to the summary.
+   */
+  judge?: JudgeFn<TData>;
   /**
    * Cooperative control surface (pause/resume/stop). When set, the loop checks
    * `control.signal` and `control.waitIfPaused()` in addition to `signal`.
