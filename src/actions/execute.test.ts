@@ -465,6 +465,36 @@ describe("executeAction extract_content error mapping", () => {
     });
   });
 
+  test("forwards alreadyCollected to extractContent for pagination dedupe", async () => {
+    const captured: { params?: { alreadyCollected?: string[] } } = {};
+    const page = {
+      extractContent: async (params: { alreadyCollected?: string[] }) => {
+        captured.params = params;
+        return {
+          url: "u",
+          query: "q",
+          content: "c",
+          stats: {
+            totalChars: 1,
+            startFromChar: 0,
+            returnedChars: 1,
+            truncated: false,
+            nextStartChar: null,
+            linksCount: 0,
+            imagesCount: 0,
+          },
+        };
+      },
+    } as unknown as Page;
+
+    await executeAction(page, {
+      name: "extract_content",
+      params: { query: "q", alreadyCollected: ["https://x/1", "https://x/2"] },
+    });
+
+    expect(captured.params?.alreadyCollected).toEqual(["https://x/1", "https://x/2"]);
+  });
+
   test("classifies timeouts and surfaces structured data", async () => {
     const page = {
       extractContent: async () => {

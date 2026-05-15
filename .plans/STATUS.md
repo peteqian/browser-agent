@@ -39,6 +39,7 @@ Read this file first. It is the compact routing table for the deeper plan files.
 - Action registry supports `ActionDefinition.appliesTo(state)` for page-specific filtering. `describeForPrompt(state?)` and `listFor(state)` exclude actions whose predicate rejects the current `BrowserStateSummary`, so callers can scope custom actions by URL/tab count without polluting prompts on other pages.
 - Integration fixture infrastructure landed under `src/__integration__/`. `startFixtureServer` exposes default HTML pages for forms, hidden file inputs, OAuth-style new tabs, and paginated lists; `withIntegrationContext` boots a headless `BrowserSession` against the fixture URL. Integration tests are gated behind `BAGENT_INT=1` so they skip cleanly in sandboxes without Chrome.
 - `extract_content` action now classifies thrown extraction errors (navigation_in_flight, timeout, unknown) and returns a recoverable `ok:false` result with `data.extractionError = { reason, message }` so the loop can retry intelligently instead of treating it as a generic action failure.
+- `extract_content` accepts an `alreadyCollected` param (capped at 5000 entries) that is forwarded to `extractContent`; matching absolute link URLs are skipped, so paginated extractions across many pages produce dedupe-clean output.
 
 ## Skip Unless Relevant
 

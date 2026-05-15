@@ -115,6 +115,8 @@ export interface ExtractContentParams {
   extractImages?: boolean;
   startFromChar?: number;
   maxChars?: number;
+  /** Canonical identifiers already collected; deduped against new links. */
+  alreadyCollected?: string[];
 }
 
 export interface ExtractContentResult {
@@ -1923,6 +1925,7 @@ export class Page {
       extractImages: params.extractImages ?? false,
       startFromChar: params.startFromChar ?? 0,
       maxChars: params.maxChars ?? 100_000,
+      alreadyCollected: params.alreadyCollected ?? [],
     };
 
     return this.evaluate(`(() => {
@@ -1962,6 +1965,7 @@ export class Page {
       const linkEntries = [];
       if (p.extractLinks && body) {
         const seen = new Set();
+        const skipSet = new Set(p.alreadyCollected || []);
         for (const a of Array.from(body.querySelectorAll('a[href]'))) {
           const href = (a.getAttribute('href') || '').trim();
           if (!href) continue;
@@ -1973,6 +1977,7 @@ export class Page {
             }
           })();
           if (seen.has(absHref)) continue;
+          if (skipSet.has(absHref)) continue;
           seen.add(absHref);
           const label = collapseWhitespace(a.textContent || a.getAttribute('aria-label') || '');
           linkEntries.push({ href: absHref, text: label || absHref });

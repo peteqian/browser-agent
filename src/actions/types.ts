@@ -141,6 +141,13 @@ export const extractContentAction = z.object({
   extractImages: z.boolean().optional(),
   startFromChar: z.number().int().nonnegative().optional(),
   maxChars: z.number().int().positive().max(200_000).optional(),
+  /**
+   * Identifiers (canonical URLs, item ids, hash keys) the agent has
+   * already collected across prior extract calls. Used to dedupe links
+   * across paginated extractions so the loop does not re-process the
+   * same items.
+   */
+  alreadyCollected: z.array(z.string()).max(5_000).optional(),
 });
 
 export const doneAction = z.object({

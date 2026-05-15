@@ -551,6 +551,7 @@ export async function executeAction(
             extractImages: action.params.extractImages,
             startFromChar: action.params.startFromChar,
             maxChars: action.params.maxChars,
+            alreadyCollected: action.params.alreadyCollected,
           });
         } catch (err) {
           const message = err instanceof Error ? err.message : String(err);
