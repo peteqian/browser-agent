@@ -4,6 +4,9 @@ import type { BrowserEvent } from "./events";
 import type { BrowserPermissionGrant } from "./profile";
 import { BrowserEventBus } from "./events";
 import { BrowserSession, Page } from "./session";
+import { reconnectIfNeeded } from "./session-reconnect";
+import { configurePermissions } from "./session-setup";
+import type { CDPClient } from "../cdp/client";
 
 function createNavigationPage(options: {
   finalUrl?: string;
@@ -107,7 +110,7 @@ describe("BrowserSession reconnect watchdog", () => {
       events.push(event);
     });
 
-    await (session as unknown as { reconnectIfNeeded: () => Promise<void> }).reconnectIfNeeded();
+    await reconnectIfNeeded(session);
 
     expect(events).toContainEqual({
       type: "browser_event",
@@ -130,7 +133,7 @@ describe("BrowserSession reconnect watchdog", () => {
       events.push(event);
     });
 
-    await (session as unknown as { reconnectIfNeeded: () => Promise<void> }).reconnectIfNeeded();
+    await reconnectIfNeeded(session);
 
     const browserEvents = events.filter((event) => event.type === "browser_event");
     expect(browserEvents).toContainEqual({
@@ -203,11 +206,7 @@ describe("BrowserSession permissions watchdog", () => {
       },
     };
 
-    await (
-      session as unknown as {
-        configurePermissions: (client: unknown) => Promise<void>;
-      }
-    ).configurePermissions(client);
+    await configurePermissions(client as unknown as CDPClient, session.profile, session.eventBus);
 
     expect(commands).toEqual([
       {
@@ -233,11 +232,7 @@ describe("BrowserSession permissions watchdog", () => {
       },
     };
 
-    await (
-      session as unknown as {
-        configurePermissions: (client: unknown) => Promise<void>;
-      }
-    ).configurePermissions(client);
+    await configurePermissions(client as unknown as CDPClient, session.profile, session.eventBus);
 
     expect(session.eventBus.history).toContainEqual({
       type: "browser_event",
