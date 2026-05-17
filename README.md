@@ -1,4 +1,4 @@
-# @browser-agent/core
+# @peteqian/browser-agent
 
 TypeScript browser automation agent using raw Chrome DevTools Protocol plus an LLM decision loop.
 
@@ -46,7 +46,7 @@ Vision, planning, and actions:
 Simple agent usage:
 
 ```ts
-import { Agent, Browser } from "@browser-agent/core";
+import { Agent, Browser } from "@peteqian/browser-agent";
 
 const browser = new Browser();
 const agent = new Agent({
@@ -81,7 +81,7 @@ const agent = new Agent({
 Direct browser usage:
 
 ```ts
-import { Browser } from "@browser-agent/core";
+import { Browser } from "@peteqian/browser-agent";
 
 const browser = new Browser();
 
@@ -121,7 +121,7 @@ Typed terminal output:
 
 ```ts
 import { z } from "zod";
-import { runAgent, createDecide } from "@browser-agent/core";
+import { runAgent, createDecide } from "@peteqian/browser-agent";
 
 const Result = z.object({ heading: z.string() });
 const { decide, resolution } = createDecide({ provider: "openai" });
@@ -167,14 +167,14 @@ Action catalog (model emits these via `decision.actions`): `navigate`, `click`, 
 Internal exports (no stability guarantee):
 
 ```ts
-import { CDPClient, launchBrowser, executeAction } from "@browser-agent/core/internal";
+import { CDPClient, launchBrowser, executeAction } from "@peteqian/browser-agent/internal";
 ```
 
 Troubleshooting:
 
 - If Chrome/CDP connection fails, check the launch/discovery code in `src/cdp/` and confirm a compatible Chrome process can start.
 - If MCP startup fails, check `src/mcp/server.ts` and the `browser-agent-mcp` bin entry.
-- If contract imports fail in another package, import shared types from `@browser-agent/core` instead of redefining them locally.
+- If contract imports fail in another package, import shared types from `@peteqian/browser-agent` instead of redefining them locally.
 - After code changes, run `bun run typecheck` before handing work off.
 
 ## Compatibility
@@ -184,7 +184,7 @@ Troubleshooting:
 
 ## Development Notes
 
-- Package name: `@browser-agent/core`
+- Package name: `@peteqian/browser-agent`
 - Package type: ESM
 - Package status: publishable (run `bun run build` before `npm publish`)
 - Primary dependencies: `@anthropic-ai/claude-agent-sdk`, `@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `@openai/codex-sdk`, `devtools-protocol`, `openai`, `ws`, `zod`

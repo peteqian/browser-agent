@@ -1,8 +1,8 @@
 /**
- * Public consumer surface for `@browser-agent/core`.
+ * Public consumer surface for `@peteqian/browser-agent`.
  *
  * Implementation details (raw CDP, profile mgmt, DOM serializer, action
- * executor, prompt internals) live behind `@browser-agent/core/internal`
+ * executor, prompt internals) live behind `@peteqian/browser-agent/internal`
  * — that subpath has no stability guarantee.
  */
 

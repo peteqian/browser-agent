@@ -1,5 +1,5 @@
 {
-  "name": "@browser-agent/core",
+  "name": "@peteqian/browser-agent",
   "version": "0.0.1",
   "description": "TypeScript browser automation agent. Raw CDP + LLM loop.",
   "keywords": [

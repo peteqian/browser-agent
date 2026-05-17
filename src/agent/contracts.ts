@@ -11,7 +11,7 @@ import type { z } from "zod";
 /**
  * Public contract types shared with browser-agent consumers.
  *
- * Downstream packages should import these shapes from `@browser-agent/core`
+ * Downstream packages should import these shapes from `@peteqian/browser-agent`
  * instead of redefining them locally so the package boundary can move without
  * breaking the integration contract.
  */

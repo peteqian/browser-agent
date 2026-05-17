@@ -4,7 +4,7 @@
   "entryPointStrategy": "expand",
   "out": "docs/api",
   "tsconfig": "tsconfig.json",
-  "name": "@browser-agent/core",
+  "name": "@peteqian/browser-agent",
   "includeVersion": true,
   "readme": "docs/index.md",
   "excludePrivate": true,

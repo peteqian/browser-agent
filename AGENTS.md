@@ -4,14 +4,14 @@ This package is a generic TypeScript browser automation agent. It uses raw Chrom
 
 ## First Read
 
-- Treat this file as the canonical AI manual for `@browser-agent/core`.
+- Treat this file as the canonical AI manual for `@peteqian/browser-agent`.
 - `CLAUDE.md` is a symlink to this file.
 - Keep human-facing usage notes in `README.md` and AI-facing implementation rules here.
 - Prefer small, direct edits that preserve the package boundary.
 
 ## Contract Ownership
 
-- `@browser-agent/core` owns the server-facing browser-agent contract types.
+- `@peteqian/browser-agent` owns the server-facing browser-agent contract types.
 - If another package consumes data produced by the agent loop or replay pipeline, those shared types should live here and be exported from `src/index.ts`.
 - Do not redefine browser-agent contract shapes in downstream packages like `apps/server`.
 - Keep implementation-only types local unless another package needs them.
@@ -28,7 +28,7 @@ Core contract types exported from this package (main entry):
 - `AgentOptions`, `AgentControl`
 - `ProviderId`, `CreateDecideOptions`, `LLMAdapterOptions`, `TokenUsage`, `DecisionTelemetry`
 
-Internal exports (no stability guarantee — `@browser-agent/core/internal`):
+Internal exports (no stability guarantee — `@peteqian/browser-agent/internal`):
 
 - `CDPClient`, `launchBrowser`, `LaunchOptions`, `LaunchedBrowser`
 - `BrowserProfile`, `BrowserProfileInit`
@@ -44,7 +44,7 @@ When adding or changing shared contract types:
 
 - Update `src/agent/contracts.ts` first.
 - Export public shared types from `src/index.ts`.
-- Update downstream imports to use `@browser-agent/core` instead of local copies.
+- Update downstream imports to use `@peteqian/browser-agent` instead of local copies.
 - Preserve public contract stability unless the change is intentional.
 
 ## Architecture Map
@@ -76,7 +76,7 @@ Run `bun run typecheck` after meaningful TypeScript edits.
 ## Refactor Guidance
 
 - When moving `browser-agent` into its own repository or package boundary, preserve these types as part of the public package API.
-- Prefer importing shared agent contracts from `@browser-agent/core` instead of local server modules.
+- Prefer importing shared agent contracts from `@peteqian/browser-agent` instead of local server modules.
 - If a type is only internal to one implementation detail and not consumed across package boundaries, keep it local instead of exporting it.
 - Avoid backward-compatibility shims unless persisted data, shipped behavior, external consumers, or explicit requirements make them necessary.
 
@@ -84,4 +84,4 @@ Run `bun run typecheck` after meaningful TypeScript edits.
 
 - For Chrome/CDP connection issues, inspect `src/cdp/` launch and discovery code first.
 - For MCP startup issues, inspect `src/mcp/server.ts` and `bin/mcp.ts`.
-- For contract import failures in another package, verify the type is exported from `src/index.ts` and consumed from `@browser-agent/core`.
+- For contract import failures in another package, verify the type is exported from `src/index.ts` and consumed from `@peteqian/browser-agent`.

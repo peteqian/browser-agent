@@ -5,7 +5,7 @@
 ### Breaking
 
 - `AgentResult` now carries a `reason: TerminalReason` field. Consumers should branch on `reason` instead of pattern-matching `summary`. `success` is preserved as a boolean alias for `reason === "completed"`.
-- Public exports trimmed. Implementation details (`CDPClient`, `launchBrowser`, `BrowserProfile`, `serializePage`, `formatSnapshotForLLM`, `executeAction`, `actionSchemas`, `Action`, `ActionName`, `ActionResult`, `buildDecisionPrompt`, `SYSTEM_PROMPT`, DOM types) moved to the `@browser-agent/core/internal` subpath. The internal subpath has no stability guarantee.
+- Public exports trimmed. Implementation details (`CDPClient`, `launchBrowser`, `BrowserProfile`, `serializePage`, `formatSnapshotForLLM`, `executeAction`, `actionSchemas`, `Action`, `ActionName`, `ActionResult`, `buildDecisionPrompt`, `SYSTEM_PROMPT`, DOM types) moved to the `@peteqian/browser-agent/internal` subpath. The internal subpath has no stability guarantee.
 - `DecideFn` signature changed to `(input, signal) => Promise<Decision>`. Built-in adapters forward the signal to the SDK so timed-out HTTP calls actually cancel.
 - Removed job-search-specific contract types (`FoundJob`, `DistilledTrajectory`, `Extractor`, `TrajectoryStep`) and the `onFoundJobs` / `onDistilledTrajectory` callbacks. Consumers should define these locally and adopt `outputSchema` for typed terminal payloads.
 
@@ -41,7 +41,7 @@
 
 - `BrowserSession.waitForNewPageTarget` and `BrowserSession.findNearestFileInputBackendNodeId` are now part of the public surface; custom actions can lean on them for new-tab detection and upload discovery without reaching into internals.
 - `JudgeFn` is exported from the public entry for callers writing custom judges.
-- MCP artifact internals (`SessionArtifact`, `ArtifactKind`, `recordArtifact`, `sweepIdleSessions`, `shutdownAllSessions`) are intentionally not re-exported from `@browser-agent/core`; they remain importable from `./mcp/server` for harnesses and tests but carry no stability guarantee.
+- MCP artifact internals (`SessionArtifact`, `ArtifactKind`, `recordArtifact`, `sweepIdleSessions`, `shutdownAllSessions`) are intentionally not re-exported from `@peteqian/browser-agent`; they remain importable from `./mcp/server` for harnesses and tests but carry no stability guarantee.
 
 ### Fixed
 
