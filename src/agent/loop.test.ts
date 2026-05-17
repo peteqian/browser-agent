@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
 import type { BrowserSession, Page } from "../browser/session";
-import type { AgentEvent, DecisionInput, StepInfo } from "./contracts";
+import type { AgentEvent, AgentInput, StepInfo } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
 import { AgentController, buildDecisionPrompt, buildDecisionUserPrompt, runAgent } from "./loop";
 
@@ -89,7 +89,7 @@ afterEach(async () => {
 });
 
 describe("decision prompt builders", () => {
-  const input: DecisionInput = {
+  const input: AgentInput = {
     task: "Check the heading",
     step: 1,
     maxSteps: 3,
@@ -116,7 +116,7 @@ describe("decision prompt builders", () => {
 describe("runAgent action timeouts", () => {
   test("records a timed-out action and lets the model recover", async () => {
     const steps: StepInfo[] = [];
-    const decisions: DecisionInput[] = [];
+    const decisions: AgentInput[] = [];
 
     const result = await runAgent({
       task: "recover from a hung wait",
@@ -249,7 +249,7 @@ describe("runAgent browser lifecycle", () => {
 
 describe("runAgent history compaction", () => {
   test("middle steps collapse to a marker entry once the window overflows", async () => {
-    const seen: DecisionInput[] = [];
+    const seen: AgentInput[] = [];
     let calls = 0;
 
     await runAgent({
@@ -630,7 +630,7 @@ describe("runAgent loop detection", () => {
         clickByBackendNodeId: async () => ({ ok: true }),
       }),
       maxSteps: 3,
-      loopDetectionEnabled: false,
+      loopDetectionMode: "off",
       loopDetectionWindow: 2,
       decide: async () => ({
         actions: [{ name: "click", params: { index: 1 } }],
@@ -681,7 +681,7 @@ describe("AgentController", () => {
       task: "pause and resume",
       page: createFakePage({ clickByBackendNodeId: async () => ({ ok: true }) }),
       control,
-      loopDetectionEnabled: false,
+      loopDetectionMode: "off",
       maxSteps: 2,
       onStep: (step) => {
         if (step.step === 1) {
@@ -857,7 +857,7 @@ describe("runAgent final judge", () => {
 });
 
 describe("runAgent persistent memory", () => {
-  test("seeds DecisionInput.memory from options and propagates Decision.memory updates", async () => {
+  test("seeds AgentInput.memory from options and propagates AgentOutput.memory updates", async () => {
     const seen: Array<string | undefined> = [];
     await runAgent({
       task: "carry memory",

@@ -6,6 +6,9 @@ import type { TransportResolution } from "../agent/contracts";
 const ENV_VARS = [
   "OPENAI_API_KEY",
   "ANTHROPIC_API_KEY",
+  "CODEX_BIN",
+  "CLAUDE_BIN",
+  "HOME",
   "BROWSER_AGENT_ENV",
   "KUBERNETES_SERVICE_HOST",
   "AWS_LAMBDA_FUNCTION_NAME",
@@ -95,9 +98,18 @@ describe("resolveTransport", () => {
   test("cloud env disallows codex (no cloud-safe transport)", () => {
     process.env.BROWSER_AGENT_ENV = "cloud";
     process.env.OPENAI_API_KEY = "sk-test";
-    expect(() => resolveTransport({ provider: "codex", model: "gpt-5" })).toThrow(
-      /No transport available/,
-    );
+    const { resolution } = resolveTransport({ provider: "codex", model: "gpt-5" });
+    expect(resolution.transport).toBe("sdk-api");
+    expect(resolution.env).toBe("cloud");
+  });
+
+  test("codex falls back to sdk-api when local transports are unavailable and OPENAI_API_KEY is set", () => {
+    process.env.HOME = "/tmp/browser-agent-no-codex-auth";
+    process.env.CODEX_BIN = "definitely-missing-codex-bin";
+    process.env.OPENAI_API_KEY = "sk-test";
+    const { resolution } = resolveTransport({ provider: "codex", model: "gpt-5" });
+    expect(resolution.transport).toBe("sdk-api");
+    expect(resolution.fallbackFrom).toBe("sdk-agent");
   });
 
   test("forced transport=sdk-api skips fallback chain", () => {

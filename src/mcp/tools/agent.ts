@@ -6,12 +6,13 @@ import { createDecide } from "../../llm";
 import { buildProgressForwarder, jsonResult } from "../helpers";
 
 export function registerAgentTool(server: McpServer): void {
-  server.registerTool(
+  const registerTool = server.registerTool.bind(server) as ToolRegistrar;
+  registerTool(
     "run_agent",
     {
       description:
         "Run an autonomous browser agent against a fresh browser session until the task is done. Prefer setting OPENAI_API_KEY/ANTHROPIC_API_KEY in env over passing apiKey here.",
-      inputSchema: z.object({
+      inputSchema: {
         task: z.string(),
         startUrl: z.string().optional(),
         maxSteps: z.number().int().min(1).max(200).optional(),
@@ -21,7 +22,7 @@ export function registerAgentTool(server: McpServer): void {
         provider: z.enum(["codex", "claude", "openai", "anthropic"]).optional().default("codex"),
         apiKey: z.string().optional(),
         baseUrl: z.string().optional(),
-      }),
+      },
     },
     async (
       { task, startUrl, maxSteps, model, effort, headless, provider, apiKey, baseUrl },
@@ -54,3 +55,9 @@ export function registerAgentTool(server: McpServer): void {
     },
   );
 }
+
+type ToolRegistrar = (
+  name: string,
+  config: { description?: string; inputSchema?: Record<string, z.ZodTypeAny> },
+  cb: (args: any, extra: any) => unknown,
+) => void;

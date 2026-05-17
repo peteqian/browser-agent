@@ -39,7 +39,7 @@ export function createDefaultLogger(options: DefaultLoggerOptions = {}): Logger 
       level,
       event,
       ts: new Date().toISOString(),
-      ...(data ?? {}),
+      ...data,
     };
     write(`${JSON.stringify(payload)}\n`);
   }

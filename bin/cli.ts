@@ -312,6 +312,25 @@ async function main(): Promise<number> {
         }
       : (jsonlOnEvent ?? verboseOnEvent);
 
+  const abortController = new AbortController();
+  let signalCount = 0;
+  const onSignal = (signal: string): void => {
+    signalCount += 1;
+    if (signalCount === 1) {
+      console.error(
+        `\nbrowser-agent: ${signal} received, finishing current step and closing browser...`,
+      );
+      abortController.abort(signal);
+    } else {
+      console.error(`browser-agent: ${signal} again, force exit.`);
+      process.exit(130);
+    }
+  };
+  const handleInt = (): void => onSignal("SIGINT");
+  const handleTerm = (): void => onSignal("SIGTERM");
+  process.on("SIGINT", handleInt);
+  process.on("SIGTERM", handleTerm);
+
   const agentOptions = {
     task: opts.task,
     startUrl: opts.url,
@@ -324,6 +343,7 @@ async function main(): Promise<number> {
     decide,
     transportResolution: resolution,
     vision: "auto" as const,
+    signal: abortController.signal,
     onEvent,
     onStep: (step: StepInfo) => {
       if (opts.verbose) {
@@ -338,7 +358,13 @@ async function main(): Promise<number> {
     },
   };
 
-  const result = await runAgent(agentOptions);
+  let result;
+  try {
+    result = await runAgent(agentOptions);
+  } finally {
+    process.off("SIGINT", handleInt);
+    process.off("SIGTERM", handleTerm);
+  }
 
   const resultJson = JSON.stringify(result, null, 2);
   if (opts.outputFile) {

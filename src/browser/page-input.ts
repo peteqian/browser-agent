@@ -115,7 +115,9 @@ export async function selectOptionByBackendNodeId(
   page: Page,
   backendNodeId: number,
   valueOrLabel: string,
-): Promise<{ ok: true } | { ok: false; reason: "index_stale" } | { ok: false; reason: "no_match" }> {
+): Promise<
+  { ok: true } | { ok: false; reason: "index_stale" } | { ok: false; reason: "no_match" }
+> {
   const result = await page.callOnBackendNode<"ok" | "no_match" | "wrong_tag">(
     backendNodeId,
     `function(target) {
@@ -178,7 +180,7 @@ export async function sendKeys(page: Page, keys: string): Promise<void> {
     key: mainKey,
     modifiers: modifierMask,
   });
-  for (const modifier of Array.from(modifiers).reverse()) {
+  for (const modifier of Array.from(modifiers).toReversed()) {
     await page.sendCDP("Input.dispatchKeyEvent", {
       type: "keyUp",
       key: modifier,

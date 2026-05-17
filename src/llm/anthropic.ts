@@ -4,12 +4,12 @@ import type { ContentBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
 import { buildDecisionUserPrompt } from "../agent/loop";
 import { SYSTEM_PROMPT } from "../agent/prompts";
-import type { Decision, DecisionInput } from "../agent/contracts";
+import type { AgentInput, AgentOutput } from "../agent/contracts";
 import type { LLMAdapterOptions } from "./types";
 import { buildTelemetry } from "./telemetry";
 import { decisionJsonSchema, validateDecision } from "./decisionSchema";
 
-function buildUserContent(input: DecisionInput): ContentBlockParam[] {
+function buildUserContent(input: AgentInput): ContentBlockParam[] {
   const screenshot = input.browserState?.screenshot;
   const blocks: ContentBlockParam[] = [{ type: "text", text: buildDecisionUserPrompt(input) }];
   if (screenshot) {
@@ -29,11 +29,11 @@ function buildUserContent(input: DecisionInput): ContentBlockParam[] {
  * Create a decide adapter backed by the Anthropic Messages API.
  *
  * Uses the official `@anthropic-ai/sdk` with native structured output
- * (`jsonSchemaOutputFormat`) for reliable Decision parsing.
+ * (`jsonSchemaOutputFormat`) for reliable AgentOutput parsing.
  */
 export function createAnthropicDecide(
   options: LLMAdapterOptions,
-): (input: DecisionInput, signal?: AbortSignal) => Promise<Decision> {
+): (input: AgentInput, signal?: AbortSignal) => Promise<AgentOutput> {
   const apiKey = options.apiKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error("Anthropic adapter requires apiKey or ANTHROPIC_API_KEY env var");
@@ -48,7 +48,7 @@ export function createAnthropicDecide(
   const model = options.model;
   const maxTokens = options.maxTokens ?? 4096;
 
-  return async (input: DecisionInput, signal?: AbortSignal): Promise<Decision> => {
+  return async (input: AgentInput, signal?: AbortSignal): Promise<AgentOutput> => {
     const startedAt = Date.now();
 
     const message = await client.messages.parse(

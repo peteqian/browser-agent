@@ -1,5 +1,5 @@
 {
-  "name": "@browser-agent/core",
+  "name": "@peteqian/browser-agent",
   "version": "0.0.1",
   "description": "TypeScript browser automation agent. Raw CDP + LLM loop.",
   "keywords": [
@@ -39,6 +39,10 @@
     "build": "tsup src/index.ts src/internal.ts bin/cli.ts bin/mcp.ts --format esm --dts --out-dir dist --clean --sourcemap",
     "prepublishOnly": "npm run build",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "lint": "oxlint --report-unused-disable-directives",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check --ignore-path .gitignore",
     "test": "bun test",
     "cli": "node ./dist/bin/cli.js",
     "mcp": "node ./dist/bin/mcp.js",
@@ -57,6 +61,8 @@
     "example:upload": "bun run examples/upload.ts",
     "example:storage-state": "bun run examples/storage-state.ts",
     "example:mcp": "bun run examples/mcp.ts",
+    "bench": "bun run bench/src/run.ts",
+    "bench:smoke": "bun run bench/src/run.ts --tasks 3",
     "docs": "typedoc",
     "docs:watch": "typedoc --watch"
   },
@@ -72,6 +78,8 @@
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
+    "oxfmt": "^0.50.0",
+    "oxlint": "^1.65.0",
     "tsup": "^8.5.1",
     "typedoc": "^0.28.19",
     "typescript": "^5.9.3"

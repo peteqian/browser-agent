@@ -32,7 +32,7 @@ const DEFAULT_MODEL: Record<ProviderId, string> = {
 };
 
 /**
- * Build a `DecideFn` for the given provider, plus the transport resolution
+ * Build a `GetNextActionFn` for the given provider, plus the transport resolution
  * that produced it. Pass `resolution` to `runAgent` via `transportResolution`
  * so consumers receive the `transport_resolved` event.
  *

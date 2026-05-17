@@ -11,13 +11,13 @@ import type { z } from "zod";
 /**
  * Public contract types shared with browser-agent consumers.
  *
- * Downstream packages should import these shapes from `@browser-agent/core`
+ * Downstream packages should import these shapes from `@peteqian/browser-agent`
  * instead of redefining them locally so the package boundary can move without
  * breaking the integration contract.
  */
 
-/** Snapshot of what the deciding model sees for one loop iteration. */
-export interface DecisionInput {
+/** Snapshot of what the AI sees before choosing the next action. */
+export interface AgentInput {
   task: string;
   step: number;
   maxSteps: number;
@@ -29,27 +29,27 @@ export interface DecisionInput {
   actionCatalog?: string;
   /**
    * Persistent run memory carried across decisions. The loop initializes
-   * this from `AgentOptions.memory` and updates it whenever a `Decision`
+   * this from `AgentOptions.memory` and updates it whenever an `AgentOutput`
    * returns a new `memory` field. Adapters should surface it in the
    * prompt so the model can rely on it across steps.
    */
   memory?: string;
 }
 
-/** Raw model-proposed action before schema parsing and execution. */
-export interface RawAction {
+/** Raw AI-proposed action before schema parsing and execution. */
+export interface AgentOutputAction {
   name: string;
   params: unknown;
 }
 
-/** Structured model output consumed by `runAgent`. */
-export interface Decision {
+/** Structured AI output consumed by `runAgent`. */
+export interface AgentOutput {
   thought?: string;
   memory?: string;
   evaluationPreviousGoal?: string;
   nextGoal?: string;
   plan?: PlanItem[];
-  actions: RawAction[];
+  actions: AgentOutputAction[];
   done: boolean;
   summary?: string;
   success?: boolean;
@@ -89,7 +89,7 @@ export type AgentEvent<TData = unknown> =
   | { type: "action_start"; step: number; action: AgentAction }
   | { type: "planning"; step: number; plan?: PlanItem[]; memory?: string; nextGoal?: string }
   | { type: "browser_event"; event: BrowserEvent }
-  | { type: "decision"; step: number; decision: Decision }
+  | { type: "decision"; step: number; decision: AgentOutput }
   | {
       type: "action";
       step: number;
@@ -148,7 +148,7 @@ export type TerminalReason =
  * Final-validation hook. When `AgentOptions.judge` is set, the loop
  * invokes it after the model emits a successful `done` action and uses
  * the verdict to either confirm success or fail the run with
- * `reason: "judge_failed"`. Receives the final `DecisionInput` along
+ * `reason: "judge_failed"`. Receives the final `AgentInput` along
  * with the model's terminal summary and (when present) typed data.
  */
 /**
@@ -168,7 +168,7 @@ export type ExtractionLLMFn = (input: {
 }) => Promise<{ data: unknown }>;
 
 export type JudgeFn<TData = unknown> = (input: {
-  finalInput: DecisionInput;
+  finalInput: AgentInput;
   summary: string;
   data: TData | null;
   signal?: AbortSignal;
@@ -196,7 +196,7 @@ export interface AgentResult<TData = unknown> {
  * signal to their underlying SDK call (HTTP cancel, subprocess kill, etc.) so
  * timed-out work actually stops instead of running orphaned.
  */
-export type DecideFn = (input: DecisionInput, signal: AbortSignal) => Promise<Decision>;
+export type GetNextActionFn = (input: AgentInput, signal: AbortSignal) => Promise<AgentOutput>;
 
 /** Runtime control surface for externally managed agent runs. */
 export interface AgentControl {
@@ -217,7 +217,7 @@ export interface AgentOptions<TData = unknown> {
   /** Natural-language task the agent should accomplish. Forwarded to `decide`. */
   task: string;
   /** Decision function — usually `createDecide({...})` or a built-in adapter. */
-  decide: DecideFn;
+  decide: GetNextActionFn;
   /** Capture screenshots and pass them to providers that support multimodal input. Default: "auto". */
   vision?: boolean | "auto";
   /** Include planning/memory fields in prompts and events. Default: true. */
@@ -262,12 +262,8 @@ export interface AgentOptions<TData = unknown> {
    * - `"strict"`: hard-stop immediately when the fingerprint window repeats.
    * - `"off"`: skip loop detection entirely.
    *
-   * Legacy alias: `loopDetectionEnabled === false` is interpreted as
-   * `"off"`. When `loopDetectionMode` is set it overrides the legacy flag.
    */
   loopDetectionMode?: "nudge" | "strict" | "off";
-  /** @deprecated Prefer `loopDetectionMode`. */
-  loopDetectionEnabled?: boolean;
   /** Number of identical consecutive fingerprints to treat as a loop. Default: 4. */
   loopDetectionWindow?: number;
   /**
@@ -287,8 +283,8 @@ export interface AgentOptions<TData = unknown> {
   historyHead?: number;
   historyTail?: number;
   /**
-   * Initial run memory. Surfaced via `DecisionInput.memory`; each model
-   * `Decision.memory` overwrites it for the next step. Use to inject
+   * Initial run memory. Surfaced via `AgentInput.memory`; each model
+   * `AgentOutput.memory` overwrites it for the next step. Use to inject
    * caller-known state (user identity, partial work product, task
    * constraints) that should outlive single observations.
    */
@@ -296,7 +292,7 @@ export interface AgentOptions<TData = unknown> {
   /**
    * Optional final validator. Runs after the model emits a successful
    * `done` action and decides whether to confirm or fail the run.
-   * Receives the last `DecisionInput`, the model's summary, and any
+   * Receives the last `AgentInput`, the model's summary, and any
    * `outputSchema`-typed `data`. Returning `pass: false` produces a
    * terminal with `reason: "judge_failed"` and the judge's `reason`
    * appended to the summary.

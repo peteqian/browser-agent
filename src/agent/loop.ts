@@ -1,13 +1,8 @@
 import { BrowserSession, type Page } from "../browser/session";
-import type {
-  AgentOptions,
-  AgentResult,
-  Decision,
-  DecisionInput,
-} from "./contracts";
+import type { AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
 import { emitEvent } from "./emit";
 import { compactHistory } from "./history";
-import { buildLoopFingerprint, isRepeatingLoop } from "./loop-detection";
+import { buildLoopFingerprint, canonicaliseActionCall, isRepeatingLoop } from "./loop-detection";
 import {
   DEFAULT_HISTORY_HEAD,
   HISTORY_WINDOW,
@@ -22,11 +17,8 @@ import { withRetry } from "./retry";
 import { buildStepContext, type StepContext } from "./step-context";
 import { checkInterrupt, runActions, type StepOutcome } from "./step-runner";
 import { buildMaxFailuresResult } from "./terminal-result";
-import {
-  combineSignals,
-  withDecideTimeout,
-  withRejectingTimeout,
-} from "./timeouts";
+import { createFocusState } from "./focus-state";
+import { combineSignals, withDecideTimeout, withRejectingTimeout } from "./timeouts";
 
 export { AgentController } from "./controller";
 export { compactHistory } from "./history";
@@ -67,9 +59,12 @@ async function runAgentInner<TData = unknown>(
 
   const actionHistory: Array<{ action: string; result: string }> = [];
   const loopFingerprints: string[] = [];
+  const recentActionCalls: string[] = [];
+  const focusState = createFocusState();
   let consecutiveFailures = 0;
   let loopNudgesUsed = 0;
   let pendingLoopNotice: string | null = null;
+  let latestExtraction: string | null = null;
   let currentMemory: string | undefined = options.memory;
 
   try {
@@ -103,7 +98,7 @@ async function runAgentInner<TData = unknown>(
       let context: StepContext;
       try {
         context = await withRejectingTimeout(
-          buildStepContext(page, session, cfg.vision, options.domBudgets),
+          buildStepContext(page, session, cfg.vision, options.domBudgets, focusState),
           cfg.stepTimeoutMs,
           `Step context preparation timed out after ${cfg.stepTimeoutMs}ms`,
         );
@@ -138,10 +133,15 @@ async function runAgentInner<TData = unknown>(
         step,
         maxSteps: cfg.maxSteps,
         loopNotice: pendingLoopNotice,
+        latestExtraction,
       });
       pendingLoopNotice = null;
+      // Consume the extraction once — keep it visible only for the
+      // turn after the call; the agent should incorporate it then or
+      // re-extract if it needs a fresh snapshot.
+      latestExtraction = null;
 
-      const decideInput: DecisionInput = {
+      const decideInput: AgentInput = {
         task: options.task,
         step,
         maxSteps: cfg.maxSteps,
@@ -154,7 +154,7 @@ async function runAgentInner<TData = unknown>(
         memory: currentMemory,
       };
 
-      let decision: Decision;
+      let decision: AgentOutput;
       try {
         decision = await runDecide(options, decideInput, cfg.decisionTimeoutMs);
       } catch (error) {
@@ -193,10 +193,32 @@ async function runAgentInner<TData = unknown>(
         browserState,
         actionTimeoutMs: cfg.actionTimeoutMs,
         actionHistory,
+        focusState,
       });
 
       page = stepOutcome.page;
+      if (stepOutcome.latestExtraction) {
+        // Cap the surfaced extraction so the next prompt does not blow up
+        // for sites that return tens of kilobytes of page text.
+        const cap = 8_000;
+        latestExtraction =
+          stepOutcome.latestExtraction.length > cap
+            ? `${stepOutcome.latestExtraction.slice(0, cap)}\n…[truncated ${
+                stepOutcome.latestExtraction.length - cap
+              } chars]`
+            : stepOutcome.latestExtraction;
+      }
       if (stepOutcome.terminalResult) return stepOutcome.terminalResult;
+
+      // Track canonicalised action calls so we can surface a nudge as soon
+      // as the agent repeats itself (legacy window-based handleLoopDetection
+      // still owns the hard-fail decision so existing tests stay green).
+      if (cfg.loopDetectionMode !== "off") {
+        for (const a of decision.actions ?? []) {
+          recentActionCalls.push(canonicaliseActionCall(a.name, a.params));
+        }
+        while (recentActionCalls.length > 8) recentActionCalls.shift();
+      }
 
       // Loop-detection bookkeeping.
       if (cfg.loopDetectionMode !== "off" && stepOutcome.actionResults.length > 0) {
@@ -204,6 +226,7 @@ async function runAgentInner<TData = unknown>(
           loopFingerprints,
           browserState,
           actionResults: stepOutcome.actionResults,
+          recentActionCalls,
           window: cfg.loopDetectionWindow,
           mode: cfg.loopDetectionMode,
           nudgesUsed: loopNudgesUsed,
@@ -265,11 +288,24 @@ async function runAgentInner<TData = unknown>(
 
       if (decision.done) {
         const success = decision.success ?? true;
+        const doneParams = (decision.actions[0]?.params ?? {}) as {
+          summary?: unknown;
+          data?: unknown;
+        };
+        const candidates = [
+          decision.summary,
+          typeof doneParams.summary === "string" ? doneParams.summary : undefined,
+          decision.thought,
+          decision.nextGoal,
+        ];
+        const summary =
+          candidates.find((s): s is string => typeof s === "string" && s.trim().length > 0) ??
+          "Agent signaled done.";
         return {
           success,
           reason: success ? "completed" : "failed",
-          summary: decision.summary ?? "Agent signaled done.",
-          data: null,
+          summary,
+          data: (doneParams.data ?? null) as never,
           steps: step,
         };
       }
@@ -305,11 +341,7 @@ interface ResolvedConfig {
 }
 
 function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
-  const loopDetectionMode: "nudge" | "strict" | "off" = (() => {
-    if (options.loopDetectionMode) return options.loopDetectionMode;
-    if (options.loopDetectionEnabled === false) return "off";
-    return "nudge";
-  })();
+  const loopDetectionMode = options.loopDetectionMode ?? "nudge";
   return {
     maxSteps: options.maxSteps ?? 40,
     stepTimeoutMs: coerceStepTimeoutMs(options.stepTimeoutMs),
@@ -329,7 +361,13 @@ function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
 
 function applyObservationPrefix(
   observation: string,
-  opts: { isLastStep: boolean; step: number; maxSteps: number; loopNotice: string | null },
+  opts: {
+    isLastStep: boolean;
+    step: number;
+    maxSteps: number;
+    loopNotice: string | null;
+    latestExtraction: string | null;
+  },
 ): string {
   const prefixes: string[] = [];
   if (opts.isLastStep) {
@@ -338,14 +376,19 @@ function applyObservationPrefix(
     );
   }
   if (opts.loopNotice) prefixes.push(opts.loopNotice);
+  if (opts.latestExtraction) {
+    prefixes.push(
+      `LATEST EXTRACTION (from your prior extract_content call):\n${opts.latestExtraction}`,
+    );
+  }
   return prefixes.length === 0 ? observation : `${prefixes.join("\n\n")}\n\n${observation}`;
 }
 
 async function runDecide<TData>(
   options: AgentOptions<TData>,
-  decideInput: DecisionInput,
+  decideInput: AgentInput,
   decisionTimeoutMs: number,
-): Promise<Decision> {
+): Promise<AgentOutput> {
   const parentSignal = combineSignals(options.signal, options.control?.signal);
   try {
     return await withRetry(
@@ -375,13 +418,20 @@ function handleLoopDetection(input: {
   loopFingerprints: string[];
   browserState: import("../browser/state").BrowserStateSummary;
   actionResults: Array<{ ok: boolean; message: string }>;
+  recentActionCalls: readonly string[];
   window: number;
   mode: "nudge" | "strict";
   nudgesUsed: number;
   nudgeBudget: number;
 }): LoopDetectionOutcome {
   const fingerprint = buildLoopFingerprint(input.browserState, input.actionResults);
-  input.loopFingerprints.push(fingerprint);
+  // Additionally fold in the canonicalised action-name signature of the
+  // latest step so that calls with identical params other than `index`
+  // do not bypass the legacy fingerprint just because the message text
+  // includes the index number.
+  const callSig = input.recentActionCalls.at(-1) ?? "";
+  const composite = `${fingerprint}|${callSig}`;
+  input.loopFingerprints.push(composite);
   if (input.loopFingerprints.length > input.window) input.loopFingerprints.shift();
 
   if (isRepeatingLoop(input.loopFingerprints, input.window)) {

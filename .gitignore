@@ -9,3 +9,5 @@ dist/
 docs/api/
 .tsbuildinfo
 .tsbuildinfo.build
+bench/results/*.json
+!bench/results/*.published.json

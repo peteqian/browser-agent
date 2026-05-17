@@ -1,13 +1,11 @@
 /**
- * Public consumer surface for `@browser-agent/core`.
+ * Public consumer surface for `@peteqian/browser-agent`.
  *
  * Implementation details (raw CDP, profile mgmt, DOM serializer, action
- * executor, prompt internals) live behind `@browser-agent/core/internal`
+ * executor, prompt internals) live behind `@peteqian/browser-agent/internal`
  * — that subpath has no stability guarantee.
  */
 
-export { Browser } from "./browser/browser";
-export type { BrowserOptions } from "./browser/browser";
 export { BrowserSession, Page } from "./browser/session";
 export type { NavigationHealthResult, NavigationHealthStatus } from "./browser/session";
 export type { BrowserPermission, BrowserPermissionGrant } from "./browser/profile";
@@ -32,8 +30,6 @@ export type { ActionContext, ActionDefinition } from "./actions/registry";
 export type { RegisteredAction } from "./actions/registry";
 
 export { AgentController, runAgent } from "./agent/loop";
-export { Agent } from "./agent/agent";
-export type { AgentProviderOptions, SimpleAgentOptions } from "./agent/agent";
 export { createCodexCliDecide } from "./agent/codexCliDecide";
 export type { CodexCliOptions } from "./agent/codexCliDecide";
 export { createCodexSdkDecide } from "./agent/codexSdkDecide";
@@ -47,13 +43,13 @@ export type { ElementInfo, ElementBBox, PageSnapshot } from "./dom/types";
 export type {
   AgentControl,
   AgentEvent,
-  AgentOptions,
   AgentInput,
+  AgentOptions,
   AgentOutput,
   AgentOutputAction,
   AgentResult,
-  GetNextActionFn,
   EnvId,
+  GetNextActionFn,
   OnEventCallback,
   StepInfo,
   TerminalReason,
@@ -63,6 +59,11 @@ export type {
   JudgeFn,
   ExtractionLLMFn,
 } from "./agent/contracts";
+
+export { Browser } from "./browser/browser";
+export type { BrowserOptions } from "./browser/browser";
+export { Agent } from "./agent/agent";
+export type { AgentProviderOptions, SimpleAgentOptions } from "./agent/agent";
 
 export {
   createOpenAIDecide,

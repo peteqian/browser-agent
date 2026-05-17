@@ -1,5 +1,3 @@
-import type { Decision, DecisionInput } from "../agent/contracts";
-
 /** Token counts reported by the model SDK. */
 export interface TokenUsage {
   inputTokens: number;
@@ -32,8 +30,3 @@ export interface LLMAdapterOptions {
   /** Max completion tokens (default: 4096). */
   maxTokens?: number;
 }
-
-/** Factory signature for creating a decide function. */
-export type DecideFactory = (
-  options: LLMAdapterOptions,
-) => (input: DecisionInput) => Promise<Decision>;

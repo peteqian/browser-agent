@@ -12,6 +12,7 @@ import {
   type BrowserOriginStorageState,
   type BrowserStorageState,
 } from "./storage-state";
+import { AUTO_CONSENT_INIT_SCRIPT } from "./auto-consent";
 import { STEALTH_INIT_SCRIPT } from "./session-helpers";
 import type { Page } from "./page";
 
@@ -152,21 +153,49 @@ export async function enableDomains(
     { source: STEALTH_INIT_SCRIPT },
     sessionId,
   );
-  if (profile.userAgent || profile.acceptLanguage) {
-    await client
-      .send(
-        "Emulation.setUserAgentOverride",
-        {
-          userAgent:
-            profile.userAgent ??
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-          acceptLanguage: profile.acceptLanguage,
-          platform: "MacIntel",
-        },
-        sessionId,
-      )
-      .catch(() => {});
+  if (profile.autoConsent) {
+    await client.send(
+      "Page.addScriptToEvaluateOnNewDocument",
+      { source: AUTO_CONSENT_INIT_SCRIPT },
+      sessionId,
+    );
   }
+  // Always override UA + UA-Client-Hints so we don't ship "HeadlessChrome"
+  // when running headless. Bot detectors compare UA against
+  // Sec-CH-UA headers and any inconsistency flips us to degraded layouts.
+  const defaultUserAgent =
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+  const userAgent = profile.userAgent ?? defaultUserAgent;
+  await client
+    .send(
+      "Emulation.setUserAgentOverride",
+      {
+        userAgent,
+        acceptLanguage: profile.acceptLanguage ?? "en-US,en;q=0.9",
+        platform: "MacIntel",
+        userAgentMetadata: {
+          brands: [
+            { brand: "Google Chrome", version: "131" },
+            { brand: "Chromium", version: "131" },
+            { brand: "Not_A Brand", version: "24" },
+          ],
+          fullVersionList: [
+            { brand: "Google Chrome", version: "131.0.6778.86" },
+            { brand: "Chromium", version: "131.0.6778.86" },
+            { brand: "Not_A Brand", version: "24.0.0.0" },
+          ],
+          platform: "macOS",
+          platformVersion: "14.5.0",
+          architecture: "arm",
+          model: "",
+          mobile: false,
+          bitness: "64",
+          wow64: false,
+        },
+      },
+      sessionId,
+    )
+    .catch(() => {});
   if (profile.locale) {
     await client
       .send("Emulation.setLocaleOverride", { locale: profile.locale }, sessionId)

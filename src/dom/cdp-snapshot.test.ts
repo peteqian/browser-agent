@@ -209,4 +209,92 @@ describe("captureCdpSnapshot", () => {
     expect(out.elements).toHaveLength(1);
     expect(out.elements[0]?.role).toBe("button");
   });
+
+  test("captures testId and dataAttrs", async () => {
+    const snapshot = buildSnapshot([
+      {
+        tag: "input",
+        backendNodeId: 1,
+        attributes: [
+          ["data-testid", "ss-input"],
+          ["data-analytics", "search-bar"],
+          ["placeholder", "Where are you going?"],
+        ],
+      },
+    ]);
+    const page = makePage({
+      "Accessibility.getFullAXTree": { nodes: [] },
+      "DOMSnapshot.captureSnapshot": snapshot,
+    });
+    const { snapshot: out } = await captureCdpSnapshot(page, withBudgetDefaults());
+    const el = out.elements[0];
+    expect(el?.testId).toBe("ss-input");
+    expect(el?.dataAttrs.analytics).toBe("search-bar");
+    expect(el?.stableHandle.kind).toBe("testid");
+    expect(el?.stableHandle.value).toBe('testid="ss-input"');
+  });
+
+  test("resolves labelText via <label for=id>", async () => {
+    const snapshot = buildSnapshot([
+      {
+        tag: "label",
+        backendNodeId: 100,
+        attributes: [["for", "email"]],
+        textInLayout: "Email address",
+      },
+      {
+        tag: "input",
+        backendNodeId: 101,
+        attributes: [
+          ["id", "email"],
+          ["type", "email"],
+        ],
+        paintOrder: 1,
+      },
+    ]);
+    const page = makePage({
+      "Accessibility.getFullAXTree": { nodes: [] },
+      "DOMSnapshot.captureSnapshot": snapshot,
+    });
+    const { snapshot: out } = await captureCdpSnapshot(page, withBudgetDefaults());
+    const input = out.elements.find((el) => el.tag === "input");
+    expect(input?.labelText).toBe("Email address");
+    expect(input?.stableHandle.kind).toBe("label");
+    expect(input?.stableHandle.value).toBe('label="Email address"');
+  });
+
+  test("stableHandle prefers role+name over href and text", async () => {
+    const snapshot = buildSnapshot([
+      {
+        tag: "button",
+        backendNodeId: 7,
+        attributes: [["aria-label", "Search"]],
+        textInLayout: "Search",
+      },
+    ]);
+    const page = makePage({
+      "Accessibility.getFullAXTree": {
+        nodes: [{ backendDOMNodeId: 7, role: { value: "button" }, name: { value: "Search" } }],
+      },
+      "DOMSnapshot.captureSnapshot": snapshot,
+    });
+    const { snapshot: out } = await captureCdpSnapshot(page, withBudgetDefaults());
+    expect(out.elements[0]?.stableHandle).toEqual({
+      kind: "role",
+      value: 'role=button name="Search"',
+    });
+  });
+
+  test("falls back to href handle for anchors with no role/name", async () => {
+    const snapshot = buildSnapshot([
+      { tag: "a", backendNodeId: 3, attributes: [["href", "/listings/123"]] },
+    ]);
+    const page = makePage({
+      "Accessibility.getFullAXTree": { nodes: [] },
+      "DOMSnapshot.captureSnapshot": snapshot,
+    });
+    const { snapshot: out } = await captureCdpSnapshot(page, withBudgetDefaults());
+    expect(out.elements[0]?.stableHandle.kind).toBe("href");
+    expect(out.elements[0]?.stableHandle.value).toBe('href="/listings/123"');
+  });
 });

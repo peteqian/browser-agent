@@ -3,13 +3,7 @@ import type { ActionRegistry } from "../actions/registry";
 import type { Action } from "../actions/types";
 import type { BrowserSession, Page } from "../browser/session";
 import type { BrowserStateSummary } from "../browser/state";
-import type {
-  AgentAction,
-  AgentOptions,
-  AgentResult,
-  Decision,
-  DecisionInput,
-} from "./contracts";
+import type { AgentAction, AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
 import { emitEvent } from "./emit";
 import { buildAbortedResult, buildStoppedResult, buildTerminalData } from "./terminal-result";
 import { combineSignals, executeActionWithTimeout } from "./timeouts";
@@ -18,6 +12,8 @@ export interface StepOutcome<TData> {
   page: Page;
   actionResults: Array<{ ok: boolean; message: string }>;
   terminalResult: AgentResult<TData> | null;
+  /** Latest extract_content output from this step, if any — surfaced to the next observation. */
+  latestExtraction?: string;
 }
 
 export async function checkInterrupt<TData>(
@@ -38,14 +34,15 @@ export async function checkInterrupt<TData>(
 export async function runActions<TData>(input: {
   options: AgentOptions<TData>;
   actionRegistry: ActionRegistry;
-  decision: Decision;
-  decideInput: DecisionInput;
+  decision: AgentOutput;
+  decideInput: AgentInput;
   page: Page;
   session: BrowserSession | undefined;
   step: number;
   browserState: BrowserStateSummary;
   actionTimeoutMs: number;
   actionHistory: Array<{ action: string; result: string }>;
+  focusState?: import("./focus-state").FocusState;
 }): Promise<StepOutcome<TData>> {
   const {
     options,
@@ -62,6 +59,7 @@ export async function runActions<TData>(input: {
 
   const actions = decision.actions ?? [];
   const actionResults: Array<{ ok: boolean; message: string }> = [];
+  let latestExtraction: string | undefined;
 
   for (const rawAction of actions) {
     const interrupt = await checkInterrupt(options, step);
@@ -91,6 +89,12 @@ export async function runActions<TData>(input: {
         options.sensitiveData,
         options.newTabDetectMs,
         options.extractionLLM,
+        {
+          focusState: input.focusState,
+          snapshotElements: browserState.elements,
+          currentStep: step,
+          currentUrl: browserState.url,
+        },
       );
     } finally {
       parentSignal.cleanup();
@@ -98,6 +102,13 @@ export async function runActions<TData>(input: {
 
     actionResults.push({ ok: result.ok, message: result.message });
     if (result.activeTargetId && session) page = session.getPage(result.activeTargetId);
+    if (
+      action.name === "extract_content" &&
+      typeof result.extractedContent === "string" &&
+      result.extractedContent.length > 0
+    ) {
+      latestExtraction = result.extractedContent;
+    }
 
     const stepInfo = {
       step,
@@ -121,15 +132,29 @@ export async function runActions<TData>(input: {
       options,
       step,
     });
-    if (terminal) return { page, actionResults, terminalResult: terminal };
+    if (terminal) return { page, actionResults, terminalResult: terminal, latestExtraction };
+
+    // Multi-action safety: if the action navigated to a new URL or attached
+    // a new tab, abandon the rest of the intra-step batch and force a fresh
+    // observation on the next step. Locators planned against the old DOM
+    // are now invalid.
+    if (
+      result.activeTargetId ||
+      action.name === "navigate" ||
+      action.name === "go_back" ||
+      action.name === "go_forward" ||
+      action.name === "refresh"
+    ) {
+      break;
+    }
   }
 
-  return { page, actionResults, terminalResult: null };
+  return { page, actionResults, terminalResult: null, latestExtraction };
 }
 
 async function maybeTerminal<TData>(input: {
   action: AgentAction;
-  decideInput: DecisionInput;
+  decideInput: AgentInput;
   result: ActionResult;
   options: AgentOptions<TData>;
   step: number;
@@ -155,7 +180,7 @@ async function maybeTerminal<TData>(input: {
 
 async function resolveDoneTerminal<TData>(input: {
   action: AgentAction;
-  decideInput: DecisionInput;
+  decideInput: AgentInput;
   options: AgentOptions<TData>;
   step: number;
 }): Promise<AgentResult<TData>> {

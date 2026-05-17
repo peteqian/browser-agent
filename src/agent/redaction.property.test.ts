@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { BrowserSession, Page } from "../browser/session";
-import type { AgentEvent, DecisionInput, StepInfo } from "./contracts";
+import type { AgentEvent, AgentInput, StepInfo } from "./contracts";
 import { runAgent } from "./loop";
 
 /**
@@ -9,7 +9,7 @@ import { runAgent } from "./loop";
  * that `<secret>KEY</secret>` substitution never leaks the real value into:
  *  - StepInfo seen by `onStep`
  *  - AgentEvent stream seen by `onEvent`
- *  - DecisionInput.history surfaced to the model on the next step
+ *  - AgentInput.history surfaced to the model on the next step
  *  - the final AgentResult
  *
  * The fake `typeByBackendNodeId` records the value it actually receives so we
@@ -110,7 +110,7 @@ describe("redaction property: sensitive values never leak past the action execut
       const received: { text?: string } = {};
       const steps: StepInfo[] = [];
       const events: AgentEvent[] = [];
-      const decisions: DecisionInput[] = [];
+      const decisions: AgentInput[] = [];
 
       const result = await runAgent({
         task: `log in with <secret>${key}</secret>`,
@@ -173,7 +173,7 @@ describe("redaction property: sensitive values never leak past the action execut
       const placeholder = `<secret>${key}</secret>`;
       expect(serializedSteps).toContain(placeholder);
       expect(serializedEvents).toContain(placeholder);
-      // Step-2 DecisionInput.history records the prior action with placeholder
+      // Step-2 AgentInput.history records the prior action with placeholder
       // intact.
       expect(serializedDecisions).toContain(placeholder);
     });

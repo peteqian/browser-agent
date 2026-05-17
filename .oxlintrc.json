@@ -1,0 +1,13 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "no-underscore-dangle": ["error", { "allow": ["_meta"] }],
+    "unicorn/consistent-function-scoping": "off"
+  },
+  "ignorePatterns": ["dist", "node_modules", ".tsbuildinfo*", "docs/api"]
+}

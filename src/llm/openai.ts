@@ -2,12 +2,12 @@ import OpenAI from "openai";
 
 import { buildDecisionUserPrompt } from "../agent/loop";
 import { SYSTEM_PROMPT } from "../agent/prompts";
-import type { Decision, DecisionInput } from "../agent/contracts";
+import type { AgentInput, AgentOutput } from "../agent/contracts";
 import type { LLMAdapterOptions } from "./types";
 import { buildTelemetry } from "./telemetry";
 import { decisionJsonSchema, validateDecision } from "./decisionSchema";
 
-function buildUserContent(input: DecisionInput): Array<
+function buildUserContent(input: AgentInput): Array<
   | {
       type: "input_text";
       text: string;
@@ -43,11 +43,11 @@ function buildUserContent(input: DecisionInput): Array<
  *
  * Uses `response_format: { type: "json_schema" }` for reliable structured
  * output. The model receives the system prompt plus the per-step observation
- * and must return a valid Decision object.
+ * and must return a valid AgentOutput object.
  */
 export function createOpenAIDecide(
   options: LLMAdapterOptions,
-): (input: DecisionInput, signal?: AbortSignal) => Promise<Decision> {
+): (input: AgentInput, signal?: AbortSignal) => Promise<AgentOutput> {
   const client = new OpenAI({
     apiKey: options.apiKey,
     baseURL: options.baseURL,
@@ -58,7 +58,7 @@ export function createOpenAIDecide(
   const temperature = options.temperature ?? 0.2;
   const maxTokens = options.maxTokens ?? 4096;
 
-  return async (input: DecisionInput, signal?: AbortSignal): Promise<Decision> => {
+  return async (input: AgentInput, signal?: AbortSignal): Promise<AgentOutput> => {
     const startedAt = Date.now();
 
     const response = await client.responses.parse(

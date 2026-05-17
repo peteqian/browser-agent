@@ -1,4 +1,4 @@
-import type { DecisionInput } from "./contracts";
+import type { AgentInput } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
 
 /**
@@ -7,7 +7,7 @@ import { SYSTEM_PROMPT } from "./prompts";
  * Keeping prompt assembly centralized makes the CLI, server, and future
  * adapters share the same decision contract.
  */
-export function buildDecisionPrompt(input: DecisionInput): string {
+export function buildDecisionPrompt(input: AgentInput): string {
   return `${SYSTEM_PROMPT}
 
 ${buildDecisionUserPrompt(input)}`;
@@ -17,7 +17,7 @@ ${buildDecisionUserPrompt(input)}`;
  * Formats the user-message prompt for structured-output adapters that already
  * pass `SYSTEM_PROMPT` through the SDK's dedicated system/systemPrompt field.
  */
-export function buildDecisionUserPrompt(input: DecisionInput): string {
+export function buildDecisionUserPrompt(input: AgentInput): string {
   const historyBlock =
     input.history.length === 0
       ? "(none)"

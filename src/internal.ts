@@ -1,7 +1,7 @@
 /**
  * Internal exports — implementation details that escape the package boundary
  * but are not part of the stable consumer API. May change without bumping the
- * minor version. Use `@browser-agent/core/internal` to opt in.
+ * minor version. Use `@peteqian/browser-agent/internal` to opt in.
  */
 
 export { CDPClient } from "./cdp/client";

@@ -38,9 +38,9 @@ try {
 
     let newLinks = 0;
     for (const match of chunk.content.matchAll(linkRegex)) {
-      const url = match[1];
-      if (url && !collected.has(url)) {
-        collected.add(url);
+      const link = match[1];
+      if (link && !collected.has(link)) {
+        collected.add(link);
         newLinks += 1;
       }
     }

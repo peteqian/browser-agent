@@ -1,11 +1,11 @@
 # SDK guide
 
-`@browser-agent/core` is consumable as a library from any Node.js or Bun program.
+`@peteqian/browser-agent` is consumable as a library from any Node.js or Bun program.
 
 ## Minimal example
 
 ```ts
-import { createDecide, runAgent } from "@browser-agent/core";
+import { createDecide, runAgent } from "@peteqian/browser-agent";
 
 const { decide, resolution } = createDecide({ provider: "codex" });
 
@@ -28,7 +28,7 @@ console.log(result);
 Skip `createDecide` if you want explicit control:
 
 ```ts
-import { createOpenAIDecide, runAgent } from "@browser-agent/core";
+import { createOpenAIDecide, runAgent } from "@peteqian/browser-agent";
 
 const decide = createOpenAIDecide({
   model: "gpt-4.1-mini",
@@ -46,7 +46,7 @@ Pass a Zod schema and the loop validates the model's `done(data=...)` payload, n
 
 ```ts
 import { z } from "zod";
-import { createDecide, runAgent } from "@browser-agent/core";
+import { createDecide, runAgent } from "@peteqian/browser-agent";
 
 const schema = z.object({
   jobs: z.array(z.object({ title: z.string(), url: z.string().url() })),
@@ -114,7 +114,7 @@ await runAgent({ task: "...", decide, signal: controller.signal });
 
 ```ts
 // Cooperative — pause / resume / stop.
-import { AgentController } from "@browser-agent/core";
+import { AgentController } from "@peteqian/browser-agent";
 
 const control = new AgentController();
 const promise = runAgent({ task: "...", decide, control });
@@ -133,7 +133,7 @@ When `control.stop()` is called or `signal` aborts, the loop terminates at the n
 By default `runAgent` launches and tears down a Chrome process. To keep a session alive across runs:
 
 ```ts
-import { BrowserSession, runAgent } from "@browser-agent/core";
+import { BrowserSession, runAgent } from "@peteqian/browser-agent";
 
 const session = await BrowserSession.launch({ headless: true });
 const page = await session.newPage();
@@ -161,10 +161,10 @@ See [Transports guide](./transports.md) for the full priority chain.
 ## Versioning
 
 ```ts
-import { VERSION, PACKAGE_NAME } from "@browser-agent/core";
+import { VERSION, PACKAGE_NAME } from "@peteqian/browser-agent";
 console.log(`${PACKAGE_NAME} ${VERSION}`);
 ```
 
 ## Internals
 
-`@browser-agent/core/internal` exposes raw CDP, DOM serialization, action schemas, and the prompt builder. These have no stability guarantee and may change without a minor version bump.
+`@peteqian/browser-agent/internal` exposes raw CDP, DOM serialization, action schemas, and the prompt builder. These have no stability guarantee and may change without a minor version bump.

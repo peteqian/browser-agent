@@ -1,5 +1,3 @@
-// Ported from browser-use (Python) chrome flag sets.
-// https://github.com/browser-use/browser-use/blob/main/browser_use/browser/profile.py
 // These flags suppress anti-automation fingerprints, reduce background noise,
 // and keep the browser stable under aggressive CDP use.
 

@@ -1,7 +1,7 @@
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
-import type { Decision, DecisionInput } from "./contracts";
+import type { AgentInput, AgentOutput } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
 import { buildFreeformDecisionPrompt, parseDecision } from "./parseDecision";
 import { spawnChildWithSignal } from "./spawnChild";
@@ -21,7 +21,7 @@ export interface CodexCliOptions {
 // via apps/server/src/lib/codex.ts::createCodexThread.
 export function createCodexCliDecide(
   options: CodexCliOptions,
-): (input: DecisionInput, signal?: AbortSignal) => Promise<Decision> {
+): (input: AgentInput, signal?: AbortSignal) => Promise<AgentOutput> {
   return async (input, signal) => {
     const prompt = `${SYSTEM_PROMPT}\n\n${buildFreeformDecisionPrompt(input)}`;
     const raw = await callCodex({

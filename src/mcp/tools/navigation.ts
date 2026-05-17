@@ -6,15 +6,16 @@ import { jsonResult } from "../helpers";
 import { getSession, setCurrentPage } from "../sessions";
 
 export function registerNavigationTools(server: McpServer): void {
-  server.registerTool(
+  const registerTool = server.registerTool.bind(server) as ToolRegistrar;
+  registerTool(
     "navigate",
     {
       description: "Navigate to a URL.",
-      inputSchema: z.object({
+      inputSchema: {
         sessionId: z.string(),
         url: z.string().url(),
         newTab: z.boolean().optional(),
-      }),
+      },
     },
     async ({ sessionId, url, newTab }) => {
       const record = getSession(sessionId);
@@ -28,11 +29,11 @@ export function registerNavigationTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "go_back",
     {
       description: "Navigate back in browser history.",
-      inputSchema: z.object({ sessionId: z.string() }),
+      inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
       const { page } = getSession(sessionId);
@@ -40,11 +41,11 @@ export function registerNavigationTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "go_forward",
     {
       description: "Navigate forward in browser history.",
-      inputSchema: z.object({ sessionId: z.string() }),
+      inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
       const { page } = getSession(sessionId);
@@ -52,11 +53,11 @@ export function registerNavigationTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "refresh",
     {
       description: "Refresh current page.",
-      inputSchema: z.object({ sessionId: z.string() }),
+      inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
       const { page } = getSession(sessionId);
@@ -64,3 +65,9 @@ export function registerNavigationTools(server: McpServer): void {
     },
   );
 }
+
+type ToolRegistrar = (
+  name: string,
+  config: { description?: string; inputSchema?: Record<string, z.ZodTypeAny> },
+  cb: (args: any, extra: any) => unknown,
+) => void;

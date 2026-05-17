@@ -36,6 +36,8 @@ export interface BrowserProfileInit {
   permissionGrants?: BrowserPermissionGrant[];
   storageStatePath?: string;
   saveStorageStateOnClose?: boolean;
+  /** Inject an init script that auto-dismisses common cookie/consent banners. Default: false. */
+  autoConsent?: boolean;
 }
 
 export class BrowserProfile {
@@ -66,6 +68,7 @@ export class BrowserProfile {
   permissionGrants: BrowserPermissionGrant[];
   storageStatePath: string | undefined;
   saveStorageStateOnClose: boolean;
+  autoConsent: boolean;
 
   constructor(init: BrowserProfileInit = {}) {
     this.cdpUrl = init.cdpUrl;
@@ -99,6 +102,7 @@ export class BrowserProfile {
       })) ?? [];
     this.storageStatePath = init.storageStatePath;
     this.saveStorageStateOnClose = init.saveStorageStateOnClose ?? Boolean(init.storageStatePath);
+    this.autoConsent = init.autoConsent ?? false;
   }
 
   isRemoteConnection(): boolean {

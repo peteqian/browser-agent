@@ -38,9 +38,7 @@ export async function handleGoBack(ctx: HandlerContext): Promise<ActionResult> {
 
 export async function handleGoForward(ctx: HandlerContext): Promise<ActionResult> {
   const wentForward = await ctx.page.goForward();
-  return wentForward
-    ? ok("Navigated forward")
-    : fail("Cannot go forward — no next history entry");
+  return wentForward ? ok("Navigated forward") : fail("Cannot go forward — no next history entry");
 }
 
 export async function handleRefresh(ctx: HandlerContext): Promise<ActionResult> {

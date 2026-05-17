@@ -157,6 +157,80 @@ export const extractContentAction = z.object({
   schemaJson: z.string().max(8_000).optional(),
 });
 
+export const locatorSchema = z
+  .object({
+    role: z.string().min(1).max(40).optional(),
+    name: z.string().min(1).max(200).optional(),
+    text: z.string().min(1).max(200).optional(),
+    testid: z.string().min(1).max(120).optional(),
+    label: z.string().min(1).max(200).optional(),
+    placeholder: z.string().min(1).max(200).optional(),
+    href: z.string().min(1).max(400).optional(),
+    /** Cross-snapshot stable identifier; reuse one from a previous observation when re-targeting the same conceptual element. */
+    stableId: z
+      .string()
+      .regex(/^[0-9a-f]{8}$/)
+      .optional(),
+    dataAttr: z
+      .object({
+        key: z.string().min(1).max(60),
+        value: z.string().min(1).max(200),
+      })
+      .optional(),
+    nth: z.number().int().nonnegative().optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (
+      !value.role &&
+      !value.text &&
+      !value.testid &&
+      !value.label &&
+      !value.placeholder &&
+      !value.href &&
+      !value.stableId &&
+      !value.dataAttr
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message:
+          "locator requires at least one of: role, text, testid, label, placeholder, href, dataAttr",
+      });
+    }
+    if (value.name && !value.role) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "`name` is only meaningful when `role` is also set",
+      });
+    }
+  });
+
+export const clickByAction = z.object({
+  locator: locatorSchema,
+});
+
+export const typeByAction = z.object({
+  locator: locatorSchema,
+  text: z.string(),
+  submit: z.boolean().optional(),
+  mode: z.enum(["replace", "append"]).default("replace"),
+});
+
+export const selectByAction = z.object({
+  locator: locatorSchema,
+  value: z.string().min(1),
+});
+
+export const focusAreaAction = z.object({
+  query: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      "Natural-language description of the page region to focus on (e.g. 'search form', 'results list', 'sort dropdown'). Pass empty/'clear' to drop focus.",
+    ),
+  clear: z.boolean().optional(),
+});
+
 export const doneAction = z.object({
   success: z.boolean(),
   summary: z.string(),
@@ -187,6 +261,10 @@ export const actionSchemas = {
   screenshot: screenshotAction,
   save_as_pdf: saveAsPdfAction,
   extract_content: extractContentAction,
+  focus_area: focusAreaAction,
+  click_by: clickByAction,
+  type_by: typeByAction,
+  select_by: selectByAction,
   done: doneAction,
 } as const;
 
@@ -216,4 +294,8 @@ export type Action =
   | { name: "screenshot"; params: z.infer<typeof screenshotAction> }
   | { name: "save_as_pdf"; params: z.infer<typeof saveAsPdfAction> }
   | { name: "extract_content"; params: z.infer<typeof extractContentAction> }
+  | { name: "focus_area"; params: z.infer<typeof focusAreaAction> }
+  | { name: "click_by"; params: z.infer<typeof clickByAction> }
+  | { name: "type_by"; params: z.infer<typeof typeByAction> }
+  | { name: "select_by"; params: z.infer<typeof selectByAction> }
   | { name: "done"; params: z.infer<typeof doneAction> };

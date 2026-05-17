@@ -1,6 +1,6 @@
 import type { DomBudgetOptions, SelectorMap } from "../dom/cdp-snapshot";
 import { formatSnapshotForLLM, serializePage } from "../dom/serialize";
-import type { ElementInfo, PageSnapshot } from "../dom/types";
+import type { ElementBBox, ElementInfo, PageSnapshot } from "../dom/types";
 import type { BrowserSession, Page, PendingNetworkRequest } from "./session";
 
 export interface ScreenshotState {
@@ -35,6 +35,10 @@ export interface BrowserStateOptions {
   includeScreenshot?: boolean;
   screenshotDetail?: "auto" | "low" | "high";
   domBudgets?: DomBudgetOptions;
+  /** When set, the LLM observation only lists elements that overlap this bbox. */
+  focusBbox?: ElementBBox;
+  /** Human-readable label printed above the focused observation. */
+  focusReason?: string;
 }
 
 export async function captureBrowserState(
@@ -56,7 +60,14 @@ export async function captureBrowserState(
       )
     : undefined;
 
-  const observation = buildObservation(snapshot, pendingRequests, screenshot, options.domBudgets);
+  const observation = buildObservation(
+    snapshot,
+    pendingRequests,
+    screenshot,
+    options.domBudgets,
+    options.focusBbox,
+    options.focusReason,
+  );
 
   return {
     url: snapshot.url,
@@ -73,11 +84,18 @@ export async function captureBrowserState(
   };
 }
 
+function bboxOverlaps(a: ElementBBox, b: ElementBBox): boolean {
+  if (a.w <= 0 || a.h <= 0) return false;
+  return !(a.x + a.w < b.x || b.x + b.w < a.x || a.y + a.h < b.y || b.y + b.h < a.y);
+}
+
 function buildObservation(
   snapshot: PageSnapshot,
   pendingRequests: PendingNetworkRequest[],
   screenshot: ScreenshotState | undefined,
   budgets: DomBudgetOptions | undefined,
+  focusBbox: ElementBBox | undefined,
+  focusReason: string | undefined,
 ): string {
   const pendingSummary =
     pendingRequests.length === 0
@@ -89,7 +107,24 @@ function buildObservation(
     ? `SCREENSHOT: image/png ${screenshot.width}x${screenshot.height} detail=${screenshot.detail}`
     : "SCREENSHOT: not captured";
 
-  return `${formatSnapshotForLLM(snapshot, budgets)}\n${pendingSummary}\n${screenshotSummary}`;
+  let body: string;
+  if (focusBbox) {
+    const fullCount = snapshot.elements.length;
+    const focused: PageSnapshot = {
+      ...snapshot,
+      elements: snapshot.elements.filter((el) => bboxOverlaps(el.bbox, focusBbox)),
+    };
+    const header =
+      `FOCUS ACTIVE${focusReason ? `: ${focusReason}` : ""}` +
+      ` — bbox(${Math.round(focusBbox.x)},${Math.round(focusBbox.y)},${Math.round(focusBbox.w)}×${Math.round(focusBbox.h)}); ` +
+      `showing ${focused.elements.length}/${fullCount} elements that overlap focus. ` +
+      `Call focus_area(clear=true) to see the whole page again.`;
+    body = `${header}\n${formatSnapshotForLLM(focused, budgets)}`;
+  } else {
+    body = formatSnapshotForLLM(snapshot, budgets);
+  }
+
+  return `${body}\n${pendingSummary}\n${screenshotSummary}`;
 }
 
 async function readViewport(page: Page): Promise<{ width: number; height: number }> {

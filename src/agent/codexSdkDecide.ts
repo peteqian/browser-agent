@@ -1,6 +1,6 @@
 import { Codex, type ModelReasoningEffort } from "@openai/codex-sdk";
 
-import type { Decision, DecisionInput } from "./contracts";
+import type { AgentInput, AgentOutput } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
 import { buildFreeformDecisionPrompt, parseDecision } from "./parseDecision";
 import { buildTelemetry } from "../llm/telemetry";
@@ -30,7 +30,7 @@ const VALID_EFFORTS: readonly ModelReasoningEffort[] = [
  */
 export function createCodexSdkDecide(
   options: CodexSdkOptions,
-): (input: DecisionInput, signal?: AbortSignal) => Promise<Decision> {
+): (input: AgentInput, signal?: AbortSignal) => Promise<AgentOutput> {
   const codex = new Codex({
     ...(options.apiKey ? { apiKey: options.apiKey } : {}),
     ...(options.baseUrl ? { baseUrl: options.baseUrl } : {}),

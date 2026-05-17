@@ -1,4 +1,4 @@
-import WebSocket from "ws";
+import { WebSocket } from "ws";
 import type ProtocolMapping from "devtools-protocol/types/protocol-mapping";
 
 type PendingRequest = {

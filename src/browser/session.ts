@@ -394,6 +394,7 @@ function createProfile(options: BrowserSessionOptions): BrowserProfile {
           storageStatePath: launch.storageStatePath ?? options.profile?.storageStatePath,
           saveStorageStateOnClose:
             launch.saveStorageStateOnClose ?? options.profile?.saveStorageStateOnClose,
+          autoConsent: launch.autoConsent ?? options.profile?.autoConsent,
         }
       : {}),
     cdpUrl: options.cdpUrl ?? options.profile?.cdpUrl,

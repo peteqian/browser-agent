@@ -75,11 +75,8 @@ export async function navigateWithHealthCheck(
   url: string,
 ): Promise<NavigationHealthResult> {
   const startedAt = Date.now();
-  const finish = (input: {
-    ok: boolean;
-    status: NavigationHealthStatus;
-    warning?: string;
-  }) => finishNavigationHealth(page, { ...input, url, startedAt });
+  const finish = (input: { ok: boolean; status: NavigationHealthStatus; warning?: string }) =>
+    finishNavigationHealth(page, { ...input, url, startedAt });
 
   try {
     await goto(page, url);

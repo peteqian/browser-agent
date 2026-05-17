@@ -34,7 +34,7 @@ try {
     "tools:",
     tools.tools
       .map((t) => t.name)
-      .sort()
+      .toSorted()
       .join(", "),
   );
 

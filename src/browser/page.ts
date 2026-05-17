@@ -242,11 +242,7 @@ export class Page {
   uploadFilesByBackendNodeId(backendNodeId: number, filePaths: string[]) {
     return uploadFilesByBackendNodeId(this, backendNodeId, filePaths);
   }
-  scroll(
-    direction: "up" | "down" | "top" | "bottom",
-    amount?: number,
-    backendNodeId?: number,
-  ) {
+  scroll(direction: "up" | "down" | "top" | "bottom", amount?: number, backendNodeId?: number) {
     return scroll(this, direction, amount, backendNodeId);
   }
   scrollByPages(

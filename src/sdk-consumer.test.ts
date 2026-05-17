@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { BrowserSession, runAgent, type DecideFn, type Page, type StepInfo } from "./index";
+import { BrowserSession, runAgent, type GetNextActionFn, type Page, type StepInfo } from "./index";
 
 const testSessions = new Set<{ close: () => Promise<void>; closed: boolean }>();
 
@@ -53,7 +53,7 @@ describe("public SDK consumer", () => {
   test("can run an agent from the public entry point and close the browser", async () => {
     let closed = false;
     const steps: StepInfo[] = [];
-    const decide: DecideFn = async (input) => {
+    const decide: GetNextActionFn = async (input) => {
       expect(input.task).toBe("Use the SDK and close the browser");
       expect(input.activeTab).toBe("page-1");
       return {

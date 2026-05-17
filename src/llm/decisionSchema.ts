@@ -1,7 +1,7 @@
-import type { Decision } from "../agent/contracts";
+import type { AgentOutput } from "../agent/contracts";
 
 /**
- * JSON Schema describing the Decision shape for structured-output APIs
+ * JSON Schema describing the AgentOutput shape for structured-output APIs
  * (OpenAI `response_format: json_schema`, Anthropic `output_config`).
  *
  * Kept relaxed (no strict mode) because `params` has a dynamic shape that
@@ -45,13 +45,13 @@ export const decisionJsonSchema = {
 } as const;
 
 /**
- * Validate a parsed structured-output payload as a Decision. Used by
+ * Validate a parsed structured-output payload as an AgentOutput. Used by
  * adapters whose SDK returns already-parsed JSON (OpenAI, Anthropic).
  *
  * Throws with a specific message describing which field violated the
  * contract so adapter errors stay actionable.
  */
-export function validateDecision(raw: unknown): Decision {
+export function validateDecision(raw: unknown): AgentOutput {
   if (!raw || typeof raw !== "object") {
     throw new Error("Decision is not an object");
   }

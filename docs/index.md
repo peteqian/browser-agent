@@ -1,4 +1,4 @@
-# @browser-agent/core
+# @peteqian/browser-agent
 
 A TypeScript browser-automation agent. Drives Chrome via raw Chrome DevTools Protocol, asks an LLM what to do at each step, executes the chosen action.
 
@@ -40,4 +40,4 @@ The browser is real Chrome (headed or headless), not a synthetic emulator.
 
 ## Status
 
-Pre-1.0. Public types in `src/index.ts` are stable in spirit; internals under `@browser-agent/core/internal` may change without a minor bump.
+Pre-1.0. Public types in `src/index.ts` are stable in spirit; internals under `@peteqian/browser-agent/internal` may change without a minor bump.

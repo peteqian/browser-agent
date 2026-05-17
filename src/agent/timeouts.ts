@@ -2,7 +2,9 @@ import type { ActionResult } from "../actions/execute";
 import type { ActionRegistry } from "../actions/registry";
 import type { BrowserSession, Page } from "../browser/session";
 import type { SelectorMap } from "../dom/cdp-snapshot";
-import type { AgentAction, Decision, DecisionInput, ExtractionLLMFn } from "./contracts";
+import type { ElementInfo } from "../dom/types";
+import type { AgentAction, AgentInput, AgentOutput, ExtractionLLMFn } from "./contracts";
+import type { FocusState } from "./focus-state";
 
 export async function withRejectingTimeout<T>(
   promise: Promise<T>,
@@ -29,12 +31,12 @@ export async function withRejectingTimeout<T>(
  * decide call is also aborted.
  */
 export async function withDecideTimeout(
-  decide: (input: DecisionInput, signal: AbortSignal) => Promise<Decision>,
-  input: DecisionInput,
+  decide: (input: AgentInput, signal: AbortSignal) => Promise<AgentOutput>,
+  input: AgentInput,
   timeoutMs: number,
   message: string,
   parentSignal?: AbortSignal,
-): Promise<Decision> {
+): Promise<AgentOutput> {
   const controller = new AbortController();
   const onParentAbort = () => controller.abort(parentSignal?.reason);
   if (parentSignal) {
@@ -43,7 +45,7 @@ export async function withDecideTimeout(
   }
 
   let timeout: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<Decision>((_, reject) => {
+  const timeoutPromise = new Promise<AgentOutput>((_, reject) => {
     timeout = setTimeout(() => {
       controller.abort();
       reject(new Error(message));
@@ -58,6 +60,13 @@ export async function withDecideTimeout(
   }
 }
 
+export interface ExecuteActionTimeoutExtras {
+  focusState?: FocusState;
+  snapshotElements?: readonly ElementInfo[];
+  currentStep?: number;
+  currentUrl?: string;
+}
+
 export async function executeActionWithTimeout(
   page: Page,
   action: AgentAction,
@@ -69,6 +78,7 @@ export async function executeActionWithTimeout(
   sensitiveData: Record<string, string> | undefined,
   newTabDetectMs: number | undefined,
   extractionLLM: ExtractionLLMFn | undefined,
+  extras?: ExecuteActionTimeoutExtras,
 ): Promise<ActionResult> {
   const controller = new AbortController();
   const onParentAbort = () => controller.abort(parentSignal?.reason);
@@ -88,6 +98,10 @@ export async function executeActionWithTimeout(
         sensitiveData,
         newTabDetectMs,
         extractionLLM,
+        focusState: extras?.focusState,
+        snapshotElements: extras?.snapshotElements,
+        currentStep: extras?.currentStep,
+        currentUrl: extras?.currentUrl,
       }),
       new Promise<ActionResult>((resolve) => {
         timeout = setTimeout(() => {

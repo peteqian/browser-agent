@@ -17,9 +17,12 @@ import {
 import {
   handleClick,
   handleScroll,
+  handleClickBy,
+  handleSelectBy,
   handleSelectOption,
   handleSendKeys,
   handleType,
+  handleTypeBy,
   handleUploadFile,
   handleWait,
   handleWaitForText,
@@ -29,13 +32,23 @@ import {
   handleExtractContent,
   handleFindElements,
   handleFindText,
+  handleFocusArea,
   handleGetDropdownOptions,
   handleSaveAsPdf,
   handleScreenshot,
   handleSearchPage,
 } from "./handlers/extraction";
+import type { FocusState } from "../agent/focus-state";
+import type { ElementInfo } from "../dom/types";
 
 export type { ActionResult } from "./handlers/shared";
+
+export interface ExecuteActionExtras {
+  focusState?: FocusState;
+  snapshotElements?: readonly ElementInfo[];
+  currentStep?: number;
+  currentUrl?: string;
+}
 
 export async function executeAction(
   page: Page,
@@ -46,6 +59,7 @@ export async function executeAction(
   sensitiveData?: Record<string, string>,
   newTabDetectMs?: number,
   extractionLLM?: ExtractionLLMFn,
+  extras?: ExecuteActionExtras,
 ): Promise<ActionResult> {
   if (signal?.aborted) {
     return fail(`Action ${action.name} aborted before execution`);
@@ -59,6 +73,10 @@ export async function executeAction(
     sensitiveData,
     newTabDetectMs,
     extractionLLM,
+    focusState: extras?.focusState,
+    snapshotElements: extras?.snapshotElements,
+    currentStep: extras?.currentStep,
+    currentUrl: extras?.currentUrl,
   };
 
   try {
@@ -109,8 +127,20 @@ export async function executeAction(
         return await handleSaveAsPdf(ctx, action);
       case "extract_content":
         return await handleExtractContent(ctx, action);
+      case "focus_area":
+        return handleFocusArea(ctx, action);
+      case "click_by":
+        return await handleClickBy(ctx, action);
+      case "type_by":
+        return await handleTypeBy(ctx, action);
+      case "select_by":
+        return await handleSelectBy(ctx, action);
       case "done":
         return handleDone(ctx, action);
+      default: {
+        const exhaustive: never = action;
+        return fail(`Unknown action: ${JSON.stringify(exhaustive)}`);
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

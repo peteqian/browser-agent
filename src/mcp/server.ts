@@ -7,6 +7,7 @@ import { registerExtractionTools } from "./tools/extraction";
 import { registerInteractionTools } from "./tools/interaction";
 import { registerNavigationTools } from "./tools/navigation";
 import { registerSessionTools } from "./tools/session";
+import { shutdownAllSessions } from "./sessions";
 
 export {
   recordArtifact,
@@ -27,8 +28,40 @@ export function createServer(): McpServer {
   return server;
 }
 
-export async function runStdioServer(): Promise<void> {
+export interface RunStdioServerHandle {
+  /** Resolves once the transport closes (client disconnect or stdin EOF). */
+  readonly closed: Promise<void>;
+  /** Force-close the transport and dispose any live browser sessions. */
+  dispose: () => Promise<void>;
+}
+
+export async function runStdioServer(): Promise<RunStdioServerHandle> {
   const server = createServer();
   const transport = new StdioServerTransport();
+
+  let disposed = false;
+  let resolveClosed: () => void = () => {};
+  const closed = new Promise<void>((resolve) => {
+    resolveClosed = resolve;
+  });
+
+  const dispose = async (): Promise<void> => {
+    if (disposed) return;
+    disposed = true;
+    try {
+      await transport.close();
+    } catch {
+      // transport may already be closed
+    }
+    await shutdownAllSessions();
+    resolveClosed();
+  };
+
+  // oxlint-disable-next-line prefer-add-event-listener
+  transport.onclose = () => {
+    void dispose();
+  };
+
   await server.connect(transport);
+  return { closed, dispose };
 }

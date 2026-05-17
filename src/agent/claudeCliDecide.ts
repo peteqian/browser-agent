@@ -1,4 +1,4 @@
-import type { Decision, DecisionInput } from "./contracts";
+import type { AgentInput, AgentOutput } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
 import { buildFreeformDecisionPrompt, parseDecision } from "./parseDecision";
 import { spawnChildWithSignal } from "./spawnChild";
@@ -20,7 +20,7 @@ export interface ClaudeCliOptions {
  */
 export function createClaudeCliDecide(
   options: ClaudeCliOptions,
-): (input: DecisionInput, signal?: AbortSignal) => Promise<Decision> {
+): (input: AgentInput, signal?: AbortSignal) => Promise<AgentOutput> {
   return async (input, signal) => {
     const startedAt = Date.now();
     const prompt = `${SYSTEM_PROMPT}\n\n${buildFreeformDecisionPrompt(input)}`;

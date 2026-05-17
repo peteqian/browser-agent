@@ -1,123 +1,192 @@
-# @browser-agent/core
+<div align="center">
 
-TypeScript browser automation agent using raw Chrome DevTools Protocol plus an LLM decision loop, inspired by `browser-use`.
+# @peteqian/browser-agent
 
-## Quick AI Manual
+### Hands and eyes for your model.
 
-AI agents should read `AGENTS.md` first. `CLAUDE.md` is a symlink to the same file.
+TypeScript browser-automation agent. Raw Chrome DevTools Protocol + an LLM decision loop. Domain-agnostic. CLI + SDK + MCP.
 
-That file is the canonical AI manual for contract ownership, architecture, and editing rules in this package.
+[![npm](https://img.shields.io/npm/v/@peteqian/browser-agent.svg)](https://www.npmjs.com/package/@peteqian/browser-agent)
+[![CI](https://github.com/peteqian/agent-browser/actions/workflows/ci.yml/badge.svg)](https://github.com/peteqian/agent-browser/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![Types: TypeScript](https://img.shields.io/badge/types-typescript-blue.svg)](#)
 
-## Quick Human Manual
+</div>
 
-Use this package when you need browser automation that can inspect pages, choose actions, execute them through CDP, and expose the workflow through a CLI or MCP server.
+---
 
-Common commands:
+## Why
 
-- `bun run typecheck` checks TypeScript without emitting files.
-- `bun run build` compiles the package to `dist/` (required before publishing or running the production CLI).
-- `bun run cli` runs the compiled browser-agent CLI.
-- `bun run mcp` runs the compiled MCP server.
-- `bun run dev:cli` runs the CLI directly from source (requires Bun).
-- `bun run dev:mcp` runs the MCP server directly from source (requires Bun).
-- `bun run example:goto` runs the basic navigation example.
-- `bun run example:agent` runs the agent loop example.
-- `bun run example:typed-output` runs an agent example with zod-validated terminal data.
-- `bun run example:openai` runs the agent loop against the OpenAI provider.
-- Add `--verbose` to `bun run cli -- ...` or `browser-agent ...` to print JSONL diagnostics, including raw model output, to stderr.
-- Add `--tui` to `browser-agent ...` to run the Ink terminal dashboard with live browser state, plan, actions, and pause/resume controls.
+Your model can reason, plan, write code. It can't open a tab, dismiss a cookie banner, click "Continue with Google", or scroll past a paywall. This package gives it that reach.
 
-Providers:
+- **Raw CDP, no Puppeteer/Playwright in the chain.** Smaller surface, fewer fingerprints, faster startup.
+- **Bring any model.** OpenAI, Anthropic, Codex CLI, Codex Agent SDK, Claude CLI, Claude Agent SDK — or your own `getNextAction`.
+- **Built-in MCP server.** Drop into Claude Desktop, Cursor, or any MCP client without writing glue.
+- **First-class CLI.** `browser-agent "task..."` and go.
+- **Vision when it helps.** Screenshots forwarded to multimodal endpoints automatically.
+- **Typed terminal output.** `done(data=...)` validated against a Zod schema.
+- **Resilient loop.** Loop detection, step + decision timeouts, abort/stop control, head+tail history compaction.
 
-- `--provider codex` (default) — Codex Agent SDK when authenticated, falling back to Codex CLI.
-- `--provider claude` — Claude Agent SDK when authenticated, falling back to Claude CLI, then Anthropic API.
-- `--provider openai` — OpenAI Chat Completions API. Set `OPENAI_API_KEY` in env (preferred over `--api-key`, which appears in process listings).
-- `--provider anthropic` — Anthropic Messages API. Set `ANTHROPIC_API_KEY` in env.
-- `--base-url` overrides the SDK base URL (e.g., for compatible providers or local servers).
-- `--model <id>` overrides the per-provider default model.
+## Benchmark
 
-Vision, planning, and actions:
+<img src="./bench/results/comparison.svg" alt="Pass-rate, 10-task browser benchmark" width="100%"/>
 
-- `runAgent()` captures a first-class `BrowserStateSummary` each step: DOM observation text, indexed elements, tabs, URL/title, viewport, pending requests, and an optional PNG screenshot.
-- Vision defaults to `auto`. OpenAI and Anthropic API transports receive screenshots as native multimodal input when available; CLI and agent-SDK transports fall back to text state.
-- Decisions may include `memory`, `evaluationPreviousGoal`, `nextGoal`, and `plan`. These are surfaced through `planning` events and the TUI.
-- Actions are resolved through an `ActionRegistry`. Use `createDefaultActionRegistry()` for built-ins, or pass custom `actions` to `runAgent()`.
+10 tasks across 5 categories; identical task list and judge on both sides. Different driver models — see [`bench/`](./bench/) for methodology, per-task verdicts, and raw bundles.
 
-Main entry points:
+## Install
 
-- `dist/src/index.js` public package exports (compiled from `src/index.ts`).
-- `dist/bin/cli.js` command-line entry point.
-- `dist/bin/mcp.js` MCP server entry point.
-- `examples/` runnable usage examples.
+```bash
+npm install @peteqian/browser-agent
+# or
+bun add @peteqian/browser-agent
+```
 
-Typed terminal output:
+Requirements: **Node ≥ 18** or **Bun ≥ 1.3** + any Chrome-based browser.
+
+## Quickstart
 
 ```ts
-import { z } from "zod";
-import { runAgent, createDecide } from "@browser-agent/core";
+import { Agent, Browser } from "@peteqian/browser-agent";
 
-const Result = z.object({ heading: z.string() });
-const { decide, resolution } = createDecide({ provider: "openai" });
-
-const result = await runAgent({
-  task: "Report the page heading via done(data=...).",
-  outputSchema: Result,
+const browser = new Browser();
+const agent = new Agent({
+  task: "Go to example.com and report the H1 text.",
+  browser,
   startUrl: "https://example.com",
-  decide,
-  transportResolution: resolution,
-  onEvent: (event) => {
-    if (event.type === "decision" && event.decision.telemetry?.usage) {
-      console.log("tokens:", event.decision.telemetry.usage);
-    }
-  },
 });
 
-if (result.success) {
-  console.log(result.data?.heading);
-} else {
-  console.error(result.reason, result.summary);
+try {
+  console.log((await agent.run()).summary);
+} finally {
+  await browser.close();
 }
 ```
 
-`AgentResult` reference:
+That's it. Default provider auto-resolves to whatever's signed in locally (Codex → Claude → OpenAI/Anthropic by API key).
 
-- `success: boolean` — convenience flag, true only when `reason === "completed"`.
-- `reason: TerminalReason` — branch on this in production code:
-  - `"completed"` / `"failed"` — model emitted `done(success=true|false)`.
-  - `"max_steps"` — step budget exhausted.
-  - `"max_failures"` — consecutive failure cap hit.
-  - `"loop_detected"` — identical fingerprint window.
-  - `"aborted"` / `"stopped"` — caller-initiated cancellation.
-  - `"step_timeout"` / `"decision_timeout"` — per-step or per-decision timeout.
-  - `"schema_violation"` — `done(data=...)` failed `outputSchema` validation.
-  - `"decide_error"` — adapter threw something other than a timeout.
-- `summary: string` — human-readable. Do not pattern-match for control flow.
-- `data: TData | null` — validated terminal payload.
-- `steps: number` — loop iterations executed.
-
-Action catalog (model emits these via `decision.actions`): `navigate`, `click`, `type`, `scroll`, `wait`, `send_keys`, `select_option`, `upload_file`, `wait_for_text`, `go_back`, `go_forward`, `refresh`, `new_tab`, `switch_tab`, `close_tab`, `close_browser`, `search_page`, `find_elements`, `get_dropdown_options`, `find_text`, `screenshot`, `save_as_pdf`, `extract_content`, `done`. Schemas in `src/actions/types.ts`.
-
-Internal exports (no stability guarantee):
+### Pin a provider
 
 ```ts
-import { CDPClient, launchBrowser, executeAction } from "@browser-agent/core/internal";
+const agent = new Agent({
+  task: "Find the top Hacker News story.",
+  browser,
+  startUrl: "https://news.ycombinator.com",
+  llm: { provider: "openai", model: "gpt-4.1-mini" },
+});
 ```
 
-Troubleshooting:
+### Typed terminal output
 
-- If Chrome/CDP connection fails, check the launch/discovery code in `src/cdp/` and confirm a compatible Chrome process can start.
-- If MCP startup fails, check `src/mcp/server.ts` and the `browser-agent-mcp` bin entry.
-- If contract imports fail in another package, import shared types from `@browser-agent/core` instead of redefining them locally.
-- After code changes, run `bun run typecheck` before handing work off.
+```ts
+import { z } from "zod";
+import { Agent, Browser } from "@peteqian/browser-agent";
 
-## Compatibility
+const Result = z.object({ heading: z.string() });
 
-- Runtime: **Node ≥ 18** or **Bun ≥ 1.3**.
-- Browser: any Chrome-based browser exposing the DevTools Protocol; tested against current stable Chrome.
+const result = await new Agent({
+  task: "Report the page heading via done(data=...).",
+  browser: new Browser(),
+  startUrl: "https://example.com",
+  outputSchema: Result,
+}).run();
 
-## Development Notes
+if (result.success) console.log(result.data?.heading);
+```
 
-- Package name: `@browser-agent/core`
-- Package type: ESM
-- Package status: publishable (run `bun run build` before `npm publish`)
-- Primary dependencies: `@anthropic-ai/claude-agent-sdk`, `@anthropic-ai/sdk`, `@modelcontextprotocol/sdk`, `@openai/codex-sdk`, `devtools-protocol`, `openai`, `ws`, `zod`
+### Drive the browser directly
+
+```ts
+import { Browser } from "@peteqian/browser-agent";
+
+const browser = new Browser();
+const page = await browser.newPage();
+await page.goto("https://example.com");
+console.log(await page.title());
+await browser.close();
+```
+
+## CLI
+
+```bash
+browser-agent "Find the top result on Hacker News and print its title."
+browser-agent "..." --provider openai --model gpt-4.1-mini
+browser-agent "..." --verbose       # JSONL diagnostics on stderr
+browser-agent --probe --provider claude
+```
+
+Run `browser-agent --help` for the full flag list.
+
+## MCP server
+
+Spawn `browser-agent-mcp` as a stdio MCP server. Drop into `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "browser-agent": {
+      "command": "npx",
+      "args": ["-y", "-p", "@peteqian/browser-agent", "browser-agent-mcp"]
+    }
+  }
+}
+```
+
+Tools exposed: launch session, navigate, click, type, extract, screenshot, run agent, list artifacts, close. See `src/mcp/` for the catalog.
+
+## Providers
+
+| Flag                           | Backend                                       | Auth                                     |
+| ------------------------------ | --------------------------------------------- | ---------------------------------------- |
+| `--provider codex` _(default)_ | Codex Agent SDK → Codex CLI                   | `codex` signed in                        |
+| `--provider claude`            | Claude Agent SDK → Claude CLI → Anthropic API | `claude` signed in / `ANTHROPIC_API_KEY` |
+| `--provider openai`            | OpenAI Chat Completions                       | `OPENAI_API_KEY`                         |
+| `--provider anthropic`         | Anthropic Messages                            | `ANTHROPIC_API_KEY`                      |
+
+`--base-url` overrides the SDK base URL (OpenAI-compatible endpoints, local servers, gateways).
+
+## Actions
+
+The model emits actions from this catalog (full schemas in `src/actions/types.ts`):
+
+`navigate` · `click` · `type` · `scroll` · `wait` · `send_keys` · `select_option` · `upload_file` · `wait_for_text` · `go_back` · `go_forward` · `refresh` · `new_tab` · `switch_tab` · `close_tab` · `close_browser` · `search_page` · `find_elements` · `get_dropdown_options` · `find_text` · `screenshot` · `save_as_pdf` · `extract_content` · `done`
+
+Add your own via `createDefaultActionRegistry()` + custom `ActionDefinition`.
+
+## `AgentResult`
+
+- `success` — `true` only when `reason === "completed"`.
+- `reason` — branch on this in production: `completed`, `failed`, `max_steps`, `max_failures`, `loop_detected`, `aborted`, `stopped`, `step_timeout`, `decision_timeout`, `schema_violation`, `decide_error`.
+- `summary` — human-readable, not for control flow.
+- `data` — `TData | null`, validated against `outputSchema`.
+- `steps` — iterations executed.
+
+## Internal subpath
+
+Anything beyond the public surface lives under `/internal` and carries **no stability guarantee**:
+
+```ts
+import { CDPClient, launchBrowser, executeAction } from "@peteqian/browser-agent/internal";
+```
+
+## Development
+
+```bash
+bun install
+bun run typecheck     # tsc --noEmit
+bun run lint          # oxlint
+bun run fmt           # oxfmt
+bun run test          # bun test
+bun run build         # tsup -> dist/
+bun run dev:cli       # CLI from source
+bun run dev:mcp       # MCP server from source
+```
+
+Examples in `examples/` — `bun run example:goto`, `example:agent`, `example:openai`, `example:typed-output`, `example:extraction`, `example:mcp`, etc.
+
+## For AI agents
+
+Skip this README — read [`docs/ai/`](./docs/ai/README.md) instead. It splits architecture, contracts, commands, conventions, and troubleshooting into focused files. `AGENTS.md` and `CLAUDE.md` at the root are thin pointers to the same folder.
+
+## License
+
+[MIT](./LICENSE) © Peter Qian

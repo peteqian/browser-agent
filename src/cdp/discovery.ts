@@ -47,7 +47,7 @@ function detectPlaywrightChromiumBinary(): string | null {
     const entries = readdirSync(base, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
-      .sort((a, b) => b.localeCompare(a));
+      .toSorted((a, b) => b.localeCompare(a));
 
     const candidates: string[] = [];
     for (const entry of entries) {

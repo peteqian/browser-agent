@@ -9,6 +9,6 @@ describe("version", () => {
   });
 
   test("PACKAGE_NAME matches the published package name", () => {
-    expect(PACKAGE_NAME).toBe("@browser-agent/core");
+    expect(PACKAGE_NAME).toBe("@peteqian/browser-agent");
   });
 });

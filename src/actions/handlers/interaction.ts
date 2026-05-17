@@ -5,11 +5,14 @@ import {
   fail,
   ok,
   resolveBackendId,
+  resolveByLocator,
   staleMessage,
   substituteSecrets,
   type ActionResult,
   type HandlerContext,
+  type Locator,
 } from "./shared";
+import type { ElementInfo } from "../../dom/types";
 
 type ByName<N extends Action["name"]> = Extract<Action, { name: N }>;
 
@@ -92,8 +95,7 @@ export async function handleScroll(
   ctx: HandlerContext,
   action: ByName<"scroll">,
 ): Promise<ActionResult> {
-  const pages =
-    action.params.pages ?? (action.params.amount ? action.params.amount / 1000 : 1.0);
+  const pages = action.params.pages ?? (action.params.amount ? action.params.amount / 1000 : 1.0);
   let backendNodeId: number | undefined;
   if (typeof action.params.index === "number") {
     const resolved = resolveBackendId(ctx.selectorMap, action.params.index);
@@ -142,6 +144,99 @@ export async function handleSelectOption(
     result.reason === "index_stale"
       ? staleMessage(action.params.index)
       : `Could not select option on [${action.params.index}]`,
+  );
+}
+
+function resolveLocatorForAction(
+  ctx: HandlerContext,
+  locator: Locator,
+): { ok: true; element: ElementInfo; matchedBy: string } | { ok: false; result: ActionResult } {
+  const elements = ctx.snapshotElements ?? [];
+  if (elements.length === 0) {
+    return {
+      ok: false,
+      result: fail("No snapshot elements available; call focus_area or wait for re-observation."),
+    };
+  }
+  const resolved = resolveByLocator(locator, elements);
+  if (!resolved.ok) {
+    return { ok: false, result: fail(`Locator ${resolved.reason}: ${resolved.message}`) };
+  }
+  return { ok: true, element: resolved.element, matchedBy: resolved.matchedBy };
+}
+
+export async function handleClickBy(
+  ctx: HandlerContext,
+  action: ByName<"click_by">,
+): Promise<ActionResult> {
+  const resolved = resolveLocatorForAction(ctx, action.params.locator);
+  if (!resolved.ok) return resolved.result;
+  const detectMs = ctx.newTabDetectMs ?? 500;
+  const tabWatch =
+    ctx.session && detectMs > 0
+      ? ctx.session.waitForNewPageTarget(detectMs, ctx.page.targetId)
+      : null;
+  const result = await ctx.page.clickByBackendNodeId(resolved.element.backendNodeId);
+  if (!result.ok) return fail(staleMessage(resolved.element.index));
+  const target = tabWatch ? await tabWatch : null;
+  const subject = `${resolved.matchedBy} ([${resolved.element.index}])`;
+  if (target && target !== ctx.page.targetId) {
+    return ok(`Clicked ${subject} — switched to new tab ${target}`, {
+      longTermMemory: `Clicked ${subject} and switched to new tab ${target}`,
+      activeTargetId: target,
+    });
+  }
+  return ok(`Clicked ${subject}`, { longTermMemory: `Clicked ${subject}` });
+}
+
+export async function handleTypeBy(
+  ctx: HandlerContext,
+  action: ByName<"type_by">,
+): Promise<ActionResult> {
+  const resolved = resolveLocatorForAction(ctx, action.params.locator);
+  if (!resolved.ok) return resolved.result;
+  const sub = substituteSecrets(action.params.text, ctx.sensitiveData);
+  if (!sub.ok) {
+    return fail(`Type aborted: unknown secret placeholder <secret>${sub.key}</secret>`);
+  }
+  const result = await ctx.page.typeByBackendNodeId(
+    resolved.element.backendNodeId,
+    sub.value,
+    action.params.submit ?? false,
+    action.params.mode,
+  );
+  const subject = `${resolved.matchedBy} ([${resolved.element.index}])`;
+  if (result.ok) {
+    const summary = `Typed into ${subject}${
+      action.params.mode === "append" ? " (appended)" : ""
+    }${action.params.submit ? " and submitted" : ""}`;
+    return ok(summary, { longTermMemory: `Typed into ${subject}` });
+  }
+  if (result.reason === "index_stale") return fail(staleMessage(resolved.element.index));
+  if (result.reason === "not_typable") return fail(`${subject} not typable`);
+  return fail(`${subject} failed value verification`);
+}
+
+export async function handleSelectBy(
+  ctx: HandlerContext,
+  action: ByName<"select_by">,
+): Promise<ActionResult> {
+  const resolved = resolveLocatorForAction(ctx, action.params.locator);
+  if (!resolved.ok) return resolved.result;
+  const result = await ctx.page.selectOptionByBackendNodeId(
+    resolved.element.backendNodeId,
+    action.params.value,
+  );
+  const subject = `${resolved.matchedBy} ([${resolved.element.index}])`;
+  if (result.ok) {
+    return ok(`Selected option on ${subject}`, {
+      longTermMemory: `Selected option on ${subject}`,
+    });
+  }
+  return fail(
+    result.reason === "index_stale"
+      ? staleMessage(resolved.element.index)
+      : `Could not select option on ${subject}`,
   );
 }
 

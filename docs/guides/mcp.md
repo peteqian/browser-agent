@@ -73,7 +73,7 @@ Credentials come from env vars or local CLI auth files (same as the CLI). The MC
 If you embed the MCP server in your own process, use:
 
 ```ts
-import { createMcpServer, runStdioServer } from "@browser-agent/core";
+import { createMcpServer, runStdioServer } from "@peteqian/browser-agent";
 
 // Plain stdio:
 await runStdioServer();

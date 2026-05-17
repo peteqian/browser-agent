@@ -33,10 +33,18 @@ export const DEFAULT_DOM_BUDGETS: RequiredDomBudgets = {
     "placeholder",
     "role",
     "aria-label",
+    "aria-labelledby",
     "value",
     "href",
     "alt",
     "title",
+    "for",
+    "data-testid",
+    "data-test",
+    "data-cy",
+    "data-qa",
+    "data-action",
+    "data-component",
   ],
   maxTotalChars: 30_000,
 };
@@ -208,6 +216,93 @@ function parseAttributes(attrs: number[] | undefined, strings: string[]): Record
     out[name] = typeof value === "string" ? value : "";
   }
   return out;
+}
+
+const TESTID_KEYS = ["data-testid", "data-test", "data-cy", "data-qa"] as const;
+const DATA_PREFIX = "data-";
+
+function extractTestId(attrs: Record<string, string>): string | null {
+  for (const key of TESTID_KEYS) {
+    const value = attrs[key];
+    if (typeof value === "string" && value.trim().length > 0) return value.trim();
+  }
+  return null;
+}
+
+function extractDataAttrs(
+  attrs: Record<string, string>,
+  fieldChars: number,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  let count = 0;
+  for (const [key, value] of Object.entries(attrs)) {
+    if (!key.startsWith(DATA_PREFIX)) continue;
+    if ((TESTID_KEYS as readonly string[]).includes(key)) continue;
+    if (typeof value !== "string" || value.length === 0) continue;
+    const shortKey = key.slice(DATA_PREFIX.length);
+    out[shortKey] = value.length > fieldChars ? `${value.slice(0, fieldChars - 1)}…` : value;
+    count += 1;
+    if (count >= 6) break;
+  }
+  return out;
+}
+
+function computeStableId(input: {
+  framePath: string;
+  tag: string;
+  axRole: string | null;
+  axName: string | null;
+  testId: string | null;
+  labelText: string | null;
+  href: string | null;
+  bboxY: number;
+}): string {
+  // Bucket bbox.y into 40px bins so minor scroll/layout shifts do not
+  // change the identity. We also bucket x into 80px bins to disambiguate
+  // multiple controls in the same row when no semantic handle exists.
+  const yBin = Math.floor(input.bboxY / 40);
+  const parts = [
+    input.framePath,
+    input.tag,
+    input.axRole ?? "",
+    input.axName ?? "",
+    input.testId ?? "",
+    input.labelText ?? "",
+    input.href ?? "",
+    String(yBin),
+  ].join("|");
+  // FNV-1a 32-bit, hex-padded to 8 chars. Avoids pulling in node:crypto for
+  // a feature that does not need cryptographic strength.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < parts.length; i += 1) {
+    hash ^= parts.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+function pickStableHandle(
+  el: Pick<
+    ElementInfo,
+    "tag" | "axRole" | "axName" | "testId" | "labelText" | "href" | "text" | "placeholder"
+  >,
+): { kind: ElementInfo["stableHandle"]["kind"]; value: string } {
+  if (el.testId) return { kind: "testid", value: `testid="${el.testId}"` };
+  if (el.axRole && el.axName)
+    return { kind: "role", value: `role=${el.axRole} name="${truncateForHandle(el.axName)}"` };
+  if (el.labelText) return { kind: "label", value: `label="${truncateForHandle(el.labelText)}"` };
+  if (el.placeholder && (el.tag === "input" || el.tag === "textarea"))
+    return { kind: "label", value: `placeholder="${truncateForHandle(el.placeholder)}"` };
+  if (el.href) return { kind: "href", value: `href="${truncateForHandle(el.href, 80)}"` };
+  if (el.text && el.text.trim().length > 0)
+    return { kind: "text", value: `text="${truncateForHandle(el.text)}"` };
+  return { kind: "index", value: "" };
+}
+
+function truncateForHandle(value: string, max = 60): string {
+  const trimmed = value.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
 }
 
 function selectorHint(tag: string, attrs: Record<string, string>): string {
@@ -422,6 +517,21 @@ export async function captureCdpSnapshot(
 
   candidates.sort((a, b) => a.paintOrder - b.paintOrder);
 
+  // Build a Map of `<label for="ID">` → label text so we can resolve a
+  // semantic name onto the matching input/select. Wrapping labels (where
+  // the input is nested inside the label) cannot be detected from the
+  // flat candidate list alone; we accept that v1 gap and rely on the AX
+  // tree's `axName` to cover most of those.
+  const labelTextById = new Map<string, string>();
+  for (const c of candidates) {
+    if (c.tag !== "label") continue;
+    const forId = c.attrs.for;
+    if (!forId) continue;
+    const text = c.text.trim() || axStringValue(c.ax?.name?.value);
+    if (!text) continue;
+    labelTextById.set(forId, text);
+  }
+
   let url = "";
   let title = "";
   const firstDoc = documents[0];
@@ -433,25 +543,58 @@ export async function captureCdpSnapshot(
   for (let i = 0; i < candidates.length && i < budgets.maxElements; i += 1) {
     const c = candidates[i];
     if (!c) continue;
-    const axRole = axStringValue(c.ax?.role?.value) ?? c.attrs.role ?? null;
-    const axName = axStringValue(c.ax?.name?.value);
+    const axRole = axStringValue(c.ax?.role?.value) ?? null;
+    const axName = axStringValue(c.ax?.name?.value) ?? null;
     const fieldLimit = budgets.maxFieldChars;
+    const testId = extractTestId(c.attrs);
+    const dataAttrs = extractDataAttrs(c.attrs, fieldLimit);
+    const labelText = c.attrs.id ? (labelTextById.get(c.attrs.id) ?? null) : null;
+    const placeholder = c.attrs.placeholder ? clean(c.attrs.placeholder, fieldLimit) : null;
+    const ariaLabel = c.attrs["aria-label"] ? clean(c.attrs["aria-label"], fieldLimit) : null;
+    const href = c.attrs.href ?? null;
+    const stableHandle = pickStableHandle({
+      tag: c.tag,
+      axRole,
+      axName,
+      testId,
+      labelText,
+      href,
+      text: c.text,
+      placeholder,
+    });
+    const stableId = computeStableId({
+      framePath: c.framePath,
+      tag: c.tag,
+      axRole,
+      axName,
+      testId,
+      labelText,
+      href,
+      bboxY: c.bounds.y,
+    });
     const element: ElementInfo = {
       index: i,
       backendNodeId: c.backendNodeId,
       framePath: c.framePath,
       tag: c.tag,
-      role: axRole,
+      role: axRole ?? c.attrs.role ?? null,
       name: c.attrs.name ?? null,
-      ariaName: axName ?? null,
+      ariaName: axName,
       text: c.text,
-      href: c.attrs.href ?? null,
+      href,
       type: c.attrs.type ?? null,
-      placeholder: c.attrs.placeholder ? clean(c.attrs.placeholder, fieldLimit) : null,
+      placeholder,
       value: c.attrs.value ? clean(c.attrs.value, budgets.maxTextChars) : null,
-      ariaLabel: c.attrs["aria-label"] ? clean(c.attrs["aria-label"], fieldLimit) : null,
+      ariaLabel,
       selectorHint: selectorHint(c.tag, c.attrs),
       bbox: c.bounds,
+      axRole,
+      axName,
+      testId,
+      dataAttrs,
+      labelText,
+      stableHandle,
+      stableId,
     };
     elements.push(element);
     const entry: SelectorMapEntry = { backendNodeId: c.backendNodeId };

@@ -34,6 +34,7 @@ export interface LaunchOptions {
   permissionGrants?: BrowserPermissionGrant[];
   storageStatePath?: string;
   saveStorageStateOnClose?: boolean;
+  autoConsent?: boolean;
 }
 
 export interface LaunchedBrowser {

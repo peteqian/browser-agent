@@ -3,9 +3,9 @@
 ## Install
 
 ```sh
-npm install @browser-agent/core
+npm install @peteqian/browser-agent
 # or
-bun add @browser-agent/core
+bun add @peteqian/browser-agent
 ```
 
 The package ships:
@@ -65,7 +65,7 @@ Then in Claude Desktop / Cursor: ask the assistant to launch a session, navigate
 ## First run (SDK)
 
 ```ts
-import { createDecide, runAgent } from "@browser-agent/core";
+import { createDecide, runAgent } from "@peteqian/browser-agent";
 
 const { decide, resolution } = createDecide({ provider: "codex" });
 

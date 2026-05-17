@@ -1,6 +1,6 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
-import type { Decision, DecisionInput } from "./contracts";
+import type { AgentInput, AgentOutput } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
 import { buildFreeformDecisionPrompt, parseDecision } from "./parseDecision";
 import { buildTelemetry } from "../llm/telemetry";
@@ -21,7 +21,7 @@ export interface ClaudeSdkOptions {
  */
 export function createClaudeSdkDecide(
   options: ClaudeSdkOptions,
-): (input: DecisionInput, signal?: AbortSignal) => Promise<Decision> {
+): (input: AgentInput, signal?: AbortSignal) => Promise<AgentOutput> {
   // Pass apiKey through the SDK's per-call `env` option instead of mutating
   // global process.env so multiple instances with different keys can coexist.
   const queryEnv = options.apiKey

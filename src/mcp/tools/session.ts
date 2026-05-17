@@ -14,14 +14,15 @@ import {
 } from "../sessions";
 
 export function registerSessionTools(server: McpServer): void {
-  server.registerTool(
+  const registerTool = server.registerTool.bind(server) as ToolRegistrar;
+  registerTool(
     "launch_session",
     {
       description: "Launch a Chromium session. Returns sessionId for subsequent tool calls.",
-      inputSchema: z.object({
+      inputSchema: {
         headless: z.boolean().optional().default(true),
         startUrl: z.string().optional(),
-      }),
+      },
     },
     async ({ headless, startUrl }) => {
       const session = await BrowserSession.launch({ headless });
@@ -41,11 +42,11 @@ export function registerSessionTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "new_tab",
     {
       description: "Open a new tab and optionally navigate to URL. Makes the new tab active.",
-      inputSchema: z.object({ sessionId: z.string(), url: z.string().url().optional() }),
+      inputSchema: { sessionId: z.string(), url: z.string().url().optional() },
     },
     async ({ sessionId, url }) => {
       const record = getSession(sessionId);
@@ -56,11 +57,11 @@ export function registerSessionTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "list_tabs",
     {
       description: "List open tab target IDs and active target ID.",
-      inputSchema: z.object({ sessionId: z.string() }),
+      inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
       const record = getSession(sessionId);
@@ -69,15 +70,15 @@ export function registerSessionTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "switch_tab",
     {
       description: "Switch active tab by targetId or pageId.",
-      inputSchema: z.object({
+      inputSchema: {
         sessionId: z.string(),
         targetId: z.string().min(1).optional(),
         pageId: z.number().int().nonnegative().optional(),
-      }),
+      },
     },
     async ({ sessionId, targetId, pageId }) => {
       const record = getSession(sessionId);
@@ -91,15 +92,15 @@ export function registerSessionTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "close_tab",
     {
       description: "Close tab by targetId, pageId, or active tab when omitted.",
-      inputSchema: z.object({
+      inputSchema: {
         sessionId: z.string(),
         targetId: z.string().optional(),
         pageId: z.number().int().nonnegative().optional(),
-      }),
+      },
     },
     async ({ sessionId, targetId, pageId }) => {
       const record = getSession(sessionId);
@@ -113,11 +114,11 @@ export function registerSessionTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "close_session",
     {
       description: "Close a Chromium session and release resources.",
-      inputSchema: z.object({ sessionId: z.string() }),
+      inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
       const record = getSession(sessionId);
@@ -127,11 +128,11 @@ export function registerSessionTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "close_browser",
     {
       description: "Close a Chromium browser session and release resources.",
-      inputSchema: z.object({ sessionId: z.string() }),
+      inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
       const record = getSession(sessionId);
@@ -145,15 +146,15 @@ export function registerSessionTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
+  registerTool(
     "list_artifacts",
     {
       description:
         "List filesystem artifacts (screenshots, PDFs) saved during this session, in creation order.",
-      inputSchema: z.object({
+      inputSchema: {
         sessionId: z.string(),
         kind: z.enum(["screenshot", "pdf"]).optional(),
-      }),
+      },
     },
     async ({ sessionId, kind }) => {
       const record = getSession(sessionId);
@@ -162,3 +163,9 @@ export function registerSessionTools(server: McpServer): void {
     },
   );
 }
+
+type ToolRegistrar = (
+  name: string,
+  config: { description?: string; inputSchema?: Record<string, z.ZodTypeAny> },
+  cb: (args: any, extra: any) => unknown,
+) => void;

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import type { DecideFn, EnvId, TransportId, TransportResolution } from "../agent/contracts";
+import type { EnvId, GetNextActionFn, TransportId, TransportResolution } from "../agent/contracts";
 import { detectEnv } from "./env";
 import { createDefaultLogger, type Logger } from "../logger";
 import { createOpenAIDecide } from "./openai";
@@ -34,12 +34,12 @@ export interface ResolveOptions {
 }
 
 export interface ResolvedDecide {
-  decide: DecideFn;
+  decide: GetNextActionFn;
   resolution: TransportResolution;
 }
 
 /**
- * Build a `DecideFn` for the given provider, choosing the best available
+ * Build a `GetNextActionFn` for the given provider, choosing the best available
  * transport for the current environment.
  *
  * Local environment priority: sdk-agent > cli > sdk-api.
@@ -103,11 +103,11 @@ function transportOrder(
     // Cloud: API-only. Local CLI/agent SDK assumes binaries + auth on disk.
     if (provider === "openai" || provider === "anthropic") return ["sdk-api"];
     if (provider === "claude") return ["sdk-api"];
-    if (provider === "codex") return []; // No cloud-safe codex transport today.
+    if (provider === "codex") return ["sdk-api"];
   }
 
   // Local: prefer agent SDK, fall back to CLI, then to raw API where it makes sense.
-  if (provider === "codex") return ["sdk-agent", "cli"];
+  if (provider === "codex") return ["sdk-agent", "cli", "sdk-api"];
   if (provider === "claude") return ["sdk-agent", "cli", "sdk-api"];
   if (provider === "openai" || provider === "anthropic") return ["sdk-api"];
   return [];
@@ -132,12 +132,10 @@ function probeSdkAgent(options: ResolveOptions): ProbeResult {
   if (options.provider === "codex") {
     const home = process.env.HOME ?? "";
     const hasAuth =
-      Boolean(options.apiKey) ||
-      Boolean(process.env.OPENAI_API_KEY) ||
       existsSync(path.join(home, ".codex", "auth.json")) ||
       existsSync(path.join(home, ".config", "codex", "auth.json"));
     if (!hasAuth) {
-      return { ok: false, reason: "codex sdk-agent: no OPENAI_API_KEY or ~/.codex/auth.json" };
+      return { ok: false, reason: "codex sdk-agent: no ~/.codex/auth.json" };
     }
     return { ok: true, reason: "" };
   }
@@ -147,14 +145,12 @@ function probeSdkAgent(options: ResolveOptions): ProbeResult {
     // ~/.claude exists for many reasons (settings, projects cache) without
     // the user being logged in, so directory-presence is a false positive.
     const hasAuth =
-      Boolean(options.apiKey) ||
-      Boolean(process.env.ANTHROPIC_API_KEY) ||
       existsSync(path.join(home, ".claude", ".credentials.json")) ||
       existsSync(path.join(home, ".config", "claude", ".credentials.json"));
     if (!hasAuth) {
       return {
         ok: false,
-        reason: "claude sdk-agent: no ANTHROPIC_API_KEY or ~/.claude/.credentials.json",
+        reason: "claude sdk-agent: no ~/.claude/.credentials.json",
       };
     }
     return { ok: true, reason: "" };
@@ -177,9 +173,9 @@ function probeCli(provider: ProviderKind): ProbeResult {
 }
 
 function probeSdkApi(options: ResolveOptions): ProbeResult {
-  if (options.provider === "openai") {
+  if (options.provider === "openai" || options.provider === "codex") {
     if (!options.apiKey && !process.env.OPENAI_API_KEY) {
-      return { ok: false, reason: "openai sdk-api: OPENAI_API_KEY not set" };
+      return { ok: false, reason: `${options.provider} sdk-api: OPENAI_API_KEY not set` };
     }
     return { ok: true, reason: "" };
   }
@@ -201,7 +197,7 @@ function hasBinary(name: string): boolean {
   }
 }
 
-function buildDecide(options: ResolveOptions, transport: TransportId): DecideFn {
+function buildDecide(options: ResolveOptions, transport: TransportId): GetNextActionFn {
   if (options.provider === "codex" && transport === "sdk-agent") {
     return createCodexSdkDecide({
       model: options.model,
@@ -209,25 +205,25 @@ function buildDecide(options: ResolveOptions, transport: TransportId): DecideFn 
       apiKey: options.apiKey,
       baseUrl: options.baseURL,
       onRaw: options.onCodexRaw,
-    }) as DecideFn;
+    }) as GetNextActionFn;
   }
   if (options.provider === "codex" && transport === "cli") {
     return createCodexCliDecide({
       model: options.model,
       effort: options.effort,
       onRaw: options.onCodexRaw,
-    }) as DecideFn;
+    }) as GetNextActionFn;
   }
   if (options.provider === "claude" && transport === "sdk-agent") {
     return createClaudeSdkDecide({
       model: options.model,
       apiKey: options.apiKey,
-    }) as DecideFn;
+    }) as GetNextActionFn;
   }
   if (options.provider === "claude" && transport === "cli") {
     return createClaudeCliDecide({
       model: options.model,
-    }) as DecideFn;
+    }) as GetNextActionFn;
   }
   if (
     (options.provider === "claude" || options.provider === "anthropic") &&
@@ -237,14 +233,21 @@ function buildDecide(options: ResolveOptions, transport: TransportId): DecideFn 
       model: options.model,
       apiKey: options.apiKey,
       baseURL: options.baseURL,
-    }) as DecideFn;
+    }) as GetNextActionFn;
+  }
+  if (options.provider === "codex" && transport === "sdk-api") {
+    return createOpenAIDecide({
+      model: options.model,
+      apiKey: options.apiKey,
+      baseURL: options.baseURL,
+    }) as GetNextActionFn;
   }
   if (options.provider === "openai" && transport === "sdk-api") {
     return createOpenAIDecide({
       model: options.model,
       apiKey: options.apiKey,
       baseURL: options.baseURL,
-    }) as DecideFn;
+    }) as GetNextActionFn;
   }
   throw new Error(`buildDecide: no impl for provider=${options.provider} transport=${transport}`);
 }
