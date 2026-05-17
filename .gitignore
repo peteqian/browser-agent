@@ -7,3 +7,5 @@ dist/
 .env.local
 .agents/
 docs/api/
+.tsbuildinfo
+.tsbuildinfo.build

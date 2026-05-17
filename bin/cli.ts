@@ -13,7 +13,6 @@ import {
   type StepInfo,
   type TransportId,
 } from "../src/index";
-import { runTui } from "../src/tui/app";
 
 const PROVIDERS: readonly ProviderId[] = ["codex", "claude", "openai", "anthropic"];
 const TRANSPORTS: readonly (TransportId | "auto")[] = ["auto", "sdk-agent", "sdk-api", "cli"];
@@ -39,7 +38,6 @@ interface CliOptions {
   env?: EnvId | "auto";
   outputFile?: string;
   probe: boolean;
-  tui: boolean;
 }
 
 function printHelp(): void {
@@ -77,7 +75,6 @@ Timeouts (ms):
 
 Output:
   --json                     Stream events as JSONL on stdout instead of result blob.
-  --tui                      Show an interactive terminal dashboard.
   --output-file <path>       Write final result JSON to file (still printed on stdout).
   --verbose, -v              Print every AgentEvent and step trace as
                              timestamped JSONL on stderr. Composes with --json.
@@ -121,7 +118,6 @@ interface ConfigFile {
   transport?: TransportId | "auto";
   env?: EnvId | "auto";
   outputFile?: string;
-  tui?: boolean;
 }
 
 function loadConfig(path: string): ConfigFile {
@@ -184,7 +180,6 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
       config: { type: "string" },
       stdin: { type: "boolean" },
       json: { type: "boolean" },
-      tui: { type: "boolean" },
       probe: { type: "boolean" },
       verbose: { type: "boolean", short: "v" },
       version: { type: "boolean", short: "V" },
@@ -266,7 +261,6 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     env,
     outputFile: (values["output-file"] as string | undefined) ?? config.outputFile,
     probe: Boolean(values.probe),
-    tui: Boolean(values.tui ?? config.tui),
   };
 }
 
@@ -344,7 +338,7 @@ async function main(): Promise<number> {
     },
   };
 
-  const result = opts.tui ? await runTui(agentOptions) : await runAgent(agentOptions);
+  const result = await runAgent(agentOptions);
 
   const resultJson = JSON.stringify(result, null, 2);
   if (opts.outputFile) {
