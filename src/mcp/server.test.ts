@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import type { BrowserSession, Page } from "../browser/session";
+import { registerSession } from "./sessions";
 import { recordArtifact, sweepIdleSessions, shutdownAllSessions } from "./server";
 import type { SessionArtifact } from "./server";
 
@@ -14,6 +16,48 @@ describe("sweepIdleSessions", () => {
     await shutdownAllSessions();
     const expired = await sweepIdleSessions();
     expect(expired).toEqual([]);
+  });
+});
+
+describe("shutdownAllSessions", () => {
+  test("calls close() on every registered session and clears the map", async () => {
+    await shutdownAllSessions();
+    let closedA = 0;
+    let closedB = 0;
+    const fakePage = {} as Page;
+    registerSession("sess_a", {
+      session: { close: async () => void (closedA += 1) } as unknown as BrowserSession,
+      page: fakePage,
+      lastAccessedAt: Date.now(),
+      artifacts: [],
+    });
+    registerSession("sess_b", {
+      session: { close: async () => void (closedB += 1) } as unknown as BrowserSession,
+      page: fakePage,
+      lastAccessedAt: Date.now(),
+      artifacts: [],
+    });
+    await shutdownAllSessions();
+    expect(closedA).toBe(1);
+    expect(closedB).toBe(1);
+    expect(await sweepIdleSessions()).toEqual([]);
+  });
+
+  test("survives a close() that throws", async () => {
+    await shutdownAllSessions();
+    const fakePage = {} as Page;
+    registerSession("sess_throws", {
+      session: {
+        close: async () => {
+          throw new Error("boom");
+        },
+      } as unknown as BrowserSession,
+      page: fakePage,
+      lastAccessedAt: Date.now(),
+      artifacts: [],
+    });
+    await shutdownAllSessions();
+    expect(await sweepIdleSessions()).toEqual([]);
   });
 });
 
