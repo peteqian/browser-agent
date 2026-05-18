@@ -1,7 +1,7 @@
 {
   "name": "@peteqian/browser-agent-sdk",
   "version": "0.1.0",
-  "description": "TypeScript browser automation SDK. Raw CDP + LLM loop. Library core for @peteqian/browser-agent.",
+  "description": "TypeScript browser automation SDK. Raw CDP + LLM loop. Used by @peteqian/browser-agent (CLI + MCP).",
   "keywords": [
     "agent",
     "automation",
@@ -44,7 +44,6 @@
   },
   "scripts": {
     "build": "tsup",
-    "prepublishOnly": "npm run build",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "lint": "oxlint --report-unused-disable-directives",
     "lint:fix": "oxlint --fix",

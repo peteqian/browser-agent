@@ -6,8 +6,11 @@ dist/
 .env
 .env.local
 .agents/
-{packages,apps}/*/docs/api/
+packages/*/docs/api/
+apps/*/docs/api/
 .tsbuildinfo
 .tsbuildinfo.build
-{packages,apps}/*/bench/results/*.json
-!{packages,apps}/*/bench/results/*.published.json
+packages/*/bench/results/*.json
+apps/*/bench/results/*.json
+!packages/*/bench/results/*.published.json
+!apps/*/bench/results/*.published.json

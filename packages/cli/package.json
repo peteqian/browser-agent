@@ -45,7 +45,6 @@
   },
   "scripts": {
     "build": "tsup",
-    "prepublishOnly": "npm run build",
     "typecheck": "tsc -p tsconfig.build.json --noEmit",
     "lint": "oxlint --report-unused-disable-directives",
     "lint:fix": "oxlint --fix",
