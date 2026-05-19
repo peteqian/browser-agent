@@ -11,6 +11,7 @@ import { registerNavigationTools } from "./tools/navigation";
 import { registerNetworkTools } from "./tools/network";
 import { registerSessionTools } from "./tools/session";
 import { registerSkillTools } from "./tools/skills";
+import { registerStateTools } from "./tools/state";
 import { shutdownAllSessions } from "./sessions";
 
 export {
@@ -32,6 +33,7 @@ export function createServer(): McpServer {
   registerNetworkTools(server);
   registerAgentTool(server);
   registerSkillTools(server);
+  registerStateTools(server);
   return server;
 }
 

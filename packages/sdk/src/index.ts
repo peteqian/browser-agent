@@ -10,6 +10,21 @@ export { BrowserSession, Page } from "./browser/session";
 export type { NavigationHealthResult, NavigationHealthStatus } from "./browser/session";
 export type { BrowserPermission, BrowserPermissionGrant } from "./browser/profile";
 export type { BrowserOriginStorageState, BrowserStorageState } from "./browser/storage-state";
+export {
+  saveState,
+  loadState,
+  listStates,
+  showState,
+  renameState,
+  clearState,
+  cleanAllStates,
+  resolveStateVaultDir,
+} from "./browser/state-vault";
+export type {
+  StateVaultOptions,
+  StateSummary,
+  StateListEntry,
+} from "./browser/state-vault";
 export { captureBrowserState } from "./browser/state";
 export type {
   BrowserStateSummary,
