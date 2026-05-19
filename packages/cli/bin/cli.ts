@@ -21,6 +21,8 @@ import type { SourceId } from "../src/install/snippet";
 const PROVIDERS: readonly ProviderId[] = ["codex", "claude", "openai", "anthropic"];
 const TRANSPORTS: readonly (TransportId | "auto")[] = ["auto", "sdk-agent", "sdk-api", "cli"];
 const ENVS: readonly (EnvId | "auto")[] = ["auto", "local", "cloud"];
+const ENGINES = ["chrome", "lightpanda"] as const;
+type EngineId = (typeof ENGINES)[number];
 
 interface CliOptions {
   task: string;
@@ -42,6 +44,7 @@ interface CliOptions {
   env?: EnvId | "auto";
   outputFile?: string;
   probe: boolean;
+  engine: EngineId;
 }
 
 function printHelp(): void {
@@ -60,6 +63,7 @@ Flags:
   --max-steps <n>            Hard cap on loop iterations (default 40).
   --no-headless              Show the browser window.
   --headless                 Run headless (default).
+  --engine <e>               ${ENGINES.join(" | ")}  (default: chrome)
 
 Provider:
   --provider <p>             ${PROVIDERS.join(" | ")}  (default: codex)
@@ -123,6 +127,7 @@ interface ConfigFile {
   transport?: TransportId | "auto";
   env?: EnvId | "auto";
   outputFile?: string;
+  engine?: EngineId;
 }
 
 function loadConfig(path: string): ConfigFile {
@@ -182,6 +187,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
       "action-timeout": { type: "string" },
       "max-failures": { type: "string" },
       "output-file": { type: "string" },
+      engine: { type: "string" },
       config: { type: "string" },
       stdin: { type: "boolean" },
       json: { type: "boolean" },
@@ -212,6 +218,9 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     ? parseEnum(values.transport as string, TRANSPORTS, "--transport")
     : config.transport;
   const env = values.env ? parseEnum(values.env as string, ENVS, "--env") : config.env;
+  const engine: EngineId = values.engine
+    ? parseEnum<EngineId>(values.engine as string, ENGINES, "--engine")
+    : (config.engine ?? "chrome");
 
   const headless = values["no-headless"]
     ? false
@@ -266,6 +275,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     env,
     outputFile: (values["output-file"] as string | undefined) ?? config.outputFile,
     probe: Boolean(values.probe),
+    engine,
   };
 }
 
@@ -424,7 +434,10 @@ async function main(): Promise<number> {
     stepTimeoutMs: opts.stepTimeoutMs,
     actionTimeoutMs: opts.actionTimeoutMs,
     maxFailures: opts.maxFailures,
-    launch: { headless: opts.headless },
+    launch: {
+      headless: opts.headless,
+      ...(opts.engine === "lightpanda" ? { channel: "lightpanda" as const } : {}),
+    },
     decide,
     transportResolution: resolution,
     vision: "auto" as const,

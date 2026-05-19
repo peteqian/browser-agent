@@ -123,6 +123,10 @@ export interface BuildChromeArgsOptions {
   extra?: string[];
 }
 
+export function buildLightpandaArgs(port: number): string[] {
+  return ["serve", "--host", "127.0.0.1", "--port", String(port)];
+}
+
 export function buildChromeArgs(options: BuildChromeArgsOptions): string[] {
   const args = [
     `--remote-debugging-port=${options.remoteDebuggingPort}`,
