@@ -1,4 +1,5 @@
 import { BrowserSession, type Page } from "../browser/session";
+import type { PageSnapshot } from "../dom/types";
 import type { AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
 import { emitEvent } from "./emit";
 import { compactHistory } from "./history";
@@ -71,6 +72,8 @@ async function runAgentInner<TData = unknown>(
   let pendingLoopNotice: string | null = null;
   let latestExtraction: string | null = null;
   let currentMemory: string | undefined = options.memory;
+  let prevSnapshot: PageSnapshot | null = null;
+  const fullSnapshots = options.fullSnapshots === true;
 
   try {
     const initialPage = options.page ?? (session ? await session.newPage() : undefined);
@@ -105,7 +108,14 @@ async function runAgentInner<TData = unknown>(
       let context: StepContext;
       try {
         context = await withRejectingTimeout(
-          buildStepContext(page, session, cfg.vision, options.domBudgets, focusState),
+          buildStepContext(
+            page,
+            session,
+            cfg.vision,
+            options.domBudgets,
+            focusState,
+            fullSnapshots ? null : prevSnapshot,
+          ),
           cfg.stepTimeoutMs,
           `Step context preparation timed out after ${cfg.stepTimeoutMs}ms`,
         );
@@ -120,6 +130,7 @@ async function runAgentInner<TData = unknown>(
       }
 
       const { browserState, observation, tabs } = context;
+      prevSnapshot = browserState.snapshot;
       const snapshotDurationMs = Date.now() - snapshotStartedAt;
       const snapshotBytes = observation.length;
       const snapshotElementCount = browserState.elements?.length ?? 0;

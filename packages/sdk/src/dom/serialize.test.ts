@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { formatSnapshotForLLM } from "./serialize";
+import { formatSnapshotDiff, formatSnapshotForLLM } from "./serialize";
 import type { ElementInfo, PageSnapshot } from "./types";
 
 function makeElement(
@@ -224,5 +224,96 @@ describe("renderElementLine shape", () => {
     };
     const out = formatSnapshotForLLM(snapshot);
     expect(out).not.toContain("FORMS DETECTED");
+  });
+});
+
+describe("formatSnapshotDiff", () => {
+  function snap(elements: ElementInfo[], url = "https://example.com/"): PageSnapshot {
+    return {
+      url,
+      title: "T",
+      stability: { readyState: "complete", pendingRequestCount: 0 },
+      elements,
+    };
+  }
+
+  test("renders + / ~ / - markers and unchanged count", () => {
+    // 8 unchanged keeps churn (3/10) below the 50% cap.
+    const keepers = Array.from({ length: 8 }, (_, i) =>
+      makeElement(10 + i, `Stay${i}`, { stableId: `s${i}`, axName: `Stay${i}` }),
+    );
+    const prev = snap([
+      ...keepers,
+      makeElement(0, "Old", { stableId: "x", axName: "Old" }),
+      makeElement(2, "Drop", { stableId: "d", axName: "Drop" }),
+    ]);
+    const next = snap([
+      ...keepers,
+      makeElement(1, "New", { stableId: "x", axName: "New" }),
+      makeElement(3, "Add", { stableId: "a", axName: "Add" }),
+    ]);
+    const out = formatSnapshotDiff(prev, next);
+    expect(out.usedDiff).toBe(true);
+    expect(out.text).toContain("SNAPSHOT DIFF vs prior step: +1 added, -1 removed, ~1 changed");
+    expect(out.text).toMatch(/\+ @e3 \[button\] "Add"/);
+    expect(out.text).toContain("- @e2");
+    expect(out.text).toMatch(/~ @e1 \[button\] "New"/);
+    expect(out.text).toContain("(= 8 unchanged)");
+  });
+
+  test("URL change forces fallback to full snapshot", () => {
+    const prev = snap([makeElement(0, "X", { stableId: "h" })], "https://a.example/");
+    const next = snap([makeElement(0, "X", { stableId: "h" })], "https://b.example/");
+    const out = formatSnapshotDiff(prev, next);
+    expect(out.usedDiff).toBe(false);
+    expect(out.text).toContain("INTERACTIVE ELEMENTS");
+  });
+
+  test("null prev falls back to full snapshot", () => {
+    const next = snap([makeElement(0, "X", { stableId: "h" })]);
+    const out = formatSnapshotDiff(null, next);
+    expect(out.usedDiff).toBe(false);
+    expect(out.text).toContain("INTERACTIVE ELEMENTS");
+  });
+
+  test(">50% churn falls back to full snapshot", () => {
+    const prev = snap([
+      makeElement(0, "", { stableId: "a", axName: "A" }),
+      makeElement(1, "", { stableId: "b", axName: "B" }),
+    ]);
+    const next = snap([
+      makeElement(0, "", { stableId: "c", axName: "C" }),
+      makeElement(1, "", { stableId: "d", axName: "D" }),
+      makeElement(2, "", { stableId: "e", axName: "E" }),
+    ]);
+    const out = formatSnapshotDiff(prev, next);
+    expect(out.usedDiff).toBe(false);
+    expect(out.text).toContain("INTERACTIVE ELEMENTS");
+  });
+
+  test("pure addition only renders + lines", () => {
+    const prev = snap([makeElement(0, "Keep", { stableId: "k", axName: "Keep" })]);
+    const next = snap([
+      makeElement(0, "Keep", { stableId: "k", axName: "Keep" }),
+      makeElement(1, "Plus", { stableId: "p", axName: "Plus" }),
+    ]);
+    const out = formatSnapshotDiff(prev, next);
+    expect(out.usedDiff).toBe(true);
+    expect(out.text).toMatch(/\+ @e1 \[button\] "Plus"/);
+    expect(out.text).not.toMatch(/^- /m);
+    expect(out.text).not.toMatch(/^~ /m);
+  });
+
+  test("pure removal only renders - lines", () => {
+    const keepers = Array.from({ length: 4 }, (_, i) =>
+      makeElement(10 + i, `Stay${i}`, { stableId: `s${i}`, axName: `Stay${i}` }),
+    );
+    const prev = snap([...keepers, makeElement(1, "Gone", { stableId: "g", axName: "Gone" })]);
+    const next = snap(keepers);
+    const out = formatSnapshotDiff(prev, next);
+    expect(out.usedDiff).toBe(true);
+    expect(out.text).toContain("- @e1");
+    expect(out.text).not.toMatch(/^\+ /m);
+    expect(out.text).not.toMatch(/^~ /m);
   });
 });

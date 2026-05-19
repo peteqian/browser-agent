@@ -49,6 +49,7 @@ interface CliOptions {
   probe: boolean;
   engine: EngineId;
   summary: boolean;
+  fullSnapshots: boolean;
 }
 
 function printHelp(): void {
@@ -94,6 +95,7 @@ Output:
                              timestamped JSONL on stderr. Composes with --json.
   --summary                  After the run, print a per-step timing table to stdout
                              (decision / snapshot / action breakdown).
+  --full-snapshots           Always send the full DOM snapshot instead of a per-step diff.
 
 Other:
   --config <path>            Load defaults from JSON file (CLI flags override).
@@ -199,6 +201,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
       stdin: { type: "boolean" },
       json: { type: "boolean" },
       summary: { type: "boolean" },
+      "full-snapshots": { type: "boolean" },
       probe: { type: "boolean" },
       verbose: { type: "boolean", short: "v" },
       version: { type: "boolean", short: "V" },
@@ -285,6 +288,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     probe: Boolean(values.probe),
     engine,
     summary: Boolean(values.summary),
+    fullSnapshots: Boolean(values["full-snapshots"]),
   };
 }
 
@@ -464,6 +468,7 @@ async function main(): Promise<number> {
     decide,
     transportResolution: resolution,
     vision: "auto" as const,
+    fullSnapshots: opts.fullSnapshots,
     signal: abortController.signal,
     onEvent,
     onStep: (step: StepInfo) => {

@@ -330,6 +330,56 @@ describe("runAgent decision timeouts", () => {
   });
 });
 
+describe("runAgent snapshot diff", () => {
+  test("step 2 swaps the full interactive listing for a diff body", async () => {
+    const inputs: AgentInput[] = [];
+    await runAgent({
+      task: "observe diff replaces full snapshot",
+      page: createFakePage({ waitForTimeout: async () => {} }),
+      maxSteps: 3,
+      loopDetectionMode: "off",
+      decide: async (input) => {
+        inputs.push(input);
+        if (input.step >= 2) {
+          return {
+            actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+            done: false,
+          };
+        }
+        return { actions: [{ name: "wait", params: { ms: 1 } }], done: false };
+      },
+    });
+    expect(inputs.length).toBeGreaterThanOrEqual(2);
+    expect(inputs[0]!.observation).toContain("INTERACTIVE ELEMENTS");
+    expect(inputs[0]!.observation).not.toContain("SNAPSHOT DIFF");
+    expect(inputs[1]!.observation).toContain("SNAPSHOT DIFF");
+    expect(inputs[1]!.observation).not.toContain("INTERACTIVE ELEMENTS");
+  });
+
+  test("fullSnapshots=true disables diffing", async () => {
+    const inputs: AgentInput[] = [];
+    await runAgent({
+      task: "force full snapshots",
+      page: createFakePage({ waitForTimeout: async () => {} }),
+      maxSteps: 3,
+      loopDetectionMode: "off",
+      fullSnapshots: true,
+      decide: async (input) => {
+        inputs.push(input);
+        if (input.step >= 2) {
+          return {
+            actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+            done: false,
+          };
+        }
+        return { actions: [{ name: "wait", params: { ms: 1 } }], done: false };
+      },
+    });
+    expect(inputs[1]!.observation).not.toContain("SNAPSHOT DIFF");
+    expect(inputs[1]!.observation).toContain("INTERACTIVE ELEMENTS");
+  });
+});
+
 describe("runAgent step context timeouts", () => {
   test("returns a deterministic failure when context preparation hangs", async () => {
     let decideCalled = false;

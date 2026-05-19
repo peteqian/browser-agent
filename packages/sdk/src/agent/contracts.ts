@@ -246,8 +246,18 @@ export interface AgentOptions<TData = unknown> {
   task: string;
   /** Decision function — usually `createDecide({...})` or a built-in adapter. */
   decide: GetNextActionFn;
-  /** Capture screenshots and pass them to providers that support multimodal input. Default: "auto". */
+  /**
+   * Capture screenshots and pass them to providers that support multimodal
+   * input. Default: false. Set true to ship a screenshot per step (only
+   * useful for vision-capable models).
+   */
   vision?: boolean | "auto";
+  /**
+   * Always send a full DOM snapshot instead of a per-step diff. Default
+   * false — the loop renders an element-level diff against the prior
+   * snapshot when the URL is unchanged and churn is below 50%.
+   */
+  fullSnapshots?: boolean;
   /** Include planning/memory fields in prompts and events. Default: true. */
   planning?: boolean;
   /** Override or extend the action catalog used by the model and executor. */

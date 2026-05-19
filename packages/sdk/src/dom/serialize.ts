@@ -6,6 +6,7 @@ import {
   type RequiredDomBudgets,
   type SelectorMap,
 } from "./cdp-snapshot";
+import { diffSnapshots } from "./snapshot-diff";
 import type { ElementInfo, PageSnapshot } from "./types";
 
 export type { DomBudgetOptions, SelectorMap } from "./cdp-snapshot";
@@ -148,4 +149,69 @@ export function formatSnapshotForLLM(
   }
 
   return lines.join("\n");
+}
+
+/**
+ * Diff-aware variant of {@link formatSnapshotForLLM}.
+ *
+ * Returns a compact summary of element-level deltas:
+ *
+ *   + @eN [role] "name"<state>     (added)
+ *   - @eM                           (removed)
+ *   ~ @eK [role] "newname"<state>   (changed)
+ *   (= 47 unchanged)
+ *
+ * Falls back to the full snapshot when:
+ *   - prev is null
+ *   - the URL changed between snapshots
+ *   - more than 50% of `next`'s elements are added/removed/changed
+ *   - the rendered diff would exceed `maxTotalChars`
+ *
+ * The fallback path returns the same string `formatSnapshotForLLM(next)`
+ * would, with `usedDiff: false`.
+ */
+export function formatSnapshotDiff(
+  prev: PageSnapshot | null,
+  next: PageSnapshot,
+  budgetsOrLimit?: DomBudgetOptions | number,
+): { text: string; usedDiff: boolean } {
+  if (!prev || prev.url !== next.url) {
+    return { text: formatSnapshotForLLM(next, budgetsOrLimit), usedDiff: false };
+  }
+
+  const budgets: RequiredDomBudgets =
+    typeof budgetsOrLimit === "number"
+      ? withBudgetDefaults({ maxDisplayElements: budgetsOrLimit })
+      : withBudgetDefaults(budgetsOrLimit);
+  const fieldChars = budgets.maxFieldChars;
+  const totalCap = budgets.maxTotalChars;
+
+  const diff = diffSnapshots(prev, next);
+  const churn = diff.added.length + diff.removed.length + diff.changed.length;
+  const denom = Math.max(1, next.elements.length);
+  if (churn / denom > 0.5) {
+    return { text: formatSnapshotForLLM(next, budgetsOrLimit), usedDiff: false };
+  }
+
+  const header: string[] = [];
+  header.push(`URL: ${next.url}`);
+  header.push(`TITLE: ${next.title}`);
+  header.push(
+    `PAGE STATE: readyState=${next.stability.readyState}, pendingRequests=${next.stability.pendingRequestCount}`,
+  );
+  header.push(
+    `SNAPSHOT DIFF vs prior step: +${diff.added.length} added, -${diff.removed.length} removed, ~${diff.changed.length} changed, =${diff.unchanged} unchanged.`,
+  );
+
+  const lines: string[] = [...header];
+  for (const el of diff.added) lines.push(`+ ${renderElementLine(el, fieldChars)}`);
+  for (const el of diff.removed) lines.push(`- @e${el.index}`);
+  for (const ch of diff.changed) lines.push(`~ ${renderElementLine(ch.next, fieldChars)}`);
+  lines.push(`(= ${diff.unchanged} unchanged)`);
+
+  const text = lines.join("\n");
+  if (text.length > totalCap) {
+    return { text: formatSnapshotForLLM(next, budgetsOrLimit), usedDiff: false };
+  }
+  return { text, usedDiff: true };
 }

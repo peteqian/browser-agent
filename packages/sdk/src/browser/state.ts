@@ -1,5 +1,5 @@
 import type { DomBudgetOptions, SelectorMap } from "../dom/cdp-snapshot";
-import { formatSnapshotForLLM, serializePage } from "../dom/serialize";
+import { formatSnapshotDiff, formatSnapshotForLLM, serializePage } from "../dom/serialize";
 import type { ElementBBox, ElementInfo, PageSnapshot } from "../dom/types";
 import type { BrowserSession, Page, PendingNetworkRequest } from "./session";
 
@@ -28,6 +28,10 @@ export interface BrowserStateSummary {
   elements: ElementInfo[];
   selectorMap: SelectorMap;
   observation: string;
+  /** Raw snapshot used to build `observation`. Useful for diffing on the next step. */
+  snapshot: PageSnapshot;
+  /** True when `observation` was rendered as a diff against `prevSnapshot`. */
+  observationIsDiff: boolean;
   screenshot?: ScreenshotState;
 }
 
@@ -39,6 +43,8 @@ export interface BrowserStateOptions {
   focusBbox?: ElementBBox;
   /** Human-readable label printed above the focused observation. */
   focusReason?: string;
+  /** Previous snapshot — when provided, render the observation as a diff. */
+  prevSnapshot?: PageSnapshot | null;
 }
 
 export async function captureBrowserState(
@@ -60,13 +66,14 @@ export async function captureBrowserState(
       )
     : undefined;
 
-  const observation = buildObservation(
+  const { text: observation, usedDiff } = buildObservation(
     snapshot,
     pendingRequests,
     screenshot,
     options.domBudgets,
     options.focusBbox,
     options.focusReason,
+    options.prevSnapshot ?? null,
   );
 
   return {
@@ -80,6 +87,8 @@ export async function captureBrowserState(
     elements: snapshot.elements,
     selectorMap,
     observation,
+    snapshot,
+    observationIsDiff: usedDiff,
     ...(screenshot ? { screenshot } : {}),
   };
 }
@@ -96,7 +105,8 @@ function buildObservation(
   budgets: DomBudgetOptions | undefined,
   focusBbox: ElementBBox | undefined,
   focusReason: string | undefined,
-): string {
+  prevSnapshot: PageSnapshot | null,
+): { text: string; usedDiff: boolean } {
   const pendingSummary =
     pendingRequests.length === 0
       ? "PENDING REQUESTS: none"
@@ -108,6 +118,7 @@ function buildObservation(
     : "SCREENSHOT: not captured";
 
   let body: string;
+  let usedDiff = false;
   if (focusBbox) {
     const fullCount = snapshot.elements.length;
     const focused: PageSnapshot = {
@@ -120,11 +131,15 @@ function buildObservation(
       `showing ${focused.elements.length}/${fullCount} elements that overlap focus. ` +
       `Call focus_area(clear=true) to see the whole page again.`;
     body = `${header}\n${formatSnapshotForLLM(focused, budgets)}`;
+  } else if (prevSnapshot) {
+    const diffed = formatSnapshotDiff(prevSnapshot, snapshot, budgets);
+    body = diffed.text;
+    usedDiff = diffed.usedDiff;
   } else {
     body = formatSnapshotForLLM(snapshot, budgets);
   }
 
-  return `${body}\n${pendingSummary}\n${screenshotSummary}`;
+  return { text: `${body}\n${pendingSummary}\n${screenshotSummary}`, usedDiff };
 }
 
 async function readViewport(page: Page): Promise<{ width: number; height: number }> {
