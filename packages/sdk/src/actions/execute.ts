@@ -42,11 +42,7 @@ import {
   handleScreenshot,
   handleSearchPage,
 } from "./handlers/extraction";
-import {
-  handleFindByRole,
-  handleFindByText,
-  handleFindByTestid,
-} from "./handlers/find";
+import { handleFindByRole, handleFindByText, handleFindByTestid } from "./handlers/find";
 import { handleDialogHandle } from "./handlers/dialog";
 import { handleNetworkHarStart, handleNetworkHarStop } from "./handlers/network";
 import type { FocusState } from "../agent/focus-state";

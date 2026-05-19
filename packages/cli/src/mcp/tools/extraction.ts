@@ -146,7 +146,8 @@ export function registerExtractionTools(server: McpServer): void {
   registerTool(
     "eval",
     {
-      description: "Evaluate a JavaScript expression in the page and return the JSON-serialized result.",
+      description:
+        "Evaluate a JavaScript expression in the page and return the JSON-serialized result.",
       inputSchema: {
         sessionId: z.string(),
         expression: z.string().min(1).max(20_000),

@@ -15,7 +15,7 @@ the page's accessibility tree + DOM via CDP. It contains:
 }
 ```
 
-Only *interactive* and otherwise notable elements survive the budget
+Only _interactive_ and otherwise notable elements survive the budget
 filter (`DEFAULT_DOM_BUDGETS` caps ~120 visible, ~1200 indexed). The
 formatter renders each as one line tagged with its `[index]`.
 
@@ -48,6 +48,7 @@ formatter renders each as one line tagged with its `[index]`.
   different element or get a not-found error.
 
 Rules:
+
 - Re-snapshot after any `navigate`, `click`, `type` with `submit`,
   `scroll` that reveals new content, or after `wait_for_text` fires.
 - Within one snapshot, batch multiple non-mutating reads
@@ -57,7 +58,7 @@ Rules:
 
 - 8 hex chars, e.g. `"a1b2c3d4"`.
 - Hash of: `framePath + tag + axRole + axName + testId +
-  bucketed-y-coordinate`. See `computeStableId` in
+bucketed-y-coordinate`. See `computeStableId` in
   `packages/sdk/src/dom/cdp-snapshot.ts`.
 - Same conceptual element resolves to the same `stableId` across
   re-renders, page refreshes, and most layout shifts.

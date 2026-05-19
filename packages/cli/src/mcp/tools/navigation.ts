@@ -56,7 +56,8 @@ export function registerNavigationTools(server: McpServer): void {
   registerTool(
     "switch_frame",
     {
-      description: "Switch active frame context. Pass frameId or index, or omit both to return to main frame.",
+      description:
+        "Switch active frame context. Pass frameId or index, or omit both to return to main frame.",
       inputSchema: {
         sessionId: z.string(),
         frameId: z.string().optional(),

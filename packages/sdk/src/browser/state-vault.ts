@@ -84,9 +84,9 @@ export async function saveState(
   const sessionClient = (page.session as unknown as { client?: { send?: Function } }).client;
   if (sessionClient && typeof sessionClient.send === "function") {
     try {
-      const res = await (sessionClient.send as (m: string) => Promise<{ cookies?: Protocol.Network.Cookie[] }>)(
-        "Storage.getCookies",
-      );
+      const res = await (
+        sessionClient.send as (m: string) => Promise<{ cookies?: Protocol.Network.Cookie[] }>
+      )("Storage.getCookies");
       cookies = res.cookies ?? [];
     } catch {
       // Fall back to per-target getAllCookies below.
@@ -94,7 +94,9 @@ export async function saveState(
   }
   if (cookies.length === 0) {
     try {
-      const res = await page.sendCDP<{ cookies?: Protocol.Network.Cookie[] }>("Network.getAllCookies");
+      const res = await page.sendCDP<{ cookies?: Protocol.Network.Cookie[] }>(
+        "Network.getAllCookies",
+      );
       cookies = res.cookies ?? [];
     } catch {
       cookies = [];

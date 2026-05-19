@@ -34,12 +34,12 @@ the browser process immediately.
 
 Two ways to learn about the page. They are complementary.
 
-- **`get_snapshot`** — Returns the *full formatted observation*: URL,
+- **`get_snapshot`** — Returns the _full formatted observation_: URL,
   title, and the budgeted list of interactive elements with `[index]`
   refs. **Default starting point** for any new step. Use it whenever the
   page has changed (after navigate, click, scroll-load, etc.).
 
-- **`find_elements`** — Returns a *narrow CSS-selector match*. Use when:
+- **`find_elements`** — Returns a _narrow CSS-selector match_. Use when:
   - The snapshot is too large or noisy and you know a precise selector
     (e.g. `a.product-card`, `[data-testid="row"]`).
   - You need attributes the snapshot does not surface
@@ -52,6 +52,7 @@ Two ways to learn about the page. They are complementary.
   `click_by` with a locator) before clicking.
 
 Other observation tools (use directly, no snapshot needed):
+
 - `search_page` — text/regex search over rendered text with context.
 - `find_text` — first occurrence of a literal string.
 - `extract_content` — LLM-friendly content extraction with optional
@@ -61,6 +62,7 @@ Other observation tools (use directly, no snapshot needed):
 
 `run_agent` runs the SDK loop in-process — a full subtask end-to-end.
 Use it when:
+
 - The subtask is well-scoped ("find the cheapest flight LAX→SFO next
   Friday") and you want one tool call instead of dozens.
 - You do not need to interleave host-agent reasoning with each step.

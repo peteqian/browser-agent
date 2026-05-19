@@ -68,7 +68,10 @@ describe("screenshot annotation", () => {
 
   test("injects overlay container, captures, and cleans up", async () => {
     const { page, calls } = makePage();
-    const snapshot = makeSnapshot([makeElement(0, 10, 20, 100, 30), makeElement(1, 50, 80, 40, 40)]);
+    const snapshot = makeSnapshot([
+      makeElement(0, 10, 20, 100, 30),
+      makeElement(1, 50, 80, 40, 40),
+    ]);
     const data = await screenshot(page, { annotate: true, snapshot });
     expect(data).toBe("FAKE_PNG_BASE64");
 
@@ -88,7 +91,11 @@ describe("screenshot annotation", () => {
 
   test("filters elements by annotateIndices", async () => {
     const { page, calls } = makePage();
-    const snapshot = makeSnapshot([makeElement(0, 0, 0, 10, 10), makeElement(1, 5, 5, 10, 10), makeElement(2, 10, 10, 10, 10)]);
+    const snapshot = makeSnapshot([
+      makeElement(0, 0, 0, 10, 10),
+      makeElement(1, 5, 5, 10, 10),
+      makeElement(2, 10, 10, 10, 10),
+    ]);
     await screenshot(page, { annotate: true, snapshot, annotateIndices: [1] });
 
     const injectExpr = String(calls[0]?.params.expression ?? "");

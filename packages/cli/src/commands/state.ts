@@ -10,10 +10,7 @@ import {
   resolveStateVaultDir,
   showState,
 } from "@peteqian/browser-agent-sdk";
-import {
-  readStorageStateFile,
-  writeStorageStateFile,
-} from "@peteqian/browser-agent-sdk/internal";
+import { readStorageStateFile, writeStorageStateFile } from "@peteqian/browser-agent-sdk/internal";
 
 function printHelp(): void {
   console.log(`browser-agent state — manage the named-state vault.

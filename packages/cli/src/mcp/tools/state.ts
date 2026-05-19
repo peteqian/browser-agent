@@ -49,9 +49,7 @@ export function registerStateTools(server: McpServer): void {
       getSession(sessionId);
       const state = await loadState(name);
       if (applyTo) {
-        const { writeStorageStateFile } = await import(
-          "@peteqian/browser-agent-sdk/internal"
-        );
+        const { writeStorageStateFile } = await import("@peteqian/browser-agent-sdk/internal");
         await writeStorageStateFile(applyTo, state);
       }
       const summary = await showState(name);

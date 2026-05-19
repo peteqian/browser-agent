@@ -179,7 +179,8 @@ export function registerInteractionTools(server: McpServer): void {
   registerTool(
     "find_by_text",
     {
-      description: "Return indices of snapshot elements whose visible/accessible text contains the substring.",
+      description:
+        "Return indices of snapshot elements whose visible/accessible text contains the substring.",
       inputSchema: { sessionId: z.string(), text: z.string().min(1) },
     },
     async ({ sessionId, text }) => {
@@ -196,9 +197,7 @@ export function registerInteractionTools(server: McpServer): void {
     },
     async ({ sessionId, testid }) => {
       const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, { name: "find_by_testid", params: { testid } }),
-      );
+      return jsonResult(await executeAction(page, { name: "find_by_testid", params: { testid } }));
     },
   );
 

@@ -20,11 +20,7 @@ export {
   cleanAllStates,
   resolveStateVaultDir,
 } from "./browser/state-vault";
-export type {
-  StateVaultOptions,
-  StateSummary,
-  StateListEntry,
-} from "./browser/state-vault";
+export type { StateVaultOptions, StateSummary, StateListEntry } from "./browser/state-vault";
 export { captureBrowserState } from "./browser/state";
 export type {
   BrowserStateSummary,

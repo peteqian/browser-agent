@@ -10,8 +10,8 @@
     "test": "bun test"
   },
   "dependencies": {
-    "@peteqian/browser-agent-sdk": "workspace:*",
     "@anthropic-ai/sdk": "^0.92.0",
+    "@peteqian/browser-agent-sdk": "workspace:*",
     "openai": "^6.35.0"
   },
   "engines": {

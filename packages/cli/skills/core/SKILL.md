@@ -75,7 +75,7 @@ Full list with shape: `references/actions.md`.
 - **Coordinate clicks.** `click` accepts `coordinateX`/`coordinateY` as a
   fallback. Reach for `index` first; coordinates break on layout shift.
 - **`type` does not clear by default.** It clears before typing (`mode:
-  "replace"`). Use `mode: "append"` when you want to extend existing text.
+"replace"`). Use `mode: "append"` when you want to extend existing text.
 - **`submit: true`** on `type` presses Enter after typing — combines a type
   and a form submit into one step.
 - **`find_elements` returns a CSS-selected list**, not interactive elements

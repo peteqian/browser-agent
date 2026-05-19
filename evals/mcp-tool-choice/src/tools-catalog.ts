@@ -30,16 +30,25 @@ export const TOOL_CATALOG: readonly ToolSpec[] = [
   { name: "wait_for_text", description: "Wait for text to appear on current page." },
   { name: "wait", description: "Sleep for the given number of milliseconds." },
   // extraction.ts
-  { name: "get_snapshot", description: "Formatted observation of page: URL, title, indexed interactive elements." },
+  {
+    name: "get_snapshot",
+    description: "Formatted observation of page: URL, title, indexed interactive elements.",
+  },
   { name: "search_page", description: "Search page text with literal/regex pattern and context." },
   { name: "find_elements", description: "Find elements by CSS selector." },
   { name: "find_text", description: "Scroll to first visible occurrence of text." },
   { name: "get_dropdown_options", description: "Get dropdown options from select element." },
-  { name: "extract_content", description: "Extract page content chunk for a query, optional links/images." },
+  {
+    name: "extract_content",
+    description: "Extract page content chunk for a query, optional links/images.",
+  },
   { name: "screenshot", description: "Capture page screenshot (base64 PNG) or save to file." },
   { name: "save_as_pdf", description: "Save current page as PDF file." },
   // agent.ts
-  { name: "run_agent", description: "Run an autonomous browser agent loop end-to-end against a fresh session." },
+  {
+    name: "run_agent",
+    description: "Run an autonomous browser agent loop end-to-end against a fresh session.",
+  },
 ];
 
 export const TOOL_NAMES: readonly string[] = TOOL_CATALOG.map((t) => t.name);

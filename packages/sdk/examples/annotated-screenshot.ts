@@ -22,7 +22,9 @@ try {
   const { snapshot } = await captureCdpSnapshot(page, withBudgetDefaults());
   const base64 = await page.screenshot({ annotate: true, snapshot });
   await writeFile(outputPath, Buffer.from(base64, "base64"));
-  console.log(`Wrote annotated screenshot for ${snapshot.elements.length} elements to ${outputPath}`);
+  console.log(
+    `Wrote annotated screenshot for ${snapshot.elements.length} elements to ${outputPath}`,
+  );
 } finally {
   await session.close();
 }

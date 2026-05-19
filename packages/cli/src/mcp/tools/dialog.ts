@@ -10,7 +10,8 @@ export function registerDialogTools(server: McpServer): void {
   registerTool(
     "dialog_handle",
     {
-      description: "Accept or dismiss the next/current JavaScript dialog (alert/confirm/prompt/beforeunload).",
+      description:
+        "Accept or dismiss the next/current JavaScript dialog (alert/confirm/prompt/beforeunload).",
       inputSchema: {
         sessionId: z.string(),
         accept: z.boolean(),

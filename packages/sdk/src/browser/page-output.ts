@@ -19,14 +19,21 @@ const ANNOTATION_CONTAINER_ID = "__ba_annotations__";
 export async function screenshot(page: Page, options?: ScreenshotOptions): Promise<string> {
   const shouldAnnotate = options?.annotate === true && options.snapshot !== undefined;
   if (!shouldAnnotate) {
-    const result = await page.sendCDP<{ data: string }>("Page.captureScreenshot", { format: "png" });
+    const result = await page.sendCDP<{ data: string }>("Page.captureScreenshot", {
+      format: "png",
+    });
     return result.data;
   }
 
-  const elements = filterElementsForAnnotation(options!.snapshot!.elements, options!.annotateIndices);
+  const elements = filterElementsForAnnotation(
+    options!.snapshot!.elements,
+    options!.annotateIndices,
+  );
   try {
     await injectAnnotations(page, elements);
-    const result = await page.sendCDP<{ data: string }>("Page.captureScreenshot", { format: "png" });
+    const result = await page.sendCDP<{ data: string }>("Page.captureScreenshot", {
+      format: "png",
+    });
     return result.data;
   } finally {
     await removeAnnotations(page);
@@ -97,9 +104,7 @@ async function removeAnnotations(page: Page): Promise<void> {
     if (el) el.remove();
     return true;
   })()`;
-  await page
-    .sendCDP("Runtime.evaluate", { expression, returnByValue: true })
-    .catch(() => {});
+  await page.sendCDP("Runtime.evaluate", { expression, returnByValue: true }).catch(() => {});
 }
 
 export interface SaveAsPdfOptions {

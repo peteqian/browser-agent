@@ -34,10 +34,10 @@ bun --cwd packages/cli run dev:mcp
 
 Single-shot CLI invocations (`browser-agent run ...`) launch a fresh browser per call. For multi-step agent loops that need a long-lived browser session across many tool calls — the same pattern as a background daemon — use the MCP server `browser-agent-mcp`. It holds the `BrowserSession` open between tool invocations so the agent can `launch_session` once and then issue many `navigate` / `click` / `type` / `extract` calls against the same tab.
 
-| Use case                                | Tool                          |
-| --------------------------------------- | ----------------------------- |
-| One-off scripted task                   | `browser-agent` CLI           |
-| Agent loop in Claude Code / Cursor / IDE | `browser-agent-mcp` (MCP)     |
+| Use case                                 | Tool                      |
+| ---------------------------------------- | ------------------------- |
+| One-off scripted task                    | `browser-agent` CLI       |
+| Agent loop in Claude Code / Cursor / IDE | `browser-agent-mcp` (MCP) |
 
 Install the MCP server into your agent host:
 

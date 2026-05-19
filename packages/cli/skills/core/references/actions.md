@@ -67,6 +67,6 @@ Locator shape: any of `role+name`, `text`, `testid`, `label`,
 - **`wait_for_text`** — Block until `text` appears (default 30s timeout).
   `{ "text": "Results", "timeoutMs": 10000 }`
 - **`focus_area`** — Hint a region for subsequent snapshots, e.g. `"search
-  form"`. Pass `clear: true` to drop focus. `{ "query": "results list" }`
+form"`. Pass `clear: true` to drop focus. `{ "query": "results list" }`
 - **`done`** — Terminate the agent loop with a verdict.
   `{ "success": true, "summary": "Extracted 5 jobs.", "data": {...} }`
