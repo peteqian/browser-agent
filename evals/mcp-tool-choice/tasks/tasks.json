@@ -1,0 +1,95 @@
+[
+  {
+    "task_id": "auth-001",
+    "category": "auth",
+    "confirmed_task": "Log into example.com using the credentials user@example.com / hunter2 by filling the email and password fields and submitting the form.",
+    "expected_tools": ["launch_session", "navigate", "get_snapshot", "type", "click"],
+    "forbidden_tools": ["save_as_pdf", "run_agent"],
+    "min_calls": 4
+  },
+  {
+    "task_id": "nav-001",
+    "category": "navigation",
+    "confirmed_task": "Open https://example.com in a fresh browser session.",
+    "expected_tools": ["launch_session", "navigate"],
+    "forbidden_tools": ["run_agent", "save_as_pdf"],
+    "max_calls": 4
+  },
+  {
+    "task_id": "nav-002",
+    "category": "navigation",
+    "confirmed_task": "After navigating, go back to the previous page in browser history.",
+    "expected_tools": ["go_back"],
+    "forbidden_tools": ["navigate", "refresh"]
+  },
+  {
+    "task_id": "extract-001",
+    "category": "extraction",
+    "confirmed_task": "List the product names and prices visible on https://shop.example.com/products.",
+    "expected_tools": ["launch_session", "navigate", "extract_content"],
+    "forbidden_tools": ["save_as_pdf", "screenshot"]
+  },
+  {
+    "task_id": "extract-002",
+    "category": "extraction",
+    "confirmed_task": "On the current page, find all anchor tags matching CSS selector 'a.product-link' and report their hrefs.",
+    "expected_tools": ["find_elements"],
+    "forbidden_tools": ["save_as_pdf", "extract_content"]
+  },
+  {
+    "task_id": "extract-003",
+    "category": "extraction",
+    "confirmed_task": "Search the current page for any occurrence of the word 'invoice' (case-insensitive) and report matches with surrounding context.",
+    "expected_tools": ["search_page"],
+    "forbidden_tools": ["save_as_pdf", "extract_content"]
+  },
+  {
+    "task_id": "interact-001",
+    "category": "interaction",
+    "confirmed_task": "On a search results page, type 'browser automation' into the search box (element index 2) and submit.",
+    "expected_tools": ["type"],
+    "forbidden_tools": ["click", "send_keys"]
+  },
+  {
+    "task_id": "interact-002",
+    "category": "interaction",
+    "confirmed_task": "Select the option 'United States' from the country dropdown (element index 5) on the current form.",
+    "expected_tools": ["select_option"],
+    "forbidden_tools": ["click", "type"]
+  },
+  {
+    "task_id": "interact-003",
+    "category": "interaction",
+    "confirmed_task": "Upload the local file /tmp/report.pdf to the file input at element index 3.",
+    "expected_tools": ["upload_file"],
+    "forbidden_tools": ["click", "type"]
+  },
+  {
+    "task_id": "multi-001",
+    "category": "multi-step",
+    "confirmed_task": "Launch a browser, navigate to https://news.ycombinator.com, take a screenshot of the front page, then save the page as a PDF named hn.pdf.",
+    "expected_tools": ["launch_session", "navigate", "screenshot", "save_as_pdf"],
+    "min_calls": 4
+  },
+  {
+    "task_id": "session-001",
+    "category": "session",
+    "confirmed_task": "Open a new tab in the current session and navigate it to https://example.org.",
+    "expected_tools": ["new_tab"],
+    "forbidden_tools": ["launch_session", "close_session"]
+  },
+  {
+    "task_id": "session-002",
+    "category": "session",
+    "confirmed_task": "List all open tabs in the current session, then switch to the tab whose targetId is 'AB12'.",
+    "expected_tools": ["list_tabs", "switch_tab"],
+    "forbidden_tools": ["close_tab"]
+  },
+  {
+    "task_id": "negative-001",
+    "category": "negative",
+    "confirmed_task": "Report the URL and title of the current page along with the indexed interactive elements available.",
+    "expected_tools": ["get_snapshot"],
+    "forbidden_tools": ["save_as_pdf", "screenshot", "run_agent"]
+  }
+]

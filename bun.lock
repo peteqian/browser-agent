@@ -14,6 +14,15 @@
         "typescript": "^5.9.3",
       },
     },
+    "evals/mcp-tool-choice": {
+      "name": "@peteqian/browser-agent-evals-mcp-tool-choice",
+      "version": "0.0.0",
+      "dependencies": {
+        "@anthropic-ai/sdk": "^0.92.0",
+        "@peteqian/browser-agent-sdk": "workspace:*",
+        "openai": "^6.35.0",
+      },
+    },
     "packages/cli": {
       "name": "@peteqian/browser-agent",
       "version": "0.1.1",
@@ -278,6 +287,8 @@
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.65.0", "", { "os": "win32", "cpu": "x64" }, "sha512-D7L/oBbskLss21bYrRbFuIs81AiSQV+wRzwck54dOkHIlq2qu1xjLz8u6jCqGH8Fltk8bB5DLBpVhE7v/fA8XQ=="],
 
     "@peteqian/browser-agent": ["@peteqian/browser-agent@workspace:packages/cli"],
+
+    "@peteqian/browser-agent-evals-mcp-tool-choice": ["@peteqian/browser-agent-evals-mcp-tool-choice@workspace:evals/mcp-tool-choice"],
 
     "@peteqian/browser-agent-sdk": ["@peteqian/browser-agent-sdk@workspace:packages/sdk"],
 

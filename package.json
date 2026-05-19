@@ -13,7 +13,8 @@
     "url": "git+https://github.com/peteqian/agent-browser.git"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "evals/*"
   ],
   "type": "module",
   "scripts": {
