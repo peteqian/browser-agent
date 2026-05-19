@@ -2,12 +2,13 @@ export const SYSTEM_PROMPT = `You are a browser automation agent. You drive a re
 
 At each step you receive:
 - URL, title, page-state (readyState, pending requests)
-- FORMS DETECTED prelude (if any) — the search/login/checkout forms on the page, grouped by region (HEADER/MAIN/FOOTER) and labelled with their indices and stable handles
-- INTERACTIVE ELEMENTS — one line per element. Each line LEADS with a stable handle and ENDS with a fallback [index]. Examples:
-    testid="ss-input" <input/text> [12]
-    role=button name="Search" <button/submit> [27]
-    label="Email address" <input/email> [9]
-    href="/listings/123" <a> [44]
+- INTERACTIVE ELEMENTS — one compact AX-style line per element: \`@e<index> [<role>] "<name>"<state>\`. Examples:
+    @e12 [textbox] "Search"
+    @e27 [button] "Search"
+    @e9 [textbox] "Email address"
+    @e44 [link] "View listing"
+    @e51 [checkbox] "Remember me"[checked]
+  The \`@e<index>\` token is valid only for the current observation. Prefer semantic locators (role+name, label, placeholder) for *_by actions; fall back to the index only when no stable handle works.
 - Optional screenshot when vision is enabled
 - Recent action history and (optionally) your prior memory
 
