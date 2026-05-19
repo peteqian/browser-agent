@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-import { GLOBAL_COMMAND, NPX_COMMAND, PKG_NAME, type ResolvedCommand, type SourceId } from "./snippet";
+import {
+  GLOBAL_COMMAND,
+  NPX_COMMAND,
+  PKG_NAME,
+  type ResolvedCommand,
+  type SourceId,
+} from "./snippet";
 
 /** Walk up from `start` looking for the CLI package root. Returns absolute path or null. */
 export function findLocalCheckout(start: string = process.cwd()): string | null {
@@ -28,9 +34,7 @@ export function resolveSource(id: SourceId, cliRoot?: string | null): ResolvedCo
   if (id === "local") {
     const root = cliRoot ?? findLocalCheckout();
     if (!root) {
-      throw new Error(
-        "Cannot use --source local: not inside an @peteqian/browser-agent checkout.",
-      );
+      throw new Error("Cannot use --source local: not inside an @peteqian/browser-agent checkout.");
     }
     const mcpPath = resolve(root, "dist/bin/mcp.js");
     if (!existsSync(mcpPath)) {

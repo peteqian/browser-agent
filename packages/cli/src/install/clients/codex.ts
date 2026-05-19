@@ -32,7 +32,12 @@ function findHeaderLine(text: string, header: string): number {
     const trimmed = line.replace(/^\s+/, "");
     if (!trimmed.startsWith("#") && trimmed.startsWith(header)) {
       const after = trimmed.slice(header.length);
-      if (after === "" || after.startsWith(" ") || after.startsWith("\t") || after.startsWith("#")) {
+      if (
+        after === "" ||
+        after.startsWith(" ") ||
+        after.startsWith("\t") ||
+        after.startsWith("#")
+      ) {
         return offset + line.indexOf(header);
       }
     }

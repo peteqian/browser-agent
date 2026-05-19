@@ -37,7 +37,11 @@ export function detectClients(home: string = homedir()): ClientDetection[] {
       id: "codex",
       label: "Codex",
       detected: existsSync(codexConfig) || hasBin("codex"),
-      reason: existsSync(codexConfig) ? `${codexConfig} exists` : hasBin("codex") ? "codex on PATH" : "no codex config or binary",
+      reason: existsSync(codexConfig)
+        ? `${codexConfig} exists`
+        : hasBin("codex")
+          ? "codex on PATH"
+          : "no codex config or binary",
     },
     {
       id: "claude-code",
@@ -49,7 +53,11 @@ export function detectClients(home: string = homedir()): ClientDetection[] {
       id: "cursor",
       label: "Cursor",
       detected: existsSync(cursorDir) || existsSync(cursorAppPath),
-      reason: existsSync(cursorDir) ? `${cursorDir} exists` : existsSync(cursorAppPath) ? `${cursorAppPath} exists` : "no Cursor install found",
+      reason: existsSync(cursorDir)
+        ? `${cursorDir} exists`
+        : existsSync(cursorAppPath)
+          ? `${cursorAppPath} exists`
+          : "no Cursor install found",
     },
   ];
 }

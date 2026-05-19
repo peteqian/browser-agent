@@ -29,8 +29,7 @@ export function resolveCursorPath(scope: CursorScope, cwd: string, home: string)
 
 export function installCursor(opts: CursorInstallOptions): CursorInstallResult {
   const scope = opts.scope ?? "user";
-  const path =
-    opts.configPath ?? resolveCursorPath(scope, opts.cwd ?? process.cwd(), homedir());
+  const path = opts.configPath ?? resolveCursorPath(scope, opts.cwd ?? process.cwd(), homedir());
 
   let parsed: CursorConfig = {};
   if (existsSync(path)) {

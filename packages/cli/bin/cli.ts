@@ -325,7 +325,10 @@ Flags:
   };
 
   if (values.client) {
-    const ids = (values.client as string).split(",").map((s) => s.trim()).filter(Boolean);
+    const ids = (values.client as string)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
     for (const id of ids) {
       if (!VALID_CLIENTS.has(id as ClientId)) {
         throw new Error(`--client must be one of: codex,claude-code,cursor. Got: ${id}`);

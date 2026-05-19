@@ -106,7 +106,11 @@ async function pickSource(allowLocal: boolean): Promise<SourceId> {
   if (allowLocal) {
     options.push({ value: "local", label: "Local checkout", hint: "node <repo>/dist/bin/mcp.js" });
   }
-  options.push({ value: "global", label: "Global install", hint: "expects `browser-agent-mcp` on PATH" });
+  options.push({
+    value: "global",
+    label: "Global install",
+    hint: "expects `browser-agent-mcp` on PATH",
+  });
   const result = await p.select<SourceId>({
     message: "How should clients launch browser-agent-mcp?",
     options,
@@ -123,7 +127,11 @@ function applyOne(choice: ClientChoice, name: string, cmd: ResolvedCommand): Ins
   try {
     if (choice.id === "codex") {
       const r = installCodex({ name, command: cmd });
-      return { client: "codex", ok: true, message: `${r.action} [mcp_servers.${name}] in ${r.path}` };
+      return {
+        client: "codex",
+        ok: true,
+        message: `${r.action} [mcp_servers.${name}] in ${r.path}`,
+      };
     }
     if (choice.id === "cursor") {
       const r = installCursor({ name, command: cmd, scope: choice.scope as CursorScope });
@@ -152,9 +160,7 @@ export async function runInstall(opts: InstallOptions): Promise<InstallResult[]>
     p.intro("browser-agent install");
     clientIds = await pickClients(detected);
   } else {
-    throw new Error(
-      "Non-interactive: pass --client <id>[,<id>...] or --all-detected. Try --help.",
-    );
+    throw new Error("Non-interactive: pass --client <id>[,<id>...] or --all-detected. Try --help.");
   }
   if (clientIds.length === 0) throw new Error("No clients selected.");
 

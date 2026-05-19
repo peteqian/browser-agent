@@ -92,10 +92,7 @@ describe("cursor install", () => {
   test("preserves existing servers", () => {
     const dir = freshTmp();
     const path = join(dir, "mcp.json");
-    writeFileSync(
-      path,
-      JSON.stringify({ mcpServers: { existing: { command: "x", args: [] } } }),
-    );
+    writeFileSync(path, JSON.stringify({ mcpServers: { existing: { command: "x", args: [] } } }));
     installCursor({ name: "browser-agent", command: NPX_COMMAND, configPath: path });
     const parsed = JSON.parse(readFileSync(path, "utf8")) as {
       mcpServers: Record<string, { command: string; args: string[] }>;
