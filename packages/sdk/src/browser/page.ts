@@ -47,6 +47,8 @@ import { setTimeout as delay } from "node:timers/promises";
 export class Page {
   readonly session: BrowserSession;
   readonly targetId: string;
+  /** Active frame context for subsequent eval calls; undefined means main frame. */
+  currentFrameId?: string;
 
   constructor(session: BrowserSession, targetId: string) {
     this.session = session;

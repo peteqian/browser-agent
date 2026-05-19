@@ -62,6 +62,77 @@ export async function handleClick(
   return finalizeOk();
 }
 
+function findElementByIndex(
+  ctx: HandlerContext,
+  index: number,
+): { ok: true; element: ElementInfo } | { ok: false; result: ActionResult } {
+  const elements = ctx.snapshotElements ?? [];
+  const el = elements.find((e) => e.index === index);
+  if (!el) {
+    return { ok: false, result: fail(`Index [${index}] is not present in the current snapshot`) };
+  }
+  if (el.bbox.w <= 0 || el.bbox.h <= 0) {
+    return { ok: false, result: fail(`Element [${index}] has no visible bbox`) };
+  }
+  return { ok: true, element: el };
+}
+
+export async function handleHover(
+  ctx: HandlerContext,
+  action: ByName<"hover">,
+): Promise<ActionResult> {
+  const resolved = findElementByIndex(ctx, action.params.index);
+  if (!resolved.ok) return resolved.result;
+  const { bbox } = resolved.element;
+  const x = bbox.x + bbox.w / 2;
+  const y = bbox.y + bbox.h / 2;
+  await ctx.page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x,
+    y,
+    button: "none",
+    clickCount: 0,
+  });
+  return ok(`Hovered [${action.params.index}]`, {
+    longTermMemory: `Hovered [${action.params.index}]`,
+  });
+}
+
+export async function handleDblclick(
+  ctx: HandlerContext,
+  action: ByName<"dblclick">,
+): Promise<ActionResult> {
+  const resolved = findElementByIndex(ctx, action.params.index);
+  if (!resolved.ok) return resolved.result;
+  const { bbox } = resolved.element;
+  const x = bbox.x + bbox.w / 2;
+  const y = bbox.y + bbox.h / 2;
+  await ctx.page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x,
+    y,
+    button: "none",
+    clickCount: 0,
+  });
+  await ctx.page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x,
+    y,
+    button: "left",
+    clickCount: 2,
+  });
+  await ctx.page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x,
+    y,
+    button: "left",
+    clickCount: 2,
+  });
+  return ok(`Double-clicked [${action.params.index}]`, {
+    longTermMemory: `Double-clicked [${action.params.index}]`,
+  });
+}
+
 export async function handleType(
   ctx: HandlerContext,
   action: ByName<"type">,

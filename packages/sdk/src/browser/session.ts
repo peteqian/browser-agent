@@ -220,6 +220,23 @@ export class BrowserSession {
     );
   }
 
+  /**
+   * Subscribe to a CDP event scoped to a specific target. The handler is
+   * invoked only when the event arrives on the session that maps to
+   * `targetId`. Returns an unsubscribe fn.
+   */
+  async onTargetEvent<TParams = unknown>(
+    targetId: string,
+    method: string,
+    handler: (params: TParams) => void,
+  ): Promise<() => void> {
+    const sessionId = await this.getOrAttachSessionId(targetId);
+    return this.ensureClient().on(method, (params, eventSessionId) => {
+      if (eventSessionId !== sessionId) return;
+      handler(params as TParams);
+    });
+  }
+
   async waitIfCaptchaSolving(timeoutMs?: number): Promise<CaptchaWaitResult | null> {
     return this.captchaWatchdog.waitIfSolving(timeoutMs);
   }
