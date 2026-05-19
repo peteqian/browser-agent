@@ -154,11 +154,22 @@ export async function handleScreenshot(
   ctx: HandlerContext,
   action: ByName<"screenshot">,
 ): Promise<ActionResult> {
+  const annotate = action.params.annotate === true;
+  const snapshot =
+    annotate && ctx.snapshotElements
+      ? {
+          url: ctx.currentUrl ?? "",
+          title: "",
+          elements: [...ctx.snapshotElements],
+          stability: { readyState: "complete", pendingRequestCount: 0 },
+        }
+      : undefined;
+  const opts = annotate && snapshot ? { annotate: true, snapshot } : undefined;
   if (action.params.fileName) {
-    const savedPath = await ctx.page.screenshotToFile(action.params.fileName);
+    const savedPath = await ctx.page.screenshotToFile(action.params.fileName, opts);
     return ok(`Screenshot saved to ${savedPath}`, { data: { path: savedPath } });
   }
-  const base64 = await ctx.page.screenshot();
+  const base64 = await ctx.page.screenshot(opts);
   return ok("Captured screenshot (base64 PNG)", {
     longTermMemory: "Captured screenshot",
     data: { base64 },

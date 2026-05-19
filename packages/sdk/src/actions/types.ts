@@ -125,6 +125,7 @@ export const findTextAction = z.object({
 
 export const screenshotAction = z.object({
   fileName: z.string().min(1).optional(),
+  annotate: z.boolean().optional(),
 });
 
 export const saveAsPdfAction = z.object({

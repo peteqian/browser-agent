@@ -41,7 +41,13 @@ import {
   readLocalStorage,
   searchPage,
 } from "./page-scripts";
-import { saveAsPdf, screenshot, screenshotToFile, type SaveAsPdfOptions } from "./page-output";
+import {
+  saveAsPdf,
+  screenshot,
+  screenshotToFile,
+  type SaveAsPdfOptions,
+  type ScreenshotOptions,
+} from "./page-output";
 import { setTimeout as delay } from "node:timers/promises";
 
 export class Page {
@@ -269,11 +275,11 @@ export class Page {
     return getPendingNetworkRequests(this, limit);
   }
 
-  screenshot(): Promise<string> {
-    return screenshot(this);
+  screenshot(options?: ScreenshotOptions): Promise<string> {
+    return screenshot(this, options);
   }
-  screenshotToFile(fileName?: string): Promise<string> {
-    return screenshotToFile(this, fileName);
+  screenshotToFile(fileName?: string, options?: ScreenshotOptions): Promise<string> {
+    return screenshotToFile(this, fileName, options);
   }
   saveAsPdf(options?: SaveAsPdfOptions): Promise<string> {
     return saveAsPdf(this, options);
