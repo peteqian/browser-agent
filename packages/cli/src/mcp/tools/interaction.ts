@@ -135,6 +135,74 @@ export function registerInteractionTools(server: McpServer): void {
   );
 
   registerTool(
+    "hover",
+    {
+      description: "Hover the mouse over element [index].",
+      inputSchema: { sessionId: z.string(), index: z.number().int().nonnegative() },
+    },
+    async ({ sessionId, index }) => {
+      const { page } = getSession(sessionId);
+      return jsonResult(await executeAction(page, { name: "hover", params: { index } }));
+    },
+  );
+
+  registerTool(
+    "dblclick",
+    {
+      description: "Double-click element [index].",
+      inputSchema: { sessionId: z.string(), index: z.number().int().nonnegative() },
+    },
+    async ({ sessionId, index }) => {
+      const { page } = getSession(sessionId);
+      return jsonResult(await executeAction(page, { name: "dblclick", params: { index } }));
+    },
+  );
+
+  registerTool(
+    "find_by_role",
+    {
+      description: "Return indices of snapshot elements matching ARIA role (and optional name).",
+      inputSchema: {
+        sessionId: z.string(),
+        role: z.string().min(1),
+        name: z.string().optional(),
+      },
+    },
+    async ({ sessionId, role, name }) => {
+      const { page } = getSession(sessionId);
+      return jsonResult(
+        await executeAction(page, { name: "find_by_role", params: { role, name } }),
+      );
+    },
+  );
+
+  registerTool(
+    "find_by_text",
+    {
+      description: "Return indices of snapshot elements whose visible/accessible text contains the substring.",
+      inputSchema: { sessionId: z.string(), text: z.string().min(1) },
+    },
+    async ({ sessionId, text }) => {
+      const { page } = getSession(sessionId);
+      return jsonResult(await executeAction(page, { name: "find_by_text", params: { text } }));
+    },
+  );
+
+  registerTool(
+    "find_by_testid",
+    {
+      description: "Return indices of snapshot elements with a matching data-testid.",
+      inputSchema: { sessionId: z.string(), testid: z.string().min(1) },
+    },
+    async ({ sessionId, testid }) => {
+      const { page } = getSession(sessionId);
+      return jsonResult(
+        await executeAction(page, { name: "find_by_testid", params: { testid } }),
+      );
+    },
+  );
+
+  registerTool(
     "scroll",
     {
       description: "Scroll the page.",

@@ -4,9 +4,11 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { PACKAGE_NAME, VERSION } from "../version";
 
 import { registerAgentTool } from "./tools/agent";
+import { registerDialogTools } from "./tools/dialog";
 import { registerExtractionTools } from "./tools/extraction";
 import { registerInteractionTools } from "./tools/interaction";
 import { registerNavigationTools } from "./tools/navigation";
+import { registerNetworkTools } from "./tools/network";
 import { registerSessionTools } from "./tools/session";
 import { registerSkillTools } from "./tools/skills";
 import { shutdownAllSessions } from "./sessions";
@@ -26,6 +28,8 @@ export function createServer(): McpServer {
   registerNavigationTools(server);
   registerInteractionTools(server);
   registerExtractionTools(server);
+  registerDialogTools(server);
+  registerNetworkTools(server);
   registerAgentTool(server);
   registerSkillTools(server);
   return server;

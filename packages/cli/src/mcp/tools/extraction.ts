@@ -144,6 +144,21 @@ export function registerExtractionTools(server: McpServer): void {
   );
 
   registerTool(
+    "eval",
+    {
+      description: "Evaluate a JavaScript expression in the page and return the JSON-serialized result.",
+      inputSchema: {
+        sessionId: z.string(),
+        expression: z.string().min(1).max(20_000),
+      },
+    },
+    async ({ sessionId, expression }) => {
+      const { page } = getSession(sessionId);
+      return jsonResult(await executeAction(page, { name: "eval", params: { expression } }));
+    },
+  );
+
+  registerTool(
     "extract_content",
     {
       description: "Extract page content chunk for a query with optional links/images.",
