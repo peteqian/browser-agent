@@ -24,8 +24,8 @@
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check --ignore-path .gitignore",
     "changeset": "changeset",
-    "version-packages": "changeset version",
-    "release": "turbo build && changeset publish"
+    "version-packages": "changeset version && bun install",
+    "release": "turbo build && node scripts/publish.mjs"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.0",

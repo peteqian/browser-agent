@@ -1,6 +1,6 @@
 {
   "name": "@peteqian/browser-agent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "CLI binary and MCP server. Library core ships in @peteqian/browser-agent-sdk.",
   "keywords": [
     "agent",
@@ -58,6 +58,7 @@
     "example:mcp": "bun run examples/mcp.ts"
   },
   "dependencies": {
+    "@clack/prompts": "^1.4.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@peteqian/browser-agent-sdk": "workspace:*",
     "zod": "^3.25.76"
