@@ -1,7 +1,7 @@
 import { existsSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 
 export type BrowserChannel =
   | "chromium"
@@ -12,7 +12,8 @@ export type BrowserChannel =
   | "msedge"
   | "msedge-beta"
   | "msedge-dev"
-  | "msedge-canary";
+  | "msedge-canary"
+  | "lightpanda";
 
 const DEFAULT_CHANNEL: BrowserChannel = "chromium";
 
@@ -188,7 +189,35 @@ const CHANNEL_TO_GROUP: Record<BrowserChannel, string> = {
   "msedge-beta": "msedge",
   "msedge-dev": "msedge",
   "msedge-canary": "msedge",
+  lightpanda: "lightpanda",
 };
+
+function discoverLightpandaExecutable(): string | null {
+  const envOverride = process.env.LIGHTPANDA_PATH;
+  if (envOverride && existsSync(envOverride)) {
+    return envOverride;
+  }
+
+  const candidates = ["~/.cache/lightpanda/lightpanda", "/usr/local/bin/lightpanda"];
+  for (const candidate of candidates) {
+    const found = maybePath(candidate);
+    if (found) return found;
+  }
+
+  try {
+    const which = spawnSync("which", ["lightpanda"], { encoding: "utf-8" });
+    if (which.status === 0) {
+      const path = which.stdout.trim();
+      if (path && existsSync(path)) {
+        return path;
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  return null;
+}
 
 function chooseCandidates(channel: BrowserChannel): string[] {
   const groups = groupsForPlatform();
@@ -201,6 +230,10 @@ function chooseCandidates(channel: BrowserChannel): string[] {
 export function discoverBrowserExecutable(
   channel: BrowserChannel = DEFAULT_CHANNEL,
 ): string | null {
+  if (channel === "lightpanda") {
+    return discoverLightpandaExecutable();
+  }
+
   const envOverride = process.env.BROWSER_AGENT_CHROME;
   if (envOverride && existsSync(envOverride)) {
     return envOverride;

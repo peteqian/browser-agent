@@ -10,7 +10,7 @@ import {
   installChromiumWithPlaywright,
   type BrowserChannel,
 } from "./discovery";
-import { buildChromeArgs } from "./chrome-args";
+import { buildChromeArgs, buildLightpandaArgs } from "./chrome-args";
 
 export interface LaunchOptions {
   executablePath?: string;
@@ -170,6 +170,10 @@ async function resolveExecutable(
   const found = discoverBrowserExecutable(channel);
   if (found) return found;
 
+  if (channel === "lightpanda") {
+    throw new Error("Lightpanda binary not found. Install from https://lightpanda.io");
+  }
+
   if (!autoInstallBrowser) {
     throw new Error(
       `Could not find browser executable for channel=${channel}. Set executablePath or BROWSER_AGENT_CHROME.`,
@@ -193,6 +197,7 @@ async function launchAttempt(
       "headless" | "docker" | "disableSecurity" | "extraArgs" | "maxRetries" | "autoInstallBrowser"
     >
   > & {
+    channel: BrowserChannel;
     userDataDir?: string;
     proxyServer?: string;
     proxyBypass?: string;
@@ -204,24 +209,27 @@ async function launchAttempt(
     port?: number;
   },
 ): Promise<LaunchedBrowser> {
-  const ownsUserDataDir = !profile.userDataDir;
-  const userDataDir = profile.userDataDir ?? createTempProfileDir();
+  const isLightpanda = profile.channel === "lightpanda";
+  const ownsUserDataDir = !isLightpanda && !profile.userDataDir;
+  const userDataDir = isLightpanda ? "" : (profile.userDataDir ?? createTempProfileDir());
   const port = profile.port ?? (await findFreePort());
   const debuggerAddress = `127.0.0.1:${port}`;
 
-  const args = buildChromeArgs({
-    remoteDebuggingPort: port,
-    userDataDir,
-    headless: profile.headless,
-    docker: profile.docker,
-    disableSecurity: profile.disableSecurity,
-    proxyServer: profile.proxyServer,
-    proxyBypass: profile.proxyBypass,
-    userAgent: profile.userAgent,
-    acceptLanguage: profile.acceptLanguage,
-    extensionPaths: profile.extensionPaths,
-    extra: profile.extraArgs,
-  });
+  const args = isLightpanda
+    ? buildLightpandaArgs(port)
+    : buildChromeArgs({
+        remoteDebuggingPort: port,
+        userDataDir,
+        headless: profile.headless,
+        docker: profile.docker,
+        disableSecurity: profile.disableSecurity,
+        proxyServer: profile.proxyServer,
+        proxyBypass: profile.proxyBypass,
+        userAgent: profile.userAgent,
+        acceptLanguage: profile.acceptLanguage,
+        extensionPaths: profile.extensionPaths,
+        extra: profile.extraArgs,
+      });
 
   const child = spawn(executablePath, args, {
     stdio: ["ignore", "pipe", "pipe"],
@@ -269,6 +277,7 @@ export async function launchBrowser(options: LaunchOptions = {}): Promise<Launch
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const launched = await launchAttempt(executablePath, {
+        channel,
         headless: attemptOptions.headless ?? true,
         docker: attemptOptions.docker ?? false,
         disableSecurity: attemptOptions.disableSecurity ?? false,

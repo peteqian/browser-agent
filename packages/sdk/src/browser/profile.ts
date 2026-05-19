@@ -12,6 +12,8 @@ export interface BrowserProfileInit {
   cdpUrl?: string;
   executablePath?: string;
   channel?: BrowserChannel;
+  /** Engine shorthand. "lightpanda" maps to channel "lightpanda"; "chrome" preserves channel default. */
+  engine?: "chrome" | "lightpanda";
   headless?: boolean;
   userDataDir?: string;
   proxyServer?: string;
@@ -73,7 +75,7 @@ export class BrowserProfile {
   constructor(init: BrowserProfileInit = {}) {
     this.cdpUrl = init.cdpUrl;
     this.executablePath = init.executablePath;
-    this.channel = init.channel ?? "chromium";
+    this.channel = init.channel ?? (init.engine === "lightpanda" ? "lightpanda" : "chromium");
     this.headless = init.headless ?? true;
     this.userDataDir = init.userDataDir;
     this.proxyServer = init.proxyServer;
