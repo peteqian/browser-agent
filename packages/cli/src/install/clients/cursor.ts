@@ -32,9 +32,18 @@ export function installCursor(opts: CursorInstallOptions): CursorInstallResult {
   const path =
     opts.configPath ?? resolveCursorPath(scope, opts.cwd ?? process.cwd(), homedir());
 
-  const parsed: CursorConfig = existsSync(path)
-    ? (JSON.parse(readFileSync(path, "utf8")) as CursorConfig)
-    : {};
+  let parsed: CursorConfig = {};
+  if (existsSync(path)) {
+    const raw = readFileSync(path, "utf8");
+    try {
+      parsed = JSON.parse(raw) as CursorConfig;
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `${path} is not valid JSON (${reason}); refusing to overwrite. Fix or remove the file and rerun.`,
+      );
+    }
+  }
 
   parsed.mcpServers ??= {};
   const action = parsed.mcpServers[opts.name] ? "replaced" : "added";

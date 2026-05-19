@@ -51,6 +51,26 @@ describe("codex install", () => {
     expect(content).not.toContain(`command = "old"`);
   });
 
+  test("ignores comments that mention the header", () => {
+    const dir = freshTmp();
+    const path = join(dir, "config.toml");
+    writeFileSync(
+      path,
+      [
+        "# see [mcp_servers.browser-agent] for the canonical example",
+        "[mcp_servers.other]",
+        'command = "x"',
+        "",
+      ].join("\n"),
+    );
+    const r = installCodex({ name: "browser-agent", command: NPX_COMMAND, configPath: path });
+    expect(r.action).toBe("added");
+    const content = readFileSync(path, "utf8");
+    expect(content).toContain("# see [mcp_servers.browser-agent] for the canonical example");
+    expect(content).toContain("[mcp_servers.other]");
+    expect(content).toContain(`command = "npx"`);
+  });
+
   test("renderBlock formats args as TOML array", () => {
     const block = renderBlock({ name: "x", command: NPX_COMMAND });
     expect(block).toContain(`args = ["-y", "-p", "@peteqian/browser-agent", "browser-agent-mcp"]`);
@@ -82,6 +102,19 @@ describe("cursor install", () => {
     };
     expect(parsed.mcpServers.existing.command).toBe("x");
     expect(parsed.mcpServers["browser-agent"].command).toBe("npx");
+  });
+});
+
+describe("cursor malformed json", () => {
+  test("refuses to overwrite invalid JSON", () => {
+    const dir = freshTmp();
+    const path = join(dir, "mcp.json");
+    writeFileSync(path, "{ this is not json");
+    expect(() => installCursor({ name: "x", command: NPX_COMMAND, configPath: path })).toThrow(
+      /not valid JSON/,
+    );
+    // file must be untouched
+    expect(readFileSync(path, "utf8")).toBe("{ this is not json");
   });
 });
 

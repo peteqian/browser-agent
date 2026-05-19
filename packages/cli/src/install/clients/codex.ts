@@ -21,6 +21,26 @@ function renderArgs(args: string[]): string {
   return `[${args.map((a) => JSON.stringify(a)).join(", ")}]`;
 }
 
+/**
+ * Find the byte offset of `header` only when it appears as a real TOML
+ * section header (start of line, optional whitespace, no preceding `#`).
+ * Avoids matching inside comments or string values.
+ */
+function findHeaderLine(text: string, header: string): number {
+  let offset = 0;
+  for (const line of text.split("\n")) {
+    const trimmed = line.replace(/^\s+/, "");
+    if (!trimmed.startsWith("#") && trimmed.startsWith(header)) {
+      const after = trimmed.slice(header.length);
+      if (after === "" || after.startsWith(" ") || after.startsWith("\t") || after.startsWith("#")) {
+        return offset + line.indexOf(header);
+      }
+    }
+    offset += line.length + 1; // +1 for \n
+  }
+  return -1;
+}
+
 export function renderBlock(opts: CodexInstallOptions): string {
   const { name, command, startupTimeoutSec = 20 } = opts;
   return [
@@ -46,7 +66,7 @@ export function installCodex(opts: CodexInstallOptions): CodexInstallResult {
   let next: string;
   let action: "added" | "replaced";
 
-  const headerIdx = existing.indexOf(header);
+  const headerIdx = findHeaderLine(existing, header);
   if (headerIdx === -1) {
     next = existing.length === 0 || existing.endsWith("\n") ? existing : existing + "\n";
     next += (next.length > 0 && !next.endsWith("\n\n") ? "\n" : "") + block;
