@@ -8,6 +8,7 @@ import { registerExtractionTools } from "./tools/extraction";
 import { registerInteractionTools } from "./tools/interaction";
 import { registerNavigationTools } from "./tools/navigation";
 import { registerSessionTools } from "./tools/session";
+import { registerStateTools } from "./tools/state";
 import { shutdownAllSessions } from "./sessions";
 
 export {
@@ -26,6 +27,7 @@ export function createServer(): McpServer {
   registerInteractionTools(server);
   registerExtractionTools(server);
   registerAgentTool(server);
+  registerStateTools(server);
   return server;
 }
 

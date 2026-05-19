@@ -15,6 +15,7 @@ import {
 } from "@peteqian/browser-agent-sdk";
 
 import { runInstall, type InstallOptions } from "../src/install";
+import { runStateCommand } from "../src/commands/state";
 import type { ClientId } from "../src/install/detect";
 import type { SourceId } from "../src/install/snippet";
 
@@ -50,6 +51,7 @@ function printHelp(): void {
 Usage:
   browser-agent "<task>" [flags]
   browser-agent install [--help]              # configure MCP clients
+  browser-agent state <subcommand> [--help]   # manage saved-state vault
   browser-agent --stdin                       # read task from stdin
   browser-agent --probe --provider <p>        # show what transport would resolve
   browser-agent --version                     # print version
@@ -357,6 +359,9 @@ async function main(): Promise<number> {
   const argv = process.argv.slice(2);
   if (argv[0] === "install") {
     return runInstallCommand(argv.slice(1));
+  }
+  if (argv[0] === "state") {
+    return runStateCommand(argv.slice(1));
   }
   const opts = await buildOptions(argv);
 

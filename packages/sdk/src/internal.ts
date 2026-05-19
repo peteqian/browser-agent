@@ -16,6 +16,11 @@ export type {
 } from "./browser/profile";
 export type { NavigationHealthResult, NavigationHealthStatus } from "./browser/session";
 export type { BrowserOriginStorageState, BrowserStorageState } from "./browser/storage-state";
+export {
+  readStorageStateFile,
+  writeStorageStateFile,
+  createEmptyStorageState,
+} from "./browser/storage-state";
 
 export { serializePage, formatSnapshotForLLM } from "./dom/serialize";
 export { captureCdpSnapshot, withBudgetDefaults, DEFAULT_DOM_BUDGETS } from "./dom/cdp-snapshot";
