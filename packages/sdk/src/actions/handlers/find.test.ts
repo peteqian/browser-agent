@@ -69,7 +69,21 @@ describe("find_by_* handlers", () => {
     expect((r.data as { indices: number[] }).indices).toEqual([0]);
   });
 
-  test("find_by_text matches substring case-insensitively", () => {
+  test("find_by_text defaults to case-insensitive exact match", () => {
+    const els = [
+      mk({ index: 0, text: "Hello World" }),
+      mk({ index: 1, text: "Hello" }),
+      mk({ index: 2, axName: "hello" }),
+    ];
+    const r = handleFindByText(ctxFor(els), {
+      name: "find_by_text",
+      params: { text: "hello" },
+    });
+    expect(r.ok).toBe(true);
+    expect((r.data as { indices: number[] }).indices).toEqual([1, 2]);
+  });
+
+  test("find_by_text matches substring case-insensitively when partial=true", () => {
     const els = [
       mk({ index: 0, text: "Hello World" }),
       mk({ index: 1, text: "Goodbye" }),
@@ -77,7 +91,7 @@ describe("find_by_* handlers", () => {
     ];
     const r = handleFindByText(ctxFor(els), {
       name: "find_by_text",
-      params: { text: "hello" },
+      params: { text: "hello", partial: true },
     });
     expect(r.ok).toBe(true);
     expect((r.data as { indices: number[] }).indices).toEqual([0, 2]);

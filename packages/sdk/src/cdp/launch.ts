@@ -42,7 +42,8 @@ export interface LaunchedBrowser {
   webSocketDebuggerUrl: string;
   debuggerAddress: string;
   executablePath: string;
-  userDataDir: string;
+  /** Path on disk for the launched profile. `undefined` when the engine does not use one (e.g. Lightpanda). */
+  userDataDir?: string;
   ownsUserDataDir: boolean;
   close: () => Promise<void>;
   kill: () => Promise<void>;
@@ -211,7 +212,7 @@ async function launchAttempt(
 ): Promise<LaunchedBrowser> {
   const isLightpanda = profile.channel === "lightpanda";
   const ownsUserDataDir = !isLightpanda && !profile.userDataDir;
-  const userDataDir = isLightpanda ? "" : (profile.userDataDir ?? createTempProfileDir());
+  const userDataDir = isLightpanda ? undefined : (profile.userDataDir ?? createTempProfileDir());
   const port = profile.port ?? (await findFreePort());
   const debuggerAddress = `127.0.0.1:${port}`;
 
@@ -219,7 +220,7 @@ async function launchAttempt(
     ? buildLightpandaArgs(port)
     : buildChromeArgs({
         remoteDebuggingPort: port,
-        userDataDir,
+        userDataDir: userDataDir as string,
         headless: profile.headless,
         docker: profile.docker,
         disableSecurity: profile.disableSecurity,
@@ -246,7 +247,7 @@ async function launchAttempt(
     ownsUserDataDir,
     close: async () => {
       await terminateChild(child);
-      if (ownsUserDataDir) {
+      if (ownsUserDataDir && userDataDir) {
         rmSync(userDataDir, { recursive: true, force: true });
       }
     },
@@ -254,7 +255,7 @@ async function launchAttempt(
       if (child.exitCode === null) {
         child.kill("SIGKILL");
       }
-      if (ownsUserDataDir) {
+      if (ownsUserDataDir && userDataDir) {
         rmSync(userDataDir, { recursive: true, force: true });
       }
     },

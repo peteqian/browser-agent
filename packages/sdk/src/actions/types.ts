@@ -245,18 +245,17 @@ export const evalAction = z.object({
   awaitPromise: z.boolean().optional(),
 });
 
-export const switchFrameAction = z.object({
-  frameId: z.string().min(1).optional(),
-  index: z.number().int().nonnegative().optional(),
-});
-
 export const findByRoleAction = z.object({
   role: z.string().min(1).max(40),
   name: z.string().min(1).max(200).optional(),
+  /** When true, matches a substring of the accessible name. Default false (exact match, case-insensitive). */
+  partial: z.boolean().optional(),
 });
 
 export const findByTextAction = z.object({
-  text: z.string().min(1).max(200),
+  text: z.string().min(2).max(200),
+  /** When true, matches a substring. Default false (exact match, case-insensitive). */
+  partial: z.boolean().optional(),
 });
 
 export const findByTestidAction = z.object({
@@ -311,7 +310,6 @@ export const actionSchemas = {
   hover: hoverAction,
   dblclick: dblclickAction,
   eval: evalAction,
-  switch_frame: switchFrameAction,
   find_by_role: findByRoleAction,
   find_by_text: findByTextAction,
   find_by_testid: findByTestidAction,
@@ -354,7 +352,6 @@ export type Action =
   | { name: "hover"; params: z.infer<typeof hoverAction> }
   | { name: "dblclick"; params: z.infer<typeof dblclickAction> }
   | { name: "eval"; params: z.infer<typeof evalAction> }
-  | { name: "switch_frame"; params: z.infer<typeof switchFrameAction> }
   | { name: "find_by_role"; params: z.infer<typeof findByRoleAction> }
   | { name: "find_by_text"; params: z.infer<typeof findByTextAction> }
   | { name: "find_by_testid"; params: z.infer<typeof findByTestidAction> }

@@ -189,8 +189,6 @@ function defaultActionDescription(name: ActionName): string {
       return "Double-click element [index].";
     case "eval":
       return "Evaluate a JavaScript expression in the page and return the JSON-serialized result.";
-    case "switch_frame":
-      return "Switch active frame context by frameId or index. Omit args to return to main frame.";
     case "find_by_role":
       return "Return indices of snapshot elements matching ARIA role (and optional accessible name).";
     case "find_by_text":

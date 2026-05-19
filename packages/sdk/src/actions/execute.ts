@@ -12,7 +12,6 @@ import {
   handleNavigate,
   handleNewTab,
   handleRefresh,
-  handleSwitchFrame,
   handleSwitchTab,
 } from "./handlers/navigation";
 import {
@@ -148,8 +147,6 @@ export async function executeAction(
         return await handleDblclick(ctx, action);
       case "eval":
         return await handleEval(ctx, action);
-      case "switch_frame":
-        return await handleSwitchFrame(ctx, action);
       case "find_by_role":
         return handleFindByRole(ctx, action);
       case "find_by_text":

@@ -68,10 +68,14 @@ function filterElementsForAnnotation(
 }
 
 async function injectAnnotations(page: Page, elements: ElementInfo[]): Promise<void> {
+  // Snapshot bboxes are in document coordinates. Page.captureScreenshot
+  // (default) captures the viewport, so we convert to viewport coords by
+  // subtracting the current scroll offset and only emit labels for elements
+  // that land inside the viewport.
   const labels = elements.map((el) => ({
     index: el.index,
-    cx: el.bbox.x + el.bbox.w / 2,
-    cy: el.bbox.y + el.bbox.h / 2,
+    docX: el.bbox.x + el.bbox.w / 2,
+    docY: el.bbox.y + el.bbox.h / 2,
   }));
   const payload = JSON.stringify(labels);
   const expression = `(() => {
@@ -80,17 +84,26 @@ async function injectAnnotations(page: Page, elements: ElementInfo[]): Promise<v
     const container = document.createElement('div');
     container.id = ${JSON.stringify(ANNOTATION_CONTAINER_ID)};
     container.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;pointer-events:none;z-index:2147483647;';
+    const sx = window.scrollX || window.pageXOffset || 0;
+    const sy = window.scrollY || window.pageYOffset || 0;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
     const items = ${payload};
+    let drawn = 0;
     for (const item of items) {
+      const cx = item.docX - sx;
+      const cy = item.docY - sy;
+      if (cx < 0 || cy < 0 || cx > vw || cy > vh) continue;
       const tag = document.createElement('div');
       tag.textContent = '[' + item.index + ']';
       tag.style.cssText = 'position:fixed;transform:translate(-50%,-50%);background:#ffeb3b;color:#000;font:bold 12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:1px 4px;border:1px solid #000;border-radius:2px;line-height:1;white-space:nowrap;pointer-events:none;';
-      tag.style.left = item.cx + 'px';
-      tag.style.top = item.cy + 'px';
+      tag.style.left = cx + 'px';
+      tag.style.top = cy + 'px';
       container.appendChild(tag);
+      drawn += 1;
     }
     document.documentElement.appendChild(container);
-    return items.length;
+    return drawn;
   })()`;
   await page.sendCDP("Runtime.evaluate", {
     expression,

@@ -54,25 +54,6 @@ export function registerNavigationTools(server: McpServer): void {
   );
 
   registerTool(
-    "switch_frame",
-    {
-      description:
-        "Switch active frame context. Pass frameId or index, or omit both to return to main frame.",
-      inputSchema: {
-        sessionId: z.string(),
-        frameId: z.string().optional(),
-        index: z.number().int().nonnegative().optional(),
-      },
-    },
-    async ({ sessionId, frameId, index }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, { name: "switch_frame", params: { frameId, index } }),
-      );
-    },
-  );
-
-  registerTool(
     "refresh",
     {
       description: "Refresh current page.",

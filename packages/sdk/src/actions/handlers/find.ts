@@ -26,6 +26,11 @@ function summarize(matches: readonly ElementInfo[]): {
   return { indices, preview };
 }
 
+function matches(haystack: string, needle: string, partial: boolean): boolean {
+  if (partial) return haystack.includes(needle);
+  return haystack === needle;
+}
+
 export function handleFindByRole(
   ctx: HandlerContext,
   action: ByName<"find_by_role">,
@@ -34,16 +39,17 @@ export function handleFindByRole(
   if (elements.length === 0) return fail("No snapshot elements available.");
   const roleNeedle = norm(action.params.role);
   const nameNeedle = action.params.name ? norm(action.params.name) : null;
-  const matches = elements.filter((el) => {
+  const partial = action.params.partial === true;
+  const found = elements.filter((el) => {
     const role = norm(el.axRole ?? el.role);
     if (role !== roleNeedle) return false;
     if (!nameNeedle) return true;
     const name = norm(el.axName ?? el.ariaName ?? el.text);
-    return name === nameNeedle || name.includes(nameNeedle);
+    return matches(name, nameNeedle, partial);
   });
-  const summary = summarize(matches);
+  const summary = summarize(found);
   return ok(
-    `find_by_role(${action.params.role}${action.params.name ? `, ${action.params.name}` : ""}): ${matches.length} match(es)`,
+    `find_by_role(${action.params.role}${action.params.name ? `, ${action.params.name}` : ""}): ${found.length} match(es)`,
     { data: summary },
   );
 }
@@ -55,11 +61,12 @@ export function handleFindByText(
   const elements = visible(ctx.snapshotElements ?? []);
   if (elements.length === 0) return fail("No snapshot elements available.");
   const needle = norm(action.params.text);
-  const matches = elements.filter(
-    (el) => norm(el.text).includes(needle) || norm(el.axName).includes(needle),
+  const partial = action.params.partial === true;
+  const found = elements.filter(
+    (el) => matches(norm(el.text), needle, partial) || matches(norm(el.axName), needle, partial),
   );
-  const summary = summarize(matches);
-  return ok(`find_by_text(${action.params.text}): ${matches.length} match(es)`, { data: summary });
+  const summary = summarize(found);
+  return ok(`find_by_text(${action.params.text}): ${found.length} match(es)`, { data: summary });
 }
 
 export function handleFindByTestid(

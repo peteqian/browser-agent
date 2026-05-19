@@ -1,3 +1,6 @@
+import { homedir } from "node:os";
+import { join, resolve } from "node:path";
+
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
@@ -13,6 +16,22 @@ import {
 
 import { jsonResult } from "../helpers";
 import { getSession } from "../sessions";
+
+function resolveAllowedApplyTo(applyTo: string): string {
+  // Only permit writes under cwd or the user's vault directory. Reject any
+  // path that escapes both via "../" or absolute traversal.
+  const absolute = resolve(applyTo);
+  const cwdRoot = resolve(process.cwd());
+  const vaultRoot = resolve(
+    process.env.BROWSER_AGENT_STATE_DIR ?? join(homedir(), ".browser-agent"),
+  );
+  const isUnder = (target: string, root: string): boolean =>
+    target === root || target.startsWith(`${root}/`);
+  if (!isUnder(absolute, cwdRoot) && !isUnder(absolute, vaultRoot)) {
+    throw new Error(`applyTo must stay under cwd or ${vaultRoot}. Got: ${absolute}`);
+  }
+  return absolute;
+}
 
 export function registerStateTools(server: McpServer): void {
   const registerTool = server.registerTool.bind(server) as ToolRegistrar;
@@ -48,12 +67,14 @@ export function registerStateTools(server: McpServer): void {
       // vault) and is consumed by a future BrowserSession.launch.
       getSession(sessionId);
       const state = await loadState(name);
+      let appliedPath: string | null = null;
       if (applyTo) {
+        appliedPath = resolveAllowedApplyTo(applyTo);
         const { writeStorageStateFile } = await import("@peteqian/browser-agent-sdk/internal");
-        await writeStorageStateFile(applyTo, state);
+        await writeStorageStateFile(appliedPath, state);
       }
       const summary = await showState(name);
-      return jsonResult({ ...summary, appliedTo: applyTo ?? null });
+      return jsonResult({ ...summary, appliedTo: appliedPath });
     },
   );
 

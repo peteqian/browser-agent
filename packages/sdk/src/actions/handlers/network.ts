@@ -1,11 +1,13 @@
 import { writeFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { basename, join } from "node:path";
 
 import type { Page } from "../../browser/page";
 import type { Action } from "../types";
 import { fail, ok, type ActionResult, type HandlerContext } from "./shared";
 
 type ByName<N extends Action["name"]> = Extract<Action, { name: N }>;
+
+const MAX_HAR_ENTRIES = 5_000;
 
 interface HarEntry {
   request: {
@@ -66,22 +68,19 @@ export async function handleNetworkHarStart(
   if (recorderByTarget.has(ctx.page)) {
     return ok("Network HAR recording already in progress");
   }
-  try {
-    await ctx.page.sendCDP("Network.enable", {});
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return fail(`Failed to enable Network domain: ${message}`);
-  }
   const recorder: NetworkRecorder = {
     unsubscribers: [],
     entries: new Map(),
     startedAt: Date.now(),
   };
+  // Register subscribers BEFORE Network.enable so events fired between enable
+  // and our first listener cannot slip past.
   recorder.unsubscribers.push(
     await ctx.page.session.onTargetEvent<RequestWillBeSent>(
       ctx.page.targetId,
       "Network.requestWillBeSent",
       (p) => {
+        if (recorder.entries.size >= MAX_HAR_ENTRIES) return;
         recorder.entries.set(p.requestId, {
           request: {
             requestId: p.requestId,
@@ -124,7 +123,29 @@ export async function handleNetworkHarStart(
     ),
   );
   recorderByTarget.set(ctx.page, recorder);
-  return ok("Network HAR recording started", { longTermMemory: "Started HAR recording" });
+  try {
+    await ctx.page.sendCDP("Network.enable", {});
+  } catch (err) {
+    for (const unsub of recorder.unsubscribers) {
+      try {
+        unsub();
+      } catch {
+        // ignore
+      }
+    }
+    recorderByTarget.delete(ctx.page);
+    const message = err instanceof Error ? err.message : String(err);
+    return fail(`Failed to enable Network domain: ${message}`);
+  }
+  let url: string | undefined;
+  try {
+    url = await ctx.page.currentUrl();
+  } catch {
+    // url unavailable — leave undefined
+  }
+  return ok("Network HAR recording started", {
+    longTermMemory: url ? `Started HAR recording on ${url}` : "Started HAR recording",
+  });
 }
 
 export async function handleNetworkHarStop(
@@ -147,7 +168,12 @@ export async function handleNetworkHarStop(
     endedAt: Date.now(),
   };
   if (action.params.fileName) {
-    const path = resolve(process.cwd(), action.params.fileName);
+    // Restrict writes to cwd. Strip path separators so callers cannot escape
+    // via "../" or absolute paths.
+    const safeName =
+      basename(action.params.fileName).replace(/[\\/:*?"<>|]/g, "_") || `har-${Date.now()}.json`;
+    const finalName = safeName.toLowerCase().endsWith(".json") ? safeName : `${safeName}.json`;
+    const path = join(process.cwd(), finalName);
     try {
       await writeFile(path, JSON.stringify(har, null, 2), "utf8");
     } catch (err) {

@@ -7,33 +7,43 @@ type ByName<N extends Action["name"]> = Extract<Action, { name: N }>;
 interface DialogState {
   unsubscribe: () => void;
   pending: Array<{ type: string; message: string; defaultPrompt?: string }>;
-  installed: boolean;
 }
 
 const dialogStateByTarget = new WeakMap<Page, DialogState>();
+// In-flight installation guard so two concurrent callers share the same
+// subscription instead of double-subscribing.
+const dialogInstallByTarget = new WeakMap<Page, Promise<DialogState>>();
 
 async function ensureDialogListener(page: Page): Promise<DialogState> {
   const existing = dialogStateByTarget.get(page);
-  if (existing && existing.installed) return existing;
-  const state: DialogState = {
-    unsubscribe: () => {},
-    pending: [],
-    installed: false,
-  };
-  dialogStateByTarget.set(page, state);
-  state.unsubscribe = await page.session.onTargetEvent<{
-    type: string;
-    message: string;
-    defaultPrompt?: string;
-  }>(page.targetId, "Page.javascriptDialogOpening", (params) => {
-    state.pending.push({
-      type: params.type,
-      message: params.message,
-      defaultPrompt: params.defaultPrompt,
+  if (existing) return existing;
+  const pending = dialogInstallByTarget.get(page);
+  if (pending) return pending;
+  const install = (async () => {
+    const state: DialogState = {
+      unsubscribe: () => {},
+      pending: [],
+    };
+    state.unsubscribe = await page.session.onTargetEvent<{
+      type: string;
+      message: string;
+      defaultPrompt?: string;
+    }>(page.targetId, "Page.javascriptDialogOpening", (params) => {
+      state.pending.push({
+        type: params.type,
+        message: params.message,
+        defaultPrompt: params.defaultPrompt,
+      });
     });
-  });
-  state.installed = true;
-  return state;
+    dialogStateByTarget.set(page, state);
+    return state;
+  })();
+  dialogInstallByTarget.set(page, install);
+  try {
+    return await install;
+  } finally {
+    dialogInstallByTarget.delete(page);
+  }
 }
 
 /** Internal entry used by session bootstrap; we expose via this handler instead. */

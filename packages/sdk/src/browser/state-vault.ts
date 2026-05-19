@@ -79,18 +79,16 @@ export async function saveState(
   await ensureVaultDir(options);
   const path = stateFilePath(name, options);
 
-  // Cookies: prefer browser-wide capture via the session client when available.
+  // Cookies: prefer browser-wide capture via the session, fall back to the
+  // page target's Network.getAllCookies. Both return the full cookie shape.
   let cookies: Protocol.Network.Cookie[] = [];
-  const sessionClient = (page.session as unknown as { client?: { send?: Function } }).client;
-  if (sessionClient && typeof sessionClient.send === "function") {
-    try {
-      const res = await (
-        sessionClient.send as (m: string) => Promise<{ cookies?: Protocol.Network.Cookie[] }>
-      )("Storage.getCookies");
-      cookies = res.cookies ?? [];
-    } catch {
-      // Fall back to per-target getAllCookies below.
-    }
+  try {
+    const res = await page.session.send<{ cookies?: Protocol.Network.Cookie[] }>(
+      "Storage.getCookies",
+    );
+    cookies = res.cookies ?? [];
+  } catch {
+    // Fall through to per-target getAllCookies.
   }
   if (cookies.length === 0) {
     try {

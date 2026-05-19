@@ -129,43 +129,6 @@ export async function handleCloseTab(
   });
 }
 
-interface FrameTreeNode {
-  frame: { id: string; url?: string; name?: string };
-  childFrames?: FrameTreeNode[];
-}
-
-function flattenFrames(node: FrameTreeNode): FrameTreeNode["frame"][] {
-  const out: FrameTreeNode["frame"][] = [node.frame];
-  for (const child of node.childFrames ?? []) out.push(...flattenFrames(child));
-  return out;
-}
-
-export async function handleSwitchFrame(
-  ctx: HandlerContext,
-  action: ByName<"switch_frame">,
-): Promise<ActionResult> {
-  if (!action.params.frameId && typeof action.params.index !== "number") {
-    ctx.page.currentFrameId = undefined;
-    return ok("Switched back to main frame", { longTermMemory: "Switched to main frame" });
-  }
-  const tree = await ctx.page.sendCDP<{ frameTree: FrameTreeNode }>("Page.getFrameTree");
-  const frames = flattenFrames(tree.frameTree);
-  let chosen: FrameTreeNode["frame"] | undefined;
-  if (action.params.frameId) {
-    chosen = frames.find((f) => f.id === action.params.frameId);
-  } else if (typeof action.params.index === "number") {
-    chosen = frames[action.params.index];
-  }
-  if (!chosen) {
-    const list = frames.map((f, i) => `${i}:${f.id}${f.url ? ` (${f.url})` : ""}`).join("; ");
-    return fail(`Frame not found. Available: ${list}`);
-  }
-  ctx.page.currentFrameId = chosen.id;
-  return ok(`Switched to frame ${chosen.id}${chosen.url ? ` (${chosen.url})` : ""}`, {
-    longTermMemory: `Switched to frame ${chosen.id}`,
-  });
-}
-
 export async function handleCloseBrowser(
   ctx: HandlerContext,
   action: ByName<"close_browser">,
