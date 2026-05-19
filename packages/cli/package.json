@@ -28,6 +28,7 @@
   },
   "files": [
     "dist",
+    "skills",
     "package.json",
     "README.md",
     "AGENTS.md",
