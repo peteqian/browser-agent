@@ -14,6 +14,7 @@ import {
   type TransportId,
 } from "@peteqian/browser-agent-sdk";
 
+import { runSkillsCommand } from "../src/commands/skills";
 import { runInstall, type InstallOptions } from "../src/install";
 import type { ClientId } from "../src/install/detect";
 import type { SourceId } from "../src/install/snippet";
@@ -357,6 +358,9 @@ async function main(): Promise<number> {
   const argv = process.argv.slice(2);
   if (argv[0] === "install") {
     return runInstallCommand(argv.slice(1));
+  }
+  if (argv[0] === "skills") {
+    return runSkillsCommand(argv.slice(1));
   }
   const opts = await buildOptions(argv);
 
