@@ -69,6 +69,22 @@ Use it when:
 
 Otherwise prefer the step-by-step tools so the host stays in control.
 
+## Profiling page latency
+
+When the host suspects slow page loads or layout work is the bottleneck,
+two MCP tools wrap CDP tracing:
+
+- `profiler_start({ sessionId, categories? })` — begin a Chrome trace
+  on the active session. Default categories cover devtools timeline,
+  V8, Blink, and user_timing.
+- `profiler_stop({ sessionId, fileName? })` — stop the trace and return
+  Chrome Trace Event JSON. Pass `fileName` to write it under cwd
+  (`.json` is appended if missing).
+
+Pair these around the slow action — e.g. `profiler_start` → `navigate`
+→ `profiler_stop`. The resulting JSON loads directly in
+`chrome://tracing`.
+
 ## Skill discovery
 
 - `list_skills()` → array of `{ name, summary }`.

@@ -201,6 +201,10 @@ function defaultActionDescription(name: ActionName): string {
       return "Start recording network requests on the current page.";
     case "network_har_stop":
       return "Stop recording and return collected HAR-like JSON (or write to file).";
+    case "profiler_start":
+      return "Start a CDP performance trace on the current page. Pair with profiler_stop to capture a Chrome trace JSON.";
+    case "profiler_stop":
+      return "Stop the active CDP performance trace and return (or write) Chrome Trace Event JSON.";
     case "done":
       return "End the task with success/failure and optional data.";
     default: {

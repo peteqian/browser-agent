@@ -267,6 +267,14 @@ export const dialogHandleAction = z.object({
   promptText: z.string().optional(),
 });
 
+export const profilerStartAction = z.object({
+  categories: z.array(z.string().min(1)).max(64).optional(),
+});
+
+export const profilerStopAction = z.object({
+  fileName: z.string().min(1).optional(),
+});
+
 export const networkHarStartAction = z.object({});
 
 export const networkHarStopAction = z.object({
@@ -316,6 +324,8 @@ export const actionSchemas = {
   dialog_handle: dialogHandleAction,
   network_har_start: networkHarStartAction,
   network_har_stop: networkHarStopAction,
+  profiler_start: profilerStartAction,
+  profiler_stop: profilerStopAction,
   done: doneAction,
 } as const;
 
@@ -358,4 +368,6 @@ export type Action =
   | { name: "dialog_handle"; params: z.infer<typeof dialogHandleAction> }
   | { name: "network_har_start"; params: z.infer<typeof networkHarStartAction> }
   | { name: "network_har_stop"; params: z.infer<typeof networkHarStopAction> }
+  | { name: "profiler_start"; params: z.infer<typeof profilerStartAction> }
+  | { name: "profiler_stop"; params: z.infer<typeof profilerStopAction> }
   | { name: "done"; params: z.infer<typeof doneAction> };

@@ -44,6 +44,7 @@ import {
 import { handleFindByRole, handleFindByText, handleFindByTestid } from "./handlers/find";
 import { handleDialogHandle } from "./handlers/dialog";
 import { handleNetworkHarStart, handleNetworkHarStop } from "./handlers/network";
+import { handleProfilerStart, handleProfilerStop } from "./handlers/profiler";
 import type { FocusState } from "../agent/focus-state";
 import type { ElementInfo } from "../dom/types";
 
@@ -159,6 +160,10 @@ export async function executeAction(
         return await handleNetworkHarStart(ctx, action);
       case "network_har_stop":
         return await handleNetworkHarStop(ctx, action);
+      case "profiler_start":
+        return await handleProfilerStart(ctx, action);
+      case "profiler_stop":
+        return await handleProfilerStop(ctx, action);
       case "done":
         return handleDone(ctx, action);
       default: {

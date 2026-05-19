@@ -74,7 +74,9 @@ export async function runActions<TData>(input: {
 
     await session?.eventBus?.emit({ type: "action_start", step, action });
     await emitEvent(options, { type: "action_start", step, action });
+    await emitEvent(options, { type: "action_started", stepIndex: step, action: action.name });
 
+    const actionStartedAt = Date.now();
     const parentSignal = combineSignals(options.signal, options.control?.signal);
     let result: ActionResult;
     try {
@@ -99,6 +101,14 @@ export async function runActions<TData>(input: {
     } finally {
       parentSignal.cleanup();
     }
+
+    await emitEvent(options, {
+      type: "action_completed",
+      stepIndex: step,
+      action: action.name,
+      durationMs: Date.now() - actionStartedAt,
+      ok: result.ok,
+    });
 
     actionResults.push({ ok: result.ok, message: result.message });
     if (result.activeTargetId && session) page = session.getPage(result.activeTargetId);
