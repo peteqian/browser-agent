@@ -22,7 +22,12 @@ import { combineSignals, withDecideTimeout, withRejectingTimeout } from "./timeo
 
 export { AgentController } from "./controller";
 export { compactHistory } from "./history";
-export { buildDecisionPrompt, buildDecisionUserPrompt } from "./decision-prompt";
+export {
+  buildDecisionPrompt,
+  buildDecisionPromptParts,
+  buildDecisionUserPrompt,
+} from "./decision-prompt";
+export type { DecisionPromptParts } from "./decision-prompt";
 
 /**
  * Runs the core browser-agent loop until completion, abort, or step-budget
@@ -196,6 +201,8 @@ async function runAgentInner<TData = unknown>(
         durationMs: Date.now() - decisionStartedAt,
         tokensIn: decision.telemetry?.usage?.inputTokens,
         tokensOut: decision.telemetry?.usage?.outputTokens,
+        cacheReadTokens: decision.telemetry?.usage?.cachedInputTokens,
+        cacheCreationTokens: decision.telemetry?.usage?.cacheCreationTokens,
       });
 
       if (typeof decision.memory === "string") currentMemory = decision.memory;

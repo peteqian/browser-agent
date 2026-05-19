@@ -106,6 +106,10 @@ export type AgentEvent<TData = unknown> =
       durationMs: number;
       tokensIn?: number;
       tokensOut?: number;
+      /** Cached prompt tokens read (provider cache hit on prefix). */
+      cacheReadTokens?: number;
+      /** Tokens written into provider cache on this request. */
+      cacheCreationTokens?: number;
     }
   | { type: "snapshot_started"; stepIndex: number }
   | {

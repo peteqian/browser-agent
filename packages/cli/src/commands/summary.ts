@@ -11,6 +11,10 @@ export interface StepSummary {
   action: string;
   /** Whether the last action of the step reported ok. */
   ok: boolean;
+  /** Provider cache-read tokens for the decision call. */
+  cacheReadTokens: number;
+  /** Provider cache-write tokens for the decision call. */
+  cacheCreationTokens: number;
 }
 
 interface MutableStep {
@@ -21,6 +25,8 @@ interface MutableStep {
   action: string;
   ok: boolean;
   hasAction: boolean;
+  cacheReadTokens: number;
+  cacheCreationTokens: number;
 }
 
 export class SummaryCollector {
@@ -30,6 +36,12 @@ export class SummaryCollector {
     if (event.type === "decision_completed") {
       const entry = this.ensure(event.stepIndex);
       entry.decisionMs += event.durationMs;
+      if (typeof event.cacheReadTokens === "number") {
+        entry.cacheReadTokens += event.cacheReadTokens;
+      }
+      if (typeof event.cacheCreationTokens === "number") {
+        entry.cacheCreationTokens += event.cacheCreationTokens;
+      }
       return;
     }
     if (event.type === "snapshot_captured") {
@@ -56,6 +68,8 @@ export class SummaryCollector {
         actionMs: s.actionMs,
         action: s.hasAction ? s.action : "(no action)",
         ok: s.hasAction ? s.ok : true,
+        cacheReadTokens: s.cacheReadTokens,
+        cacheCreationTokens: s.cacheCreationTokens,
       }));
   }
 
@@ -70,6 +84,8 @@ export class SummaryCollector {
         action: "",
         ok: true,
         hasAction: false,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
       };
       this.steps.set(step, entry);
     }
@@ -92,17 +108,20 @@ function pad(value: string, width: number): string {
 
 /** Renders an ASCII summary table for the given step list. */
 export function renderSummary(steps: readonly StepSummary[]): string {
-  const headers = ["step", "decision", "snapshot", "action", "total", "status"];
+  const showCache = steps.some((s) => s.cacheReadTokens > 0 || s.cacheCreationTokens > 0);
+  const headers = showCache
+    ? ["step", "decision", "snapshot", "action", "total", "cache", "status"]
+    : ["step", "decision", "snapshot", "action", "total", "status"];
   const rows = steps.map((s) => {
     const total = s.decisionMs + s.snapshotMs + s.actionMs;
-    return [
-      String(s.step),
-      fmtMs(s.decisionMs),
-      fmtMs(s.snapshotMs),
-      s.action,
-      fmtMs(total),
-      s.ok ? "ok" : "fail",
-    ];
+    const base = [String(s.step), fmtMs(s.decisionMs), fmtMs(s.snapshotMs), s.action, fmtMs(total)];
+    const status = s.ok ? "ok" : "fail";
+    if (showCache) {
+      // Show "read/write" cache tokens. Read = hits, write = priming.
+      const cache = `${s.cacheReadTokens}/${s.cacheCreationTokens}`;
+      return [...base, cache, status];
+    }
+    return [...base, status];
   });
 
   const widths = headers.map((h, i) => {
@@ -131,12 +150,18 @@ export function renderSummary(steps: readonly StepSummary[]): string {
 
   const divider = "─".repeat(Math.max(0, lines[0]?.length ?? 40));
   lines.push(divider);
+  const cacheSuffix = showCache
+    ? ` · cache ${steps.reduce((acc, s) => acc + s.cacheReadTokens, 0)} read / ${steps.reduce(
+        (acc, s) => acc + s.cacheCreationTokens,
+        0,
+      )} write`
+    : "";
   lines.push(
     `Total: ${fmtSeconds(total)} · ${steps.length} steps · LLM ${fmtSeconds(
       totalDecision,
     )} (${pct(totalDecision)}) · snapshot ${fmtSeconds(totalSnapshot)} (${pct(
       totalSnapshot,
-    )}) · action ${fmtSeconds(totalAction)} (${pct(totalAction)})`,
+    )}) · action ${fmtSeconds(totalAction)} (${pct(totalAction)})${cacheSuffix}`,
   );
   return lines.join("\n");
 }

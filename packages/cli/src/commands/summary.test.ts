@@ -29,6 +29,8 @@ describe("SummaryCollector", () => {
       actionMs: 100,
       action: "navigate",
       ok: true,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
     });
     expect(steps[1]).toEqual({
       step: 2,
@@ -37,7 +39,33 @@ describe("SummaryCollector", () => {
       actionMs: 50,
       action: "click",
       ok: false,
+      cacheReadTokens: 0,
+      cacheCreationTokens: 0,
     });
+  });
+
+  test("aggregates cache tokens from decision_completed events", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "decision_completed",
+        stepIndex: 1,
+        durationMs: 1000,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 4200,
+      },
+      {
+        type: "decision_completed",
+        stepIndex: 2,
+        durationMs: 800,
+        cacheReadTokens: 4200,
+        cacheCreationTokens: 0,
+      },
+    ];
+    const collector = new SummaryCollector();
+    for (const e of events) collector.observe(e);
+    const steps = collector.snapshot();
+    expect(steps[0]?.cacheCreationTokens).toBe(4200);
+    expect(steps[1]?.cacheReadTokens).toBe(4200);
   });
 });
 
@@ -51,6 +79,8 @@ describe("renderSummary", () => {
         actionMs: 100,
         action: "navigate",
         ok: true,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
       },
       {
         step: 2,
@@ -59,6 +89,8 @@ describe("renderSummary", () => {
         actionMs: 50,
         action: "click",
         ok: false,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
       },
     ]);
     expect(table).toContain("step");
@@ -77,5 +109,51 @@ describe("renderSummary", () => {
   test("handles empty step list", () => {
     const table = renderSummary([]);
     expect(table).toContain("0 steps");
+  });
+
+  test("renders cache column when any step reported cache tokens", () => {
+    const table = renderSummary([
+      {
+        step: 1,
+        decisionMs: 1000,
+        snapshotMs: 100,
+        actionMs: 50,
+        action: "navigate",
+        ok: true,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 4200,
+      },
+      {
+        step: 2,
+        decisionMs: 700,
+        snapshotMs: 100,
+        actionMs: 50,
+        action: "click",
+        ok: true,
+        cacheReadTokens: 4200,
+        cacheCreationTokens: 0,
+      },
+    ]);
+    expect(table).toContain("cache");
+    expect(table).toContain("0/4200");
+    expect(table).toContain("4200/0");
+    expect(table).toContain("4200 read");
+    expect(table).toContain("4200 write");
+  });
+
+  test("omits cache column when no step reported cache tokens", () => {
+    const table = renderSummary([
+      {
+        step: 1,
+        decisionMs: 1000,
+        snapshotMs: 100,
+        actionMs: 50,
+        action: "navigate",
+        ok: true,
+        cacheReadTokens: 0,
+        cacheCreationTokens: 0,
+      },
+    ]);
+    expect(table).not.toContain("cache");
   });
 });
