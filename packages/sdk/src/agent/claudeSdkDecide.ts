@@ -1,7 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
 import type { AgentInput, AgentOutput } from "./contracts";
-import { SYSTEM_PROMPT } from "./prompts";
+import { buildDecisionPromptParts } from "./decision-prompt";
 import { buildFreeformDecisionPrompt, parseDecision } from "./parseDecision";
 import { buildTelemetry } from "../llm/telemetry";
 
@@ -38,12 +38,18 @@ export function createClaudeSdkDecide(
     }
 
     try {
+      // The freeform user prompt carries the per-step suffix (observation,
+      // history, task). The system prompt carries the cacheable prefix
+      // (system instructions + action catalog). The Agent SDK handles
+      // prompt-cache markers internally; passing the prefix as the system
+      // string keeps it stable across steps so the SDK's transport pins it.
+      const { prefix } = buildDecisionPromptParts(input);
       const prompt = buildFreeformDecisionPrompt(input);
       const iter = query({
         prompt,
         options: {
           model: options.model,
-          systemPrompt: SYSTEM_PROMPT,
+          systemPrompt: prefix,
           maxTurns: 1,
           tools: [],
           abortController,
@@ -54,7 +60,12 @@ export function createClaudeSdkDecide(
 
       let raw = "";
       let usage:
-        | { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number }
+        | {
+            input_tokens?: number;
+            output_tokens?: number;
+            cache_read_input_tokens?: number;
+            cache_creation_input_tokens?: number;
+          }
         | undefined;
       for await (const message of iter) {
         if (message.type === "result") {
@@ -70,6 +81,10 @@ export function createClaudeSdkDecide(
               cache_read_input_tokens:
                 typeof u.cache_read_input_tokens === "number"
                   ? u.cache_read_input_tokens
+                  : undefined,
+              cache_creation_input_tokens:
+                typeof u.cache_creation_input_tokens === "number"
+                  ? u.cache_creation_input_tokens
                   : undefined,
             };
           }
@@ -90,6 +105,7 @@ export function createClaudeSdkDecide(
               inputTokens: usage.input_tokens ?? 0,
               outputTokens: usage.output_tokens ?? 0,
               cachedInputTokens: usage.cache_read_input_tokens,
+              cacheCreationTokens: usage.cache_creation_input_tokens,
             }
           : undefined,
       );
