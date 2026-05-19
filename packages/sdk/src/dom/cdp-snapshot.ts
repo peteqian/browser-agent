@@ -23,9 +23,9 @@ export type RequiredDomBudgets = Required<DomBudgetOptions>;
 
 export const DEFAULT_DOM_BUDGETS: RequiredDomBudgets = {
   maxElements: 1200,
-  maxDisplayElements: 120,
-  maxFieldChars: 240,
-  maxTextChars: 300,
+  maxDisplayElements: 60,
+  maxFieldChars: 120,
+  maxTextChars: 120,
   attributeWhitelist: [
     "id",
     "name",
@@ -46,7 +46,7 @@ export const DEFAULT_DOM_BUDGETS: RequiredDomBudgets = {
     "data-action",
     "data-component",
   ],
-  maxTotalChars: 30_000,
+  maxTotalChars: 8_000,
 };
 
 export function withBudgetDefaults(input?: DomBudgetOptions): RequiredDomBudgets {
