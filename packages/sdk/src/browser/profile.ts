@@ -38,6 +38,8 @@ export interface BrowserProfileInit {
   permissionGrants?: BrowserPermissionGrant[];
   storageStatePath?: string;
   saveStorageStateOnClose?: boolean;
+  /** Directory for the named-state vault. Defaults to BROWSER_AGENT_STATE_DIR env or ~/.browser-agent/states. */
+  stateVaultDir?: string;
   /** Inject an init script that auto-dismisses common cookie/consent banners. Default: false. */
   autoConsent?: boolean;
 }
@@ -70,6 +72,7 @@ export class BrowserProfile {
   permissionGrants: BrowserPermissionGrant[];
   storageStatePath: string | undefined;
   saveStorageStateOnClose: boolean;
+  stateVaultDir: string | undefined;
   autoConsent: boolean;
 
   constructor(init: BrowserProfileInit = {}) {
@@ -104,6 +107,7 @@ export class BrowserProfile {
       })) ?? [];
     this.storageStatePath = init.storageStatePath;
     this.saveStorageStateOnClose = init.saveStorageStateOnClose ?? Boolean(init.storageStatePath);
+    this.stateVaultDir = init.stateVaultDir;
     this.autoConsent = init.autoConsent ?? false;
   }
 
