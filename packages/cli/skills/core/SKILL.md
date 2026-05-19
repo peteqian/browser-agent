@@ -94,6 +94,24 @@ The MCP server keeps the browser alive across tool calls. Treat each
 sequence of `get_snapshot` → action as one logical step. Do not relaunch
 the browser between calls — `getSession(sessionId)` is the contract.
 
+## Diagnosing slow runs
+
+Agent steps usually break into three layers — LLM decision, DOM
+snapshot, and the action itself. To see which layer dominates:
+
+- Run the CLI with `--summary`. After the loop terminates, a per-step
+  table prints to stdout with columns `decision / snapshot / action /
+total / status`, plus aggregate percentages.
+- For deeper page-side latency (paint, scripting, network), pair
+  `profiler_start` / `profiler_stop` around the slow segment. They wrap
+  CDP `Tracing.start` / `Tracing.end` and emit Chrome Trace Event JSON
+  you can drop into `chrome://tracing` or `chrome://performance`. Pass
+  `fileName` to `profiler_stop` to write the trace under cwd.
+- The same per-layer signal is emitted as structured events
+  (`decision_started/_completed`, `snapshot_started/_captured`,
+  `action_started/_completed`), so `--json` consumers can aggregate
+  identically without re-parsing the table.
+
 ## References
 
 - `references/actions.md` — every action, shape, and minimal example.

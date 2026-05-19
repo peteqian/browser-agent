@@ -99,6 +99,30 @@ export type AgentEvent<TData = unknown> =
     }
   | { type: "transport_resolved"; resolution: TransportResolution }
   | { type: "loop_nudge"; step: number; notice: string; nudgesUsed: number; budget: number }
+  | { type: "decision_started"; stepIndex: number; provider: string; model: string }
+  | {
+      type: "decision_completed";
+      stepIndex: number;
+      durationMs: number;
+      tokensIn?: number;
+      tokensOut?: number;
+    }
+  | { type: "snapshot_started"; stepIndex: number }
+  | {
+      type: "snapshot_captured";
+      stepIndex: number;
+      durationMs: number;
+      elementCount: number;
+      bytes: number;
+    }
+  | { type: "action_started"; stepIndex: number; action: string }
+  | {
+      type: "action_completed";
+      stepIndex: number;
+      action: string;
+      durationMs: number;
+      ok: boolean;
+    }
   | { type: "terminal"; result: AgentResult<TData> };
 
 /** Logical environment the agent is running in. Drives transport priority. */

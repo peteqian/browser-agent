@@ -17,6 +17,7 @@ import {
 import { runSkillsCommand } from "../src/commands/skills";
 import { runInstall, type InstallOptions } from "../src/install";
 import { runStateCommand } from "../src/commands/state";
+import { SummaryCollector, renderSummary } from "../src/commands/summary";
 import type { ClientId } from "../src/install/detect";
 import type { SourceId } from "../src/install/snippet";
 
@@ -47,6 +48,7 @@ interface CliOptions {
   outputFile?: string;
   probe: boolean;
   engine: EngineId;
+  summary: boolean;
 }
 
 function printHelp(): void {
@@ -90,6 +92,8 @@ Output:
   --output-file <path>       Write final result JSON to file (still printed on stdout).
   --verbose, -v              Print every AgentEvent and step trace as
                              timestamped JSONL on stderr. Composes with --json.
+  --summary                  After the run, print a per-step timing table to stdout
+                             (decision / snapshot / action breakdown).
 
 Other:
   --config <path>            Load defaults from JSON file (CLI flags override).
@@ -194,6 +198,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
       config: { type: "string" },
       stdin: { type: "boolean" },
       json: { type: "boolean" },
+      summary: { type: "boolean" },
       probe: { type: "boolean" },
       verbose: { type: "boolean", short: "v" },
       version: { type: "boolean", short: "V" },
@@ -279,6 +284,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     outputFile: (values["output-file"] as string | undefined) ?? config.outputFile,
     probe: Boolean(values.probe),
     engine,
+    summary: Boolean(values.summary),
   };
 }
 
@@ -408,13 +414,21 @@ async function main(): Promise<number> {
   const verboseOnEvent = opts.verbose
     ? (event: AgentEvent) => writeVerbose(`event.${event.type}`, event)
     : undefined;
+  const summaryCollector = opts.summary ? new SummaryCollector() : undefined;
+  const summaryOnEvent: ((event: AgentEvent) => void) | undefined = summaryCollector
+    ? (event) => summaryCollector.observe(event)
+    : undefined;
+  const handlers = [jsonlOnEvent, verboseOnEvent, summaryOnEvent].filter(
+    (h): h is (event: AgentEvent) => void => Boolean(h),
+  );
   const onEvent: ((event: AgentEvent) => void) | undefined =
-    jsonlOnEvent && verboseOnEvent
-      ? (event) => {
-          verboseOnEvent(event);
-          jsonlOnEvent(event);
-        }
-      : (jsonlOnEvent ?? verboseOnEvent);
+    handlers.length === 0
+      ? undefined
+      : handlers.length === 1
+        ? handlers[0]
+        : (event) => {
+            for (const h of handlers) h(event);
+          };
 
   const abortController = new AbortController();
   let signalCount = 0;
@@ -480,6 +494,9 @@ async function main(): Promise<number> {
   }
   if (!opts.json) {
     console.log(resultJson);
+  }
+  if (summaryCollector) {
+    console.log(renderSummary(summaryCollector.snapshot()));
   }
   return result.success ? 0 : 1;
 }

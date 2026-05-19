@@ -9,6 +9,7 @@ import { registerExtractionTools } from "./tools/extraction";
 import { registerInteractionTools } from "./tools/interaction";
 import { registerNavigationTools } from "./tools/navigation";
 import { registerNetworkTools } from "./tools/network";
+import { registerProfilerTools } from "./tools/profiler";
 import { registerSessionTools } from "./tools/session";
 import { registerSkillTools } from "./tools/skills";
 import { registerStateTools } from "./tools/state";
@@ -31,6 +32,7 @@ export function createServer(): McpServer {
   registerExtractionTools(server);
   registerDialogTools(server);
   registerNetworkTools(server);
+  registerProfilerTools(server);
   registerAgentTool(server);
   registerSkillTools(server);
   registerStateTools(server);

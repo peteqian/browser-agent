@@ -95,6 +95,8 @@ async function runAgentInner<TData = unknown>(
       const beforeStepInterrupt = await checkInterrupt(options, step - 1);
       if (beforeStepInterrupt) return beforeStepInterrupt;
 
+      await emitEvent(options, { type: "snapshot_started", stepIndex: step });
+      const snapshotStartedAt = Date.now();
       let context: StepContext;
       try {
         context = await withRejectingTimeout(
@@ -113,6 +115,16 @@ async function runAgentInner<TData = unknown>(
       }
 
       const { browserState, observation, tabs } = context;
+      const snapshotDurationMs = Date.now() - snapshotStartedAt;
+      const snapshotBytes = observation.length;
+      const snapshotElementCount = browserState.elements?.length ?? 0;
+      await emitEvent(options, {
+        type: "snapshot_captured",
+        stepIndex: step,
+        durationMs: snapshotDurationMs,
+        elementCount: snapshotElementCount,
+        bytes: snapshotBytes,
+      });
       await session?.eventBus?.emit({ type: "browser_state", state: browserState });
       await emitEvent(options, { type: "browser_state", step, state: browserState });
       if (browserState.screenshot) {
@@ -154,6 +166,14 @@ async function runAgentInner<TData = unknown>(
         memory: currentMemory,
       };
 
+      const provider = options.transportResolution?.provider ?? "unknown";
+      const decisionStartedAt = Date.now();
+      await emitEvent(options, {
+        type: "decision_started",
+        stepIndex: step,
+        provider,
+        model: "",
+      });
       let decision: AgentOutput;
       try {
         decision = await runDecide(options, decideInput, cfg.decisionTimeoutMs);
@@ -169,6 +189,14 @@ async function runAgentInner<TData = unknown>(
           steps: step,
         };
       }
+
+      await emitEvent(options, {
+        type: "decision_completed",
+        stepIndex: step,
+        durationMs: Date.now() - decisionStartedAt,
+        tokensIn: decision.telemetry?.usage?.inputTokens,
+        tokensOut: decision.telemetry?.usage?.outputTokens,
+      });
 
       if (typeof decision.memory === "string") currentMemory = decision.memory;
       if (cfg.planning && (decision.plan || decision.memory || decision.nextGoal)) {
