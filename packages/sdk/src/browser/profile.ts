@@ -42,6 +42,13 @@ export interface BrowserProfileInit {
   stateVaultDir?: string;
   /** Inject an init script that auto-dismisses common cookie/consent banners. Default: false. */
   autoConsent?: boolean;
+  /**
+   * JavaScript sources registered via `Page.addScriptToEvaluateOnNewDocument`
+   * on every new page in this session. Runs before any page script on each
+   * navigation. Useful for auth-token injection, time mocking, or stubbing
+   * globals. Each entry is a raw JS source string.
+   */
+  initScripts?: readonly string[];
 }
 
 export class BrowserProfile {
@@ -74,6 +81,7 @@ export class BrowserProfile {
   saveStorageStateOnClose: boolean;
   stateVaultDir: string | undefined;
   autoConsent: boolean;
+  initScripts: string[];
 
   constructor(init: BrowserProfileInit = {}) {
     this.cdpUrl = init.cdpUrl;
@@ -109,6 +117,7 @@ export class BrowserProfile {
     this.saveStorageStateOnClose = init.saveStorageStateOnClose ?? Boolean(init.storageStatePath);
     this.stateVaultDir = init.stateVaultDir;
     this.autoConsent = init.autoConsent ?? false;
+    this.initScripts = init.initScripts ? [...init.initScripts] : [];
   }
 
   isRemoteConnection(): boolean {

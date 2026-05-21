@@ -160,6 +160,10 @@ export async function enableDomains(
       sessionId,
     );
   }
+  for (const source of profile.initScripts) {
+    if (typeof source !== "string" || source.length === 0) continue;
+    await client.send("Page.addScriptToEvaluateOnNewDocument", { source }, sessionId);
+  }
   // Always override UA + UA-Client-Hints so we don't ship "HeadlessChrome"
   // when running headless. Bot detectors compare UA against
   // Sec-CH-UA headers and any inconsistency flips us to degraded layouts.
