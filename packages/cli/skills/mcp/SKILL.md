@@ -22,6 +22,9 @@ Tools registered by `createServer()` (`packages/cli/src/mcp/server.ts`):
 - **Skills**: `list_skills`, `get_skill`.
 - **Daemon bridge**: `daemon_status`, `daemon_launch_session`,
   `daemon_list_sessions`, `daemon_attach_session`, `daemon_get_snapshot`,
+  `daemon_search_page`, `daemon_find_elements`,
+  `daemon_get_dropdown_options`, `daemon_find_text`, `daemon_screenshot`,
+  `daemon_save_as_pdf`, `daemon_extract_content`, `daemon_list_artifacts`,
   `daemon_action`, `daemon_actions`, `daemon_session_events`,
   `daemon_close_session`.
 
@@ -67,12 +70,15 @@ calls `/api/health` so a fresh process can find the running dashboard daemon.
 If that health check fails, `dashboard status` and `daemon_status` clear the
 stale manifest before reporting `running: false`.
 From a fresh MCP process, use `daemon_status` → `daemon_launch_session` or
-`daemon_list_sessions` → `daemon_attach_session` → `daemon_action` /
-`daemon_get_snapshot` to drive sessions owned by that dashboard daemon.
+`daemon_list_sessions` → `daemon_attach_session` → `daemon_get_snapshot`,
+`daemon_extract_content`, `daemon_screenshot`, and the other named
+`daemon_*` tools to drive sessions owned by that dashboard daemon.
 `daemon_launch_session` accepts the same profile, persistence, browser channel,
 locale, and timezone inputs as `launch_session` and returns the first
-observation. Close dashboard-owned sessions with `daemon_close_session`. Keep
-normal tools for sessions launched inside the current MCP process.
+observation. Saved screenshots and PDFs are returned by `daemon_list_artifacts`.
+Use `daemon_action` only when a named daemon tool does not exist yet. Close
+dashboard-owned sessions with `daemon_close_session`. Keep normal tools for
+sessions launched inside the current MCP process.
 
 Use `run_actions` only for short bursts where no intermediate page read is
 needed, such as `focus` → `keyboard_type` → `press`. It runs up to 10 simple

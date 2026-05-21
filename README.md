@@ -70,9 +70,11 @@ status` and `daemon_status` remove the stale manifest after the failed health
 check.
 MCP clients can use the explicit `daemon_*` tools (`daemon_status`,
 `daemon_launch_session`, `daemon_list_sessions`, `daemon_attach_session`,
-`daemon_get_snapshot`, `daemon_action`, `daemon_close_session`) to launch,
-discover, or drive sessions owned by that dashboard daemon from a fresh MCP
-process.
+`daemon_get_snapshot`, `daemon_search_page`, `daemon_find_elements`,
+`daemon_extract_content`, `daemon_screenshot`, `daemon_save_as_pdf`,
+`daemon_list_artifacts`, `daemon_action`, `daemon_close_session`) to launch,
+discover, inspect, extract, or drive sessions owned by that dashboard daemon
+from a fresh MCP process.
 
 Then the agent drives the persistent session via tool calls:
 

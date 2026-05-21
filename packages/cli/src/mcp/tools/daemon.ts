@@ -2,7 +2,9 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
 import { getDashboardStatus, readDashboardManifest } from "../../dashboard/server";
-import { jsonResult } from "../helpers";
+import { indexFromRef, jsonResult } from "../helpers";
+
+const elementRef = z.string().regex(/^@?e\d+$/, "Use @eN from the latest observation.");
 
 export function registerDaemonTools(server: McpServer): void {
   const registerTool = server.registerTool.bind(server) as ToolRegistrar;
@@ -84,6 +86,161 @@ export function registerDaemonTools(server: McpServer): void {
   );
 
   registerTool(
+    "daemon_search_page",
+    {
+      description: "Search page text in a dashboard-daemon session.",
+      inputSchema: {
+        sessionId: z.string(),
+        pattern: z.string().min(1),
+        regex: z.boolean().optional(),
+        caseSensitive: z.boolean().optional(),
+        contextChars: z.number().int().positive().max(1000).optional(),
+        cssScope: z.string().optional(),
+        maxResults: z.number().int().positive().max(200).optional(),
+      },
+    },
+    async ({ sessionId, pattern, regex, caseSensitive, contextChars, cssScope, maxResults }) =>
+      jsonResult(
+        await daemonAction(sessionId, "search_page", {
+          pattern,
+          regex,
+          caseSensitive,
+          contextChars,
+          cssScope,
+          maxResults,
+        }),
+      ),
+  );
+
+  registerTool(
+    "daemon_find_elements",
+    {
+      description: "Find elements by CSS selector in a dashboard-daemon session.",
+      inputSchema: {
+        sessionId: z.string(),
+        selector: z.string().min(1),
+        attributes: z.array(z.string().min(1)).optional(),
+        maxResults: z.number().int().positive().max(200).optional(),
+        includeText: z.boolean().optional(),
+      },
+    },
+    async ({ sessionId, selector, attributes, maxResults, includeText }) =>
+      jsonResult(
+        await daemonAction(sessionId, "find_elements", {
+          selector,
+          attributes,
+          maxResults,
+          includeText,
+        }),
+      ),
+  );
+
+  registerTool(
+    "daemon_get_dropdown_options",
+    {
+      description: "Get dropdown options from a select element in a dashboard-daemon session.",
+      inputSchema: {
+        sessionId: z.string(),
+        index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
+      },
+    },
+    async ({ sessionId, index, ref }) => {
+      const resolved = indexFromRef({ index, ref });
+      if (typeof resolved !== "number") throw new Error("Provide index or ref, e.g. @e4.");
+      return jsonResult(await daemonAction(sessionId, "get_dropdown_options", { index: resolved }));
+    },
+  );
+
+  registerTool(
+    "daemon_find_text",
+    {
+      description: "Scroll to the first visible occurrence of text in a dashboard-daemon session.",
+      inputSchema: { sessionId: z.string(), text: z.string().min(1) },
+    },
+    async ({ sessionId, text }) => jsonResult(await daemonAction(sessionId, "find_text", { text })),
+  );
+
+  registerTool(
+    "daemon_screenshot",
+    {
+      description: "Capture a screenshot for a dashboard-daemon session.",
+      inputSchema: {
+        sessionId: z.string(),
+        fileName: z.string().optional(),
+        annotate: z.boolean().optional(),
+      },
+    },
+    async ({ sessionId, fileName, annotate }) =>
+      jsonResult(await daemonAction(sessionId, "screenshot", { fileName, annotate })),
+  );
+
+  registerTool(
+    "daemon_save_as_pdf",
+    {
+      description: "Save the current dashboard-daemon session page as a PDF file.",
+      inputSchema: {
+        sessionId: z.string(),
+        fileName: z.string().optional(),
+        printBackground: z.boolean().optional(),
+        landscape: z.boolean().optional(),
+        scale: z.number().min(0.1).max(2).optional(),
+        paperFormat: z.enum(["Letter", "Legal", "A4", "A3", "Tabloid"]).optional(),
+      },
+    },
+    async ({ sessionId, fileName, printBackground, landscape, scale, paperFormat }) =>
+      jsonResult(
+        await daemonAction(sessionId, "save_as_pdf", {
+          fileName,
+          printBackground,
+          landscape,
+          scale,
+          paperFormat,
+        }),
+      ),
+  );
+
+  registerTool(
+    "daemon_extract_content",
+    {
+      description: "Extract page content from a dashboard-daemon session.",
+      inputSchema: {
+        sessionId: z.string(),
+        query: z.string().min(1),
+        extractLinks: z.boolean().optional(),
+        extractImages: z.boolean().optional(),
+        startFromChar: z.number().int().nonnegative().optional(),
+        maxChars: z.number().int().positive().max(200_000).optional(),
+      },
+    },
+    async ({ sessionId, query, extractLinks, extractImages, startFromChar, maxChars }) =>
+      jsonResult(
+        await daemonAction(sessionId, "extract_content", {
+          query,
+          extractLinks,
+          extractImages,
+          startFromChar,
+          maxChars,
+        }),
+      ),
+  );
+
+  registerTool(
+    "daemon_list_artifacts",
+    {
+      description: "List saved screenshots and PDFs for a dashboard-daemon session.",
+      inputSchema: {
+        sessionId: z.string(),
+        kind: z.enum(["screenshot", "pdf"]).optional(),
+      },
+    },
+    async ({ sessionId, kind }) =>
+      jsonResult(
+        await daemonRequest(`/api/sessions/${sessionId}/artifacts${kind ? `?kind=${kind}` : ""}`),
+      ),
+  );
+
+  registerTool(
     "daemon_action",
     {
       description:
@@ -140,6 +297,10 @@ export function registerDaemonTools(server: McpServer): void {
     async ({ sessionId }) =>
       jsonResult(await daemonRequest(`/api/sessions/${sessionId}`, "DELETE")),
   );
+}
+
+async function daemonAction(sessionId: string, name: string, params: Record<string, unknown>) {
+  return daemonRequest(`/api/sessions/${sessionId}/action`, "POST", { name, params });
 }
 
 async function daemonStatus() {

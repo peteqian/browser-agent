@@ -1,3 +1,6 @@
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
+
 /**
  * Minimal HTTP server for browser integration tests. Serves a fixed map
  * of path -> HTML string from `127.0.0.1` on a random port so multiple
@@ -42,31 +45,79 @@ export const DEFAULT_FIXTURES: FixturePages = {
     <ul><li>Alpha</li><li>Beta</li><li>Gamma</li><li>Delta</li></ul>`,
 };
 
+let fixturePortCounter = 0;
+
 export async function startFixtureServer(
   pages: FixturePages = DEFAULT_FIXTURES,
 ): Promise<FixtureServer> {
-  // Bun is the test runtime. Use its built-in server.
-  const bunGlobal = (globalThis as unknown as { Bun?: { serve: (cfg: unknown) => unknown } }).Bun;
-  if (!bunGlobal || typeof bunGlobal.serve !== "function") {
-    throw new Error("startFixtureServer requires the Bun runtime");
+  for (let attempt = 0; attempt < 25; attempt += 1) {
+    const server = createFixtureHttpServer(pages);
+    const port = nextFixturePort();
+    try {
+      await listen(server, port);
+      const address = server.address() as AddressInfo;
+      return {
+        url: `http://127.0.0.1:${address.port}`,
+        stop: () =>
+          new Promise((resolve, reject) => {
+            server.close((error) => {
+              if (error) {
+                reject(error);
+                return;
+              }
+              resolve();
+            });
+          }),
+      };
+    } catch (error) {
+      await closeServer(server);
+      if (!isPortInUse(error)) throw error;
+    }
   }
-  const server = bunGlobal.serve({
-    port: 0,
-    hostname: "127.0.0.1",
-    fetch(req: Request): Response {
-      const url = new URL(req.url);
-      const body = pages[url.pathname];
-      if (body === undefined) {
-        return new Response("not found", { status: 404 });
-      }
-      return new Response(body, { headers: { "content-type": "text/html; charset=utf-8" } });
-    },
-  }) as { port: number; hostname: string; stop: (closeActive?: boolean) => Promise<void> };
+  throw new Error("Could not find a free fixture server port.");
+}
 
-  return {
-    url: `http://${server.hostname}:${server.port}`,
-    stop: async () => {
-      await server.stop(true);
-    },
-  };
+function createFixtureHttpServer(pages: FixturePages) {
+  return createServer((req, res) => {
+    const response = fixtureResponse(pages, req.url ?? "/");
+    res.writeHead(response.status, Object.fromEntries(response.headers));
+    void response.text().then((body) => res.end(body));
+  });
+}
+
+export function fixtureResponse(pages: FixturePages, requestUrl: string): Response {
+  const url = new URL(requestUrl, "http://127.0.0.1");
+  const body = pages[url.pathname];
+  if (body === undefined) {
+    return new Response("not found", {
+      status: 404,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
+  }
+  return new Response(body, { headers: { "content-type": "text/html; charset=utf-8" } });
+}
+
+function nextFixturePort(): number {
+  fixturePortCounter += 1;
+  return 30_000 + ((process.pid + fixturePortCounter) % 30_000);
+}
+
+function listen(server: ReturnType<typeof createServer>, port: number): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(port, "127.0.0.1", () => {
+      server.off("error", reject);
+      resolve();
+    });
+  });
+}
+
+function closeServer(server: ReturnType<typeof createServer>): Promise<void> {
+  return new Promise((resolve) => {
+    server.close(() => resolve());
+  });
+}
+
+function isPortInUse(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "EADDRINUSE";
 }

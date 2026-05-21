@@ -98,6 +98,34 @@ describe("runSessionAction", () => {
     expect(record.events?.[0]?.ok).toBe(true);
   });
 
+  test("records saved screenshot artifacts from shared action runner", async () => {
+    const record = {
+      session: {
+        listPageTargetIds: async () => ["page-1"],
+        waitForNewPageTarget: async () => null,
+      } as unknown as BrowserSession,
+      page: {
+        targetId: "page-1",
+        currentUrl: async () => "https://example.com/",
+        screenshotToFile: async (fileName: string) => `/tmp/${fileName}`,
+      } as unknown as Page,
+      lastAccessedAt: Date.now(),
+      artifacts: [],
+    };
+
+    const result = await runSessionAction(
+      record,
+      { name: "screenshot", params: { fileName: "saved.png" } },
+      { observe: false },
+    );
+    const body = JSON.parse(result.content[0].text);
+
+    expect(body.ok).toBe(true);
+    expect(record.artifacts).toEqual([
+      { kind: "screenshot", path: "/tmp/saved.png", createdAt: expect.any(Number) },
+    ]);
+  });
+
   test("runSessionActions stops after the first failed action", async () => {
     const clicked: number[] = [];
     const page = {

@@ -7,7 +7,16 @@ import { AgentController, buildDecisionPrompt, buildDecisionUserPrompt, runAgent
 
 function makeFakeCdpSnapshot() {
   // Two interactive button elements at indexes 0 and 1, with backendNodeIds 0 and 1.
-  const strings = ["https://example.com/", "Example", "BUTTON", "block", "visible", "1"];
+  const strings = [
+    "https://example.com/",
+    "Example",
+    "BUTTON",
+    "block",
+    "visible",
+    "1",
+    "First",
+    "Second",
+  ];
   return {
     documents: [
       {
@@ -28,7 +37,7 @@ function makeFakeCdpSnapshot() {
             [3, 4, 5, -1, -1, -1, -1],
             [3, 4, 5, -1, -1, -1, -1],
           ],
-          text: [-1, -1],
+          text: [6, 7],
           paintOrders: [0, 1],
         },
       },

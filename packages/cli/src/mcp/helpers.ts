@@ -8,7 +8,12 @@ import {
   type Action,
   type ActionResult,
 } from "@peteqian/browser-agent-sdk/internal";
-import { recordSessionEvent, type SessionRecord } from "./sessions";
+import {
+  recordArtifact,
+  recordSessionEvent,
+  type ArtifactKind,
+  type SessionRecord,
+} from "./sessions";
 
 export function textResult(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -99,6 +104,7 @@ export async function runSessionAction(
   const previousUrl = await currentUrl(record);
   const startedAt = Date.now();
   const result = await executeSessionAction(record, action);
+  recordActionArtifact(record, action.name, result);
   recordSessionEvent(
     record,
     {
@@ -125,6 +131,7 @@ export async function runSessionActions(
     const startedAt = Date.now();
     const result = await executeSessionAction(record, action);
     results.push(result);
+    recordActionArtifact(record, action.name, result);
     recordSessionEvent(
       record,
       {
@@ -147,6 +154,22 @@ export async function runSessionActions(
       previousUrl,
     },
   );
+}
+
+function recordActionArtifact(
+  record: SessionRecord,
+  actionName: string,
+  result: ActionResult,
+): void {
+  const kind = artifactKindForAction(actionName);
+  if (!kind) return;
+  recordArtifact(record, kind, result);
+}
+
+function artifactKindForAction(actionName: string): ArtifactKind | undefined {
+  if (actionName === "screenshot") return "screenshot";
+  if (actionName === "save_as_pdf") return "pdf";
+  return undefined;
 }
 
 async function executeSessionAction(record: SessionRecord, action: Action): Promise<ActionResult> {

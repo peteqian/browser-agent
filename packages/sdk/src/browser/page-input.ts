@@ -93,6 +93,7 @@ async function clickPointForBackendNode(
     }`,
   );
   if (!rect.ok) return { ok: false };
+  if (!rect.value || typeof rect.value !== "object") return { ok: false };
   const x = rect.value.x + rect.value.width / 2;
   const y = rect.value.y + rect.value.height / 2;
   if (!Number.isFinite(x) || !Number.isFinite(y)) return { ok: false };

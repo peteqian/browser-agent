@@ -118,7 +118,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     if (req.method === "DELETE" && closeMatch?.[1]) {
       return json(res, await closeSession(closeMatch[1]));
     }
-    const match = /^\/api\/sessions\/([^/]+)\/(events|snapshot|action|actions)$/.exec(url.pathname);
+    const match = /^\/api\/sessions\/([^/]+)\/(events|snapshot|action|actions|artifacts)$/.exec(
+      url.pathname,
+    );
     if (match?.[1] && match[2] === "events") {
       const limit = Number(url.searchParams.get("limit") ?? 50);
       return json(res, { events: listSessionEvents(getSession(match[1]), clampLimit(limit)) });
@@ -134,6 +136,9 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
         readyState: state.readyState,
         elements: state.elements.length,
       });
+    }
+    if (req.method === "GET" && match?.[1] && match[2] === "artifacts") {
+      return json(res, listArtifacts(match[1], url.searchParams.get("kind")));
     }
     if (req.method === "POST" && match?.[1] && match[2] === "action") {
       return json(res, await runHttpAction(match[1], await readJson(req)));
@@ -206,6 +211,14 @@ function parseAction(input: unknown): Action {
 function responseBody(result: { content: Array<{ type: "text"; text: string }> }) {
   const text = result.content.find((item) => item.type === "text")?.text ?? "{}";
   return JSON.parse(text);
+}
+
+function listArtifacts(sessionId: string, kind: string | null) {
+  if (kind !== null && kind !== "screenshot" && kind !== "pdf") {
+    throw new Error(`Unsupported artifact kind: ${kind}`);
+  }
+  const artifacts = getSession(sessionId).artifacts;
+  return { artifacts: kind ? artifacts.filter((item) => item.kind === kind) : artifacts };
 }
 
 export function dashboardManifestPath(): string {
@@ -328,6 +341,7 @@ export function statusForError(error: unknown): number {
   if (
     message === "Provide sessionId or profile." ||
     message === "Invalid action name." ||
+    message.startsWith("Unsupported artifact kind:") ||
     message.startsWith("Unsupported browser channel:") ||
     message.startsWith("Profile must be ")
   ) {
