@@ -405,6 +405,27 @@ export function registerInteractionTools(server: McpServer): void {
   );
 
   registerTool(
+    "set_viewport",
+    {
+      description: "Override device metrics: width, height, optional deviceScaleFactor and mobile.",
+      inputSchema: {
+        sessionId: z.string(),
+        width: z.number().int().positive().max(8000),
+        height: z.number().int().positive().max(8000),
+        deviceScaleFactor: z.number().positive().max(5).optional(),
+        mobile: z.boolean().optional(),
+      },
+    },
+    async ({ sessionId, width, height, deviceScaleFactor, mobile }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "set_viewport",
+        params: { width, height, deviceScaleFactor, mobile },
+      });
+    },
+  );
+
+  registerTool(
     "scroll",
     {
       description: "Scroll the page.",
