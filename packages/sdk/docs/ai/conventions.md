@@ -10,8 +10,9 @@
 
 ## Imports
 
-- Public consumers import from `@peteqian/browser-agent`.
-- Internal-only symbols import from `@peteqian/browser-agent/internal`.
+- Public SDK consumers import from `@peteqian/browser-agent-sdk`.
+- Internal-only SDK symbols import from `@peteqian/browser-agent-sdk/internal`.
+- CLI/MCP consumers use the sibling runtime package `@peteqian/browser-agent`.
 - Within the package, use relative paths.
 
 ## Tests

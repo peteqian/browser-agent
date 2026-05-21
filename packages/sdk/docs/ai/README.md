@@ -1,4 +1,4 @@
-# AI Manual — `@peteqian/browser-agent`
+# AI Manual — `@peteqian/browser-agent-sdk`
 
 Canonical reference for AI agents (Codex, Claude Code, Cursor) working in this package. Humans should read the top-level [`README.md`](../../README.md) instead.
 
@@ -16,6 +16,7 @@ This package is a generic TypeScript browser-automation agent. Raw Chrome DevToo
 
 - Prefer small, direct edits that preserve the package boundary.
 - Run `bun run typecheck` after meaningful TypeScript edits.
-- Do not redefine public contract shapes in downstream packages; import from `@peteqian/browser-agent`.
+- Do not redefine public contract shapes in downstream packages; import SDK
+  contracts from `@peteqian/browser-agent-sdk`.
 - Avoid backward-compat shims unless persisted data, shipped behavior, or explicit requirements demand them.
 - The `/internal` subpath carries no stability guarantee — internal symbols may move without a minor bump.

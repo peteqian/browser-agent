@@ -32,7 +32,7 @@ The loop builds a `DecisionInput` from `BrowserStateSummary` + history, calls th
 
 ## Entry points
 
-- Public surface: `src/index.ts` → published as `@peteqian/browser-agent`.
-- Internal surface: `src/internal.ts` → published as `@peteqian/browser-agent/internal`. No stability guarantee.
-- CLI: `bin/cli.ts` → built bin `browser-agent`.
-- MCP: `bin/mcp.ts` → built bin `browser-agent-mcp`.
+- Public SDK surface: `src/index.ts` → published as `@peteqian/browser-agent-sdk`.
+- Internal SDK surface: `src/internal.ts` → published as `@peteqian/browser-agent-sdk/internal`. No stability guarantee.
+- CLI runtime: `../cli/bin/cli.ts` → built bin `browser-agent` in `@peteqian/browser-agent`.
+- MCP runtime: `../cli/bin/mcp.ts` → built bin `browser-agent-mcp` in `@peteqian/browser-agent`.

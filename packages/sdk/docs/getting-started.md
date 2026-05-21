@@ -1,18 +1,26 @@
 # Getting started
 
-## Install
+## Install the SDK
 
 ```sh
-npm install @peteqian/browser-agent
+npm install @peteqian/browser-agent-sdk
 # or
-bun add @peteqian/browser-agent
+bun add @peteqian/browser-agent-sdk
 ```
 
-The package ships:
+The SDK package ships:
 
-- `browser-agent` — CLI binary
-- `browser-agent-mcp` — MCP stdio server
 - ESM exports for SDK use
+
+## Install the CLI and MCP runtime
+
+The CLI and MCP binaries ship in the sibling runtime package:
+
+```sh
+npm install -g @peteqian/browser-agent
+# or run without a global install:
+npx -y -p @peteqian/browser-agent browser-agent --help
+```
 
 You also need:
 
@@ -65,7 +73,7 @@ Then in Claude Desktop / Cursor: ask the assistant to launch a session, navigate
 ## First run (SDK)
 
 ```ts
-import { createDecide, runAgent } from "@peteqian/browser-agent";
+import { createDecide, runAgent } from "@peteqian/browser-agent-sdk";
 
 const { decide, resolution } = createDecide({ provider: "codex" });
 
