@@ -121,11 +121,11 @@ async function handleRequest(req: IncomingMessage, res: ServerResponse): Promise
     const match = /^\/api\/sessions\/([^/]+)\/(events|snapshot|action|actions|artifacts)$/.exec(
       url.pathname,
     );
-    if (match?.[1] && match[2] === "events") {
+    if (req.method === "GET" && match?.[1] && match[2] === "events") {
       const limit = Number(url.searchParams.get("limit") ?? 50);
       return json(res, { events: listSessionEvents(getSession(match[1]), clampLimit(limit)) });
     }
-    if (match?.[1] && match[2] === "snapshot") {
+    if (req.method === "GET" && match?.[1] && match[2] === "snapshot") {
       const record = getSession(match[1]);
       const state = await refreshSessionState(record);
       return json(res, {
