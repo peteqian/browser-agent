@@ -113,7 +113,8 @@ Other observation tools (use directly, no snapshot needed):
 - `search_page` — text/regex search over rendered text with context.
 - `find_text` — first occurrence of a literal string.
 - `extract_content` — LLM-friendly content extraction with optional
-  dedupe across pages.
+  `alreadyCollected` dedupe across pages and optional `schemaJson` when the
+  host has wired an extraction LLM hook.
 
 ## When to call `run_agent`
 

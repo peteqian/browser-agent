@@ -200,13 +200,32 @@ export function registerExtractionTools(server: McpServer): void {
         extractImages: z.boolean().optional(),
         startFromChar: z.number().int().nonnegative().optional(),
         maxChars: z.number().int().positive().max(200_000).optional(),
+        alreadyCollected: z.array(z.string()).max(5_000).optional(),
+        schemaJson: z.string().max(8_000).optional(),
       },
     },
-    async ({ sessionId, query, extractLinks, extractImages, startFromChar, maxChars }) => {
+    async ({
+      sessionId,
+      query,
+      extractLinks,
+      extractImages,
+      startFromChar,
+      maxChars,
+      alreadyCollected,
+      schemaJson,
+    }) => {
       const record = getSession(sessionId);
       return runSessionAction(record, {
         name: "extract_content",
-        params: { query, extractLinks, extractImages, startFromChar, maxChars },
+        params: {
+          query,
+          extractLinks,
+          extractImages,
+          startFromChar,
+          maxChars,
+          alreadyCollected,
+          schemaJson,
+        },
       });
     },
   );

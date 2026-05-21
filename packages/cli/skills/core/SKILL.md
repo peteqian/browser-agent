@@ -100,7 +100,8 @@ Full list with shape: `references/actions.md`.
   only. For role-based lookup, prefer `click_by`.
 - **`extract_content` is for reading**, not scraping every page. It runs an
   LLM-friendly extractor on the current DOM; pass `alreadyCollected` to
-  dedupe across paginated calls.
+  dedupe across paginated calls. If the host configured an extraction LLM
+  hook, pass `schemaJson` to request structured output.
 - **`wait_for_text`** is preferred over fixed-duration `wait` for
   determinism. Use `wait` only for animations or rate-limited UIs.
 - **One `done` per task.** Emit `done({ success, summary, data? })` to end

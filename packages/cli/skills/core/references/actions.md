@@ -68,7 +68,7 @@ Locator shape: any of `role+name`, `text`, `testid`, `label`,
 - **`search_page`** — Pattern (literal or regex) search with context
   windows. `{ "pattern": "Order #\\d+", "regex": true }`
 - **`extract_content`** — Run LLM-friendly content extraction.
-  `{ "query": "all job titles and links", "extractLinks": true }`
+  `{ "query": "all job titles and links", "extractLinks": true, "alreadyCollected": [] }`
 - **`screenshot`** — PNG of viewport (or full page). `{ "fileName": "shot.png" }`
 - **`save_as_pdf`** — Print current page to PDF.
   `{ "fileName": "page.pdf", "printBackground": true }`

@@ -41,6 +41,10 @@ describe("registerDaemonTools", () => {
     const extract = tools.get("daemon_extract_content");
     expect(extract?.inputSchema?.query?.parse("pricing")).toBe("pricing");
     expect(extract?.inputSchema?.maxChars?.parse(2000)).toBe(2000);
+    expect(extract?.inputSchema?.alreadyCollected?.parse(["https://example.com/a"])).toEqual([
+      "https://example.com/a",
+    ]);
+    expect(extract?.inputSchema?.schemaJson?.parse('{"type":"object"}')).toBe('{"type":"object"}');
 
     const dropdown = tools.get("daemon_get_dropdown_options");
     expect(dropdown?.inputSchema?.ref?.parse("@e3")).toBe("@e3");
