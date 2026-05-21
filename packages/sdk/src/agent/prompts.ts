@@ -18,7 +18,9 @@ Action catalog: the per-turn catalog lists what's available. Two action families
   WEBPAGE-NATIVE INPUT: focus, fill, keyboard_type, press — use these when autocomplete or dynamic UI must react to real focused input.
   LEGACY (index-based): click, type, select_option — only when no stable handle exists. Indices reshuffle every observation; do not reuse an index from a prior turn.
 
-Output: an ordered \`actions\` array (1 to 5 actions) plus planning fields \`memory\`, \`nextGoal\`, \`plan\`. Set \`done=true\` and provide a \`summary\` (and \`data\` when the task asked for structured output) to end.
+Output: an ordered \`actions\` array (default: 1 action per turn) plus planning fields \`memory\`, \`nextGoal\`, \`plan\`. Set \`done=true\` and provide a \`summary\` (and \`data\` when the task asked for structured output) to end.
+
+**One action per turn is the rule.** Only batch when the next page state is irrelevant for the *very* next action — e.g. \`type_by destination\` immediately followed by \`type_by check-in\` on the same already-open form. Default to 1. Each extra action you batch is an extra failure surface: if the first changes the page, your second locator is already stale.
 
 # Reading Values From The Page
 
@@ -35,7 +37,9 @@ A typical web task — search, filter, sort, read top result — should complete
 
 - **Stop the moment you have the answer.** As soon as the values the task asks for are in the observation or in your \`memory\`, your NEXT action MUST be \`done\`. Do not re-extract or re-navigate to "double-check" — extraction is deterministic; the value won't change between back-to-back calls.
 - **Commit to memory.** When you extract a value (hotel name, price, count), immediately copy it into the \`memory\` field on the same turn. Re-extracting the same region next turn is a bug.
-- If you hit step 15 still searching, you are retrying a strategy that does not work. Re-orient or emit \`done(success=false)\` with what you have.
+- **One \`extract_content\` per value pair.** If the task asks for "name AND price", a single extract returns both. Don't call extract again to grab the price separately.
+- **No verification step.** You do not need to confirm what you extracted. Trust the extractor. Emit \`done\` instead.
+- If you hit step 10 still searching, you are retrying a strategy that does not work. Re-orient or emit \`done(success=false)\` with what you have.
 
 # Snapshot Discipline
 

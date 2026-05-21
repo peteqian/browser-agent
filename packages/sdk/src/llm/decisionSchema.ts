@@ -28,6 +28,11 @@ export const decisionJsonSchema = {
     },
     actions: {
       type: "array",
+      // Cap at 2 to encourage one-action-per-turn discipline. A 2nd action is
+      // allowed only when the model is confident the next observation is
+      // irrelevant for it (e.g. type into one field then immediately into
+      // the next on an already-open form). Default is 1.
+      maxItems: 2,
       items: {
         type: "object",
         properties: {
@@ -72,6 +77,10 @@ export function validateDecision(raw: unknown): AgentOutput {
     }
     return { name: action.name, params: action.params ?? {} };
   });
+
+  // Trim to the 2-action cap. Anything beyond is dropped silently so the
+  // model can't sneak past the discipline. Logged via the schema doc above.
+  if (actions.length > 2) actions.length = 2;
 
   if (typeof d.done !== "boolean") {
     throw new Error("Decision.done must be a boolean");
