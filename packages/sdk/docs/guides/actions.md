@@ -85,6 +85,9 @@ The LLM picks from a fixed menu of named actions defined in `src/actions/types.t
 | `network_har_stop`      | `fileName?`                                         | Stop recording and optionally save HAR             |
 | `network_list_requests` | `urlIncludes?`, `method?`, `status?`, `maxResults?` | Filter requests captured by the active recorder    |
 | `set_viewport`          | `width`, `height`, `deviceScaleFactor?`, `mobile?`  | `Emulation.setDeviceMetricsOverride`               |
+| `cookies_get`           | `urls?`, `maxResults?`                              | `Storage.getCookies` (optional URL host filter)    |
+| `cookies_set`           | `cookies[]` (name/value + url or domain)            | `Storage.setCookies`                               |
+| `cookies_clear`         | –                                                   | `Storage.clearCookies`                             |
 | `console_start`         | –                                                   | Begin buffering page console + uncaught exceptions |
 | `console_read`          | `level?`, `maxResults?`, `clear?`                   | Read buffered console entries (optional filter)    |
 | `console_stop`          | –                                                   | Stop console capture and report captured count     |

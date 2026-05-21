@@ -105,6 +105,41 @@ export const waitForUrlAction = z.object({
   timeoutMs: z.number().int().positive().max(30_000).optional(),
 });
 
+export const cookiesGetAction = z.object({
+  urls: z.array(z.string().url()).max(20).optional(),
+  maxResults: z.number().int().positive().max(500).optional(),
+});
+
+export const cookiesSetAction = z.object({
+  cookies: z
+    .array(
+      z
+        .object({
+          name: z.string().min(1).max(200),
+          value: z.string().max(4096),
+          url: z.string().url().optional(),
+          domain: z.string().min(1).max(200).optional(),
+          path: z.string().min(1).max(200).optional(),
+          secure: z.boolean().optional(),
+          httpOnly: z.boolean().optional(),
+          sameSite: z.enum(["Strict", "Lax", "None"]).optional(),
+          expires: z.number().int().nonnegative().optional(),
+        })
+        .superRefine((value, ctx) => {
+          if (!value.url && !value.domain) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: "cookies.set: each cookie requires either url or domain",
+            });
+          }
+        }),
+    )
+    .min(1)
+    .max(50),
+});
+
+export const cookiesClearAction = z.object({});
+
 export const setViewportAction = z.object({
   width: z.number().int().positive().max(8000),
   height: z.number().int().positive().max(8000),
@@ -395,6 +430,9 @@ export const actionSchemas = {
   network_har_stop: networkHarStopAction,
   network_list_requests: networkListRequestsAction,
   set_viewport: setViewportAction,
+  cookies_get: cookiesGetAction,
+  cookies_set: cookiesSetAction,
+  cookies_clear: cookiesClearAction,
   console_start: consoleStartAction,
   console_read: consoleReadAction,
   console_stop: consoleStopAction,
@@ -450,6 +488,9 @@ export type Action =
   | { name: "network_har_stop"; params: z.infer<typeof networkHarStopAction> }
   | { name: "network_list_requests"; params: z.infer<typeof networkListRequestsAction> }
   | { name: "set_viewport"; params: z.infer<typeof setViewportAction> }
+  | { name: "cookies_get"; params: z.infer<typeof cookiesGetAction> }
+  | { name: "cookies_set"; params: z.infer<typeof cookiesSetAction> }
+  | { name: "cookies_clear"; params: z.infer<typeof cookiesClearAction> }
   | { name: "console_start"; params: z.infer<typeof consoleStartAction> }
   | { name: "console_read"; params: z.infer<typeof consoleReadAction> }
   | { name: "console_stop"; params: z.infer<typeof consoleStopAction> }

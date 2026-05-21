@@ -56,6 +56,7 @@ import {
 } from "./handlers/network";
 import { handleConsoleRead, handleConsoleStart, handleConsoleStop } from "./handlers/console";
 import { handleSetViewport } from "./handlers/emulation";
+import { handleCookiesClear, handleCookiesGet, handleCookiesSet } from "./handlers/cookies";
 import { handleProfilerStart, handleProfilerStop } from "./handlers/profiler";
 import type { FocusState } from "../agent/focus-state";
 import type { ElementInfo } from "../dom/types";
@@ -190,6 +191,12 @@ export async function executeAction(
         return await handleNetworkListRequests(ctx, action);
       case "set_viewport":
         return await handleSetViewport(ctx, action);
+      case "cookies_get":
+        return await handleCookiesGet(ctx, action);
+      case "cookies_set":
+        return await handleCookiesSet(ctx, action);
+      case "cookies_clear":
+        return await handleCookiesClear(ctx, action);
       case "console_start":
         return await handleConsoleStart(ctx, action);
       case "console_read":

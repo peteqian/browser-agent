@@ -223,6 +223,12 @@ function defaultActionDescription(name: ActionName): string {
       return "List requests captured by the active HAR recorder, filtered by url substring/method/status. Requires network_har_start first.";
     case "set_viewport":
       return "Override the device metrics (viewport width/height, optional deviceScaleFactor, optional mobile flag).";
+    case "cookies_get":
+      return "Return browser cookies (optionally filter to a list of URLs).";
+    case "cookies_set":
+      return "Set one or more browser cookies. Each entry needs url or domain.";
+    case "cookies_clear":
+      return "Clear all browser cookies in the current session.";
     case "console_start":
       return "Begin buffering console messages (log/info/warning/error/debug) and uncaught exceptions for the current page.";
     case "console_read":
