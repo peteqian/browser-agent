@@ -425,4 +425,3 @@ function html(res: ServerResponse, content: string): void {
 function notFound(res: ServerResponse): void {
   json(res, { error: "not_found" }, 404);
 }
-

@@ -36,17 +36,15 @@ import {
   handleWaitForUrl,
 } from "./handlers/interaction";
 import {
-  handleDone,
-  handleEval,
   handleExtractContent,
   handleFindElements,
   handleFindText,
-  handleFocusArea,
   handleGetDropdownOptions,
-  handleSaveAsPdf,
-  handleScreenshot,
   handleSearchPage,
 } from "./handlers/extraction";
+import { handleSaveAsPdf, handleScreenshot } from "./handlers/capture";
+import { handleFocusArea } from "./handlers/focus-area";
+import { handleDone, handleEval } from "./handlers/meta";
 import { handleFindByRole, handleFindByText, handleFindByTestid } from "./handlers/find";
 import { handleDialogHandle } from "./handlers/dialog";
 import {

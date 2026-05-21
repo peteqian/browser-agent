@@ -133,117 +133,77 @@ export function createDefaultActions(): ActionDefinition[] {
   }));
 }
 
+const ACTION_DESCRIPTIONS = {
+  navigate: "Load a URL in the current tab or a new tab.",
+  click:
+    "(legacy) Click by numeric [index]. Prefer `click_by` with a stable locator; indices reshuffle between snapshots.",
+  focus: "Focus an element by numeric [index] so later keyboard actions target it.",
+  type: "(legacy) Type into a numeric [index] input using browser keyboard input. Prefer `type_by` with a stable locator.",
+  fill: "Focus and replace text in an indexed input using browser keyboard input.",
+  scroll: "Scroll the page or indexed scrollable element.",
+  wait: "Wait for dynamic page content.",
+  send_keys: "Send keyboard keys to the active element.",
+  press: "Press one keyboard key or chord on the active element.",
+  keyboard_type: "Type text into the currently focused element using browser keyboard input.",
+  select_option: "(legacy) Choose a dropdown option on numeric [index]. Prefer `select_by`.",
+  upload_file: "Upload local file paths to a file input.",
+  wait_for_text: "Wait until page text appears.",
+  wait_for_condition:
+    "Poll a JS expression in the page until it becomes truthy (or timeoutMs elapses).",
+  wait_for_url:
+    "Wait until the current page URL matches the pattern (substring or wildcard with *).",
+  go_back: "Navigate browser history back.",
+  go_forward: "Navigate browser history forward.",
+  refresh: "Refresh the active page.",
+  new_tab: "Open a new tab and optionally navigate.",
+  switch_tab: "Switch active tab by targetId or pageId.",
+  close_tab: "Close a tab.",
+  close_browser: "Close the browser session.",
+  search_page: "Search visible page text.",
+  find_elements: "Query elements by CSS selector.",
+  get_dropdown_options: "List options for an indexed select element.",
+  find_text: "Scroll to matching text.",
+  screenshot: "Capture a PNG screenshot.",
+  save_as_pdf: "Save the current page as PDF.",
+  extract_content: "Extract page content with optional links/images.",
+  focus_area:
+    "Narrow future observations to a page region matching a natural-language query (e.g. 'search form'). Pass clear=true to drop focus.",
+  click_by:
+    "Click an element by semantic locator { testid? | role+name? | label? | placeholder? | href? | text? }. PREFERRED over `click [index]`. Fails with 'ambiguous' if >1 matches without `nth`.",
+  type_by:
+    "Type text into an input matched by semantic locator (same shape as click_by). PREFERRED over `type [index]`.",
+  select_by:
+    "Choose a dropdown option on a select matched by semantic locator. PREFERRED over `select_option [index]`.",
+  hover: "Move the mouse over element [index].",
+  dblclick: "Double-click element [index].",
+  eval: "Evaluate a JavaScript expression in the page and return the JSON-serialized result.",
+  find_by_role:
+    "Return indices of snapshot elements matching ARIA role (and optional accessible name).",
+  find_by_text:
+    "Return indices of snapshot elements whose visible/accessible text contains the substring.",
+  find_by_testid: "Return indices of snapshot elements with a matching data-testid.",
+  dialog_handle: "Accept or dismiss a JavaScript dialog (alert/confirm/prompt/beforeunload).",
+  network_har_start: "Start recording network requests on the current page.",
+  network_har_stop: "Stop recording and return collected HAR-like JSON (or write to file).",
+  network_list_requests:
+    "List requests captured by the active HAR recorder, filtered by url substring/method/status. Requires network_har_start first.",
+  set_viewport:
+    "Override the device metrics (viewport width/height, optional deviceScaleFactor, optional mobile flag).",
+  cookies_get: "Return browser cookies (optionally filter to a list of URLs).",
+  cookies_set: "Set one or more browser cookies. Each entry needs url or domain.",
+  cookies_clear: "Clear all browser cookies in the current session.",
+  console_start:
+    "Begin buffering console messages (log/info/warning/error/debug) and uncaught exceptions for the current page.",
+  console_read:
+    "Return buffered console entries. Optional level filter and maxResults; clear=true empties the buffer after read.",
+  console_stop: "Stop console capture and return the count of buffered entries.",
+  profiler_start:
+    "Start a CDP performance trace on the current page. Pair with profiler_stop to capture a Chrome trace JSON.",
+  profiler_stop:
+    "Stop the active CDP performance trace and return (or write) Chrome Trace Event JSON.",
+  done: "End the task with success/failure and optional data.",
+} as const satisfies Record<ActionName, string>;
+
 function defaultActionDescription(name: ActionName): string {
-  switch (name) {
-    case "navigate":
-      return "Load a URL in the current tab or a new tab.";
-    case "click":
-      return "(legacy) Click by numeric [index]. Prefer `click_by` with a stable locator; indices reshuffle between snapshots.";
-    case "focus":
-      return "Focus an element by numeric [index] so later keyboard actions target it.";
-    case "type":
-      return "(legacy) Type into a numeric [index] input using browser keyboard input. Prefer `type_by` with a stable locator.";
-    case "fill":
-      return "Focus and replace text in an indexed input using browser keyboard input.";
-    case "scroll":
-      return "Scroll the page or indexed scrollable element.";
-    case "wait":
-      return "Wait for dynamic page content.";
-    case "send_keys":
-      return "Send keyboard keys to the active element.";
-    case "press":
-      return "Press one keyboard key or chord on the active element.";
-    case "keyboard_type":
-      return "Type text into the currently focused element using browser keyboard input.";
-    case "select_option":
-      return "(legacy) Choose a dropdown option on numeric [index]. Prefer `select_by`.";
-    case "upload_file":
-      return "Upload local file paths to a file input.";
-    case "wait_for_text":
-      return "Wait until page text appears.";
-    case "wait_for_condition":
-      return "Poll a JS expression in the page until it becomes truthy (or timeoutMs elapses).";
-    case "wait_for_url":
-      return "Wait until the current page URL matches the pattern (substring or wildcard with *).";
-    case "go_back":
-      return "Navigate browser history back.";
-    case "go_forward":
-      return "Navigate browser history forward.";
-    case "refresh":
-      return "Refresh the active page.";
-    case "new_tab":
-      return "Open a new tab and optionally navigate.";
-    case "switch_tab":
-      return "Switch active tab by targetId or pageId.";
-    case "close_tab":
-      return "Close a tab.";
-    case "close_browser":
-      return "Close the browser session.";
-    case "search_page":
-      return "Search visible page text.";
-    case "find_elements":
-      return "Query elements by CSS selector.";
-    case "get_dropdown_options":
-      return "List options for an indexed select element.";
-    case "find_text":
-      return "Scroll to matching text.";
-    case "screenshot":
-      return "Capture a PNG screenshot.";
-    case "save_as_pdf":
-      return "Save the current page as PDF.";
-    case "extract_content":
-      return "Extract page content with optional links/images.";
-    case "focus_area":
-      return "Narrow future observations to a page region matching a natural-language query (e.g. 'search form'). Pass clear=true to drop focus.";
-    case "click_by":
-      return "Click an element by semantic locator { testid? | role+name? | label? | placeholder? | href? | text? }. PREFERRED over `click [index]`. Fails with 'ambiguous' if >1 matches without `nth`.";
-    case "type_by":
-      return "Type text into an input matched by semantic locator (same shape as click_by). PREFERRED over `type [index]`.";
-    case "select_by":
-      return "Choose a dropdown option on a select matched by semantic locator. PREFERRED over `select_option [index]`.";
-    case "hover":
-      return "Move the mouse over element [index].";
-    case "dblclick":
-      return "Double-click element [index].";
-    case "eval":
-      return "Evaluate a JavaScript expression in the page and return the JSON-serialized result.";
-    case "find_by_role":
-      return "Return indices of snapshot elements matching ARIA role (and optional accessible name).";
-    case "find_by_text":
-      return "Return indices of snapshot elements whose visible/accessible text contains the substring.";
-    case "find_by_testid":
-      return "Return indices of snapshot elements with a matching data-testid.";
-    case "dialog_handle":
-      return "Accept or dismiss a JavaScript dialog (alert/confirm/prompt/beforeunload).";
-    case "network_har_start":
-      return "Start recording network requests on the current page.";
-    case "network_har_stop":
-      return "Stop recording and return collected HAR-like JSON (or write to file).";
-    case "network_list_requests":
-      return "List requests captured by the active HAR recorder, filtered by url substring/method/status. Requires network_har_start first.";
-    case "set_viewport":
-      return "Override the device metrics (viewport width/height, optional deviceScaleFactor, optional mobile flag).";
-    case "cookies_get":
-      return "Return browser cookies (optionally filter to a list of URLs).";
-    case "cookies_set":
-      return "Set one or more browser cookies. Each entry needs url or domain.";
-    case "cookies_clear":
-      return "Clear all browser cookies in the current session.";
-    case "console_start":
-      return "Begin buffering console messages (log/info/warning/error/debug) and uncaught exceptions for the current page.";
-    case "console_read":
-      return "Return buffered console entries. Optional level filter and maxResults; clear=true empties the buffer after read.";
-    case "console_stop":
-      return "Stop console capture and return the count of buffered entries.";
-    case "profiler_start":
-      return "Start a CDP performance trace on the current page. Pair with profiler_stop to capture a Chrome trace JSON.";
-    case "profiler_stop":
-      return "Stop the active CDP performance trace and return (or write) Chrome Trace Event JSON.";
-    case "done":
-      return "End the task with success/failure and optional data.";
-    default: {
-      const exhaustive: never = name;
-      return exhaustive;
-    }
-  }
+  return ACTION_DESCRIPTIONS[name];
 }
