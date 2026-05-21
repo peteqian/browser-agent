@@ -376,6 +376,7 @@ async function sessionSummary(sessionId: string, record: SessionRecord) {
     activeTargetId: record.page.targetId,
     targetIds,
     eventCount: record.events?.length ?? 0,
+    artifactCount: record.artifacts.length,
     ...(url ? { url } : {}),
     ...(record.profile ? { profile: record.profile } : {}),
   };
@@ -430,7 +431,7 @@ export function dashboardHtml(): string {
     body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; color: #161616; }
     button, input, textarea { font: inherit; }
     .grid { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
-    .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .detail-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
     pre { white-space: pre-wrap; border: 1px solid #ddd; padding: 12px; max-height: 70vh; overflow: auto; }
     li { margin: 8px 0; }
     .session-row { display: grid; gap: 4px; }
@@ -461,6 +462,7 @@ export function dashboardHtml(): string {
       <div class="detail-grid">
         <section><h3>Snapshot</h3><pre id="snapshot"></pre></section>
         <section><h3>Events</h3><pre id="events"></pre></section>
+        <section><h3>Artifacts</h3><pre id="artifacts"></pre></section>
       </div>
     </section>
   </div>
@@ -469,6 +471,7 @@ export function dashboardHtml(): string {
     const active = document.querySelector("#active");
     const snapshot = document.querySelector("#snapshot");
     const events = document.querySelector("#events");
+    const artifacts = document.querySelector("#artifacts");
     let activeSessionId = "";
     async function loadSessions() {
       const res = await fetch("/api/sessions");
@@ -495,7 +498,7 @@ export function dashboardHtml(): string {
       meta.className = "session-meta";
       meta.textContent = [session.profile, session.url].filter(Boolean).join(" ");
       const count = document.createElement("div");
-      count.textContent = "events: " + session.eventCount;
+      count.textContent = "events: " + session.eventCount + " artifacts: " + session.artifactCount;
       item.append(actions, meta, count);
       return item;
     }
@@ -506,6 +509,7 @@ export function dashboardHtml(): string {
         await fetch("/api/sessions/" + id, { method: "DELETE" });
         if (activeSessionId === id) setActiveSession("");
         events.textContent = "";
+        artifacts.textContent = "";
         await loadSessions();
         return;
       }
@@ -513,12 +517,16 @@ export function dashboardHtml(): string {
     });
     async function selectSession(id) {
       setActiveSession(id);
-      await Promise.all([loadSnapshot(id), loadEvents(id)]);
+      await Promise.all([loadSnapshot(id), loadEvents(id), loadArtifacts(id)]);
     }
     function setActiveSession(id) {
       activeSessionId = id;
       active.textContent = id ? "Session " + id : "No session selected";
-      if (!id) snapshot.textContent = "";
+      if (!id) {
+        snapshot.textContent = "";
+        events.textContent = "";
+        artifacts.textContent = "";
+      }
     }
     async function loadSnapshot(id) {
       const res = await fetch("/api/sessions/" + id + "/snapshot");
@@ -529,9 +537,17 @@ export function dashboardHtml(): string {
       const res = await fetch("/api/sessions/" + id + "/events");
       events.textContent = JSON.stringify(await res.json(), null, 2);
     }
+    async function loadArtifacts(id) {
+      const res = await fetch("/api/sessions/" + id + "/artifacts");
+      artifacts.textContent = JSON.stringify(await res.json(), null, 2);
+    }
     async function refreshActiveSession() {
       if (!activeSessionId) return;
-      await Promise.all([loadSnapshot(activeSessionId), loadEvents(activeSessionId)]);
+      await Promise.all([
+        loadSnapshot(activeSessionId),
+        loadEvents(activeSessionId),
+        loadArtifacts(activeSessionId)
+      ]);
     }
     document.querySelector("#action").addEventListener("submit", async (event) => {
       event.preventDefault();

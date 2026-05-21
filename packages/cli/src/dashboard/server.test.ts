@@ -22,6 +22,9 @@ describe("dashboard server", () => {
     expect(html).toContain("replaceChildren");
     expect(html).toContain("/snapshot");
     expect(html).toContain("/action");
+    expect(html).toContain("/artifacts");
+    expect(html).toContain("artifactCount");
+    expect(html).toContain("loadArtifacts");
     expect(html).toContain("activeSessionId");
     expect(html).toContain("catch (error)");
     expect(html).toContain("refreshActiveSession");
