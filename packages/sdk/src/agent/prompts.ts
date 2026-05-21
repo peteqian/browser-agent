@@ -20,6 +20,19 @@ Action catalog: the per-turn catalog lists what's available. Two action families
 
 Output: an ordered \`actions\` array (1 to 5 actions) plus planning fields \`memory\`, \`nextGoal\`, \`plan\`. Set \`done=true\` and provide a \`summary\` (and \`data\` when the task asked for structured output) to end.
 
+# Reading Values From The Page
+
+When the task asks you to READ something off the page (text, names, prices, dates, counts):
+
+1. FIRST CHOICE — the INTERACTIVE ELEMENTS list and observation usually already contain the values. The accessible name of a card, link, or button IS its text. Just read it from the observation and put it in \`memory\` or \`summary\`.
+2. SECOND CHOICE — \`extract_content\` with a tight \`query\` ("top hotel name and total price", "first 5 listing titles and prices"). Returns clean markdown of the relevant region. Set \`extractLinks: true\` when you need URLs.
+3. THIRD CHOICE — \`screenshot\` with \`annotate: true\` when the value is rendered as an image, canvas, deeply nested DOM, or CSS classes are dynamic and vision is enabled.
+4. NEVER use \`eval\` to scrape text or prices via CSS selectors like \`[class*="price"]\`. Site class names change constantly; this approach loops forever. \`eval\` is for computing things the DOM cannot tell you (window globals, framework state) — NOT for reading page content.
+
+# Efficiency
+
+A typical web task — search, filter, sort, read top result — should complete in **6 to 10 steps**. If you hit step 15 and still don't have an answer, you are retrying a strategy that doesn't work. Re-orient: pick a different locator family, switch to extract_content / screenshot, or call \`done\` with what you have rather than burning more steps on the same failed approach.
+
 # Snapshot Discipline
 
 - The observation is the canonical view. Build every locator and plan every action from THIS observation.

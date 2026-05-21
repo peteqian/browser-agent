@@ -165,7 +165,8 @@ const ACTION_DESCRIPTIONS = {
   find_text: "Scroll to matching text.",
   screenshot: "Capture a PNG screenshot.",
   save_as_pdf: "Save the current page as PDF.",
-  extract_content: "Extract page content with optional links/images.",
+  extract_content:
+    "PREFERRED for reading page text/values. Returns clean markdown for the region matching `query` (e.g. 'top hotel name and price'). Use this instead of eval+CSS for any text/number/list extraction. Optional `extractLinks`, `extractImages`, `maxChars`, `alreadyCollected`.",
   focus_area:
     "Narrow future observations to a page region matching a natural-language query (e.g. 'search form'). Pass clear=true to drop focus.",
   click_by:
@@ -176,7 +177,7 @@ const ACTION_DESCRIPTIONS = {
     "Choose a dropdown option on a select matched by semantic locator. PREFERRED over `select_option [index]`.",
   hover: "Move the mouse over element [index].",
   dblclick: "Double-click element [index].",
-  eval: "Evaluate a JavaScript expression in the page and return the JSON-serialized result.",
+  eval: "Evaluate a JavaScript expression. ONLY for computing values the DOM cannot tell you (window globals, framework state, page-side math). Do NOT use to scrape text or prices via CSS selectors — call `extract_content` instead. Result is sliced to 4000 chars.",
   find_by_role:
     "Return indices of snapshot elements matching ARIA role (and optional accessible name).",
   find_by_text:

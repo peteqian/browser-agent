@@ -98,10 +98,17 @@ Full list with shape: `references/actions.md`.
   `press` so the page receives browser keyboard events.
 - **`find_elements` returns a CSS-selected list**, not interactive elements
   only. For role-based lookup, prefer `click_by`.
-- **`extract_content` is for reading**, not scraping every page. It runs an
-  LLM-friendly extractor on the current DOM; pass `alreadyCollected` to
-  dedupe across paginated calls. If the host configured an extraction LLM
-  hook, pass `schemaJson` to request structured output.
+- **`extract_content` is the right tool for reading page text/values.** It
+  runs an LLM-friendly extractor on the current DOM; pass a tight `query`
+  (e.g. "top hotel name and price") to scope the output. Pass
+  `alreadyCollected` to dedupe across paginated calls. If the host
+  configured an extraction LLM hook, pass `schemaJson` for structured
+  output.
+- **Do NOT use `eval` to scrape page text or prices via CSS selectors.**
+  Site class names change constantly and the approach loops forever. `eval`
+  is only for values the DOM can't tell you (window globals, framework
+  state, page-side math). Reach for `extract_content`, the observation
+  itself, or `screenshot --annotate` instead.
 - **`wait_for_text`** is preferred over fixed-duration `wait` for
   determinism. Use `wait` only for animations or rate-limited UIs.
 - **One `done` per task.** Emit `done({ success, summary, data? })` to end
