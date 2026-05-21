@@ -298,28 +298,35 @@ async function runAgentInner<TData = unknown>(
       // action names and prod the model toward an alternative.
       const sameNameNudge = detectSameNameRun(recentActionNames, 4);
       const alternatingNudge = sameNameNudge ? null : detectAlternatingPair(recentActionNames, 3);
-      const triggeredNudge =
-        sameNameNudge && buildSameNameNudge(sameNameNudge)
-          ? buildSameNameNudge(sameNameNudge)
-          : alternatingNudge
-            ? buildAlternatingNudge(alternatingNudge)
-            : null;
-      if (
-        triggeredNudge &&
-        cfg.loopDetectionMode === "nudge" &&
-        loopNudgesUsed < cfg.loopNudgeBudget &&
-        !pendingLoopNotice
-      ) {
-        loopNudgesUsed += 1;
-        pendingLoopNotice = triggeredNudge;
-        await emitEvent(options, {
-          type: "loop_nudge",
-          step,
-          notice: pendingLoopNotice,
-          nudgesUsed: loopNudgesUsed,
-          budget: cfg.loopNudgeBudget,
-        });
-        recentActionNames.length = 0;
+      const triggeredNudge = sameNameNudge
+        ? buildSameNameNudge(sameNameNudge)
+        : alternatingNudge
+          ? buildAlternatingNudge(alternatingNudge)
+          : null;
+      if (triggeredNudge && cfg.loopDetectionMode !== "off") {
+        if (loopNudgesUsed >= cfg.loopNudgeBudget) {
+          // Nudges exhausted and the model is still stuck in the same
+          // pattern. Hard-stop rather than burning more decisions.
+          return {
+            success: false,
+            reason: "loop_detected",
+            summary: `Stopped: same action pattern repeated past the nudge budget (${cfg.loopNudgeBudget} nudges). Last nudge: ${triggeredNudge}`,
+            data: null,
+            steps: step,
+          };
+        }
+        if (cfg.loopDetectionMode === "nudge" && !pendingLoopNotice) {
+          loopNudgesUsed += 1;
+          pendingLoopNotice = triggeredNudge;
+          await emitEvent(options, {
+            type: "loop_nudge",
+            step,
+            notice: pendingLoopNotice,
+            nudgesUsed: loopNudgesUsed,
+            budget: cfg.loopNudgeBudget,
+          });
+          recentActionNames.length = 0;
+        }
       }
 
       // Loop-detection bookkeeping.

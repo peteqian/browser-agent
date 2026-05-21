@@ -169,6 +169,23 @@ export function escapeExtractionBoundaries(text: string): string {
   return text.replace(/<\/(url|query|result)>/gi, "<-/$1>");
 }
 
+interface ExtractMemo {
+  query: string;
+  url: string;
+  digest: string;
+  hits: number;
+}
+
+const extractMemoByPage = new WeakMap<object, ExtractMemo>();
+
+function digestContent(text: string): string {
+  let hash = 5381;
+  for (let i = 0; i < text.length; i++) {
+    hash = ((hash << 5) + hash + text.charCodeAt(i)) | 0;
+  }
+  return hash.toString(16);
+}
+
 export async function handleExtractContent(
   ctx: HandlerContext,
   action: ByName<"extract_content">,
@@ -189,6 +206,30 @@ export async function handleExtractContent(
     return fail(`Extraction failed (${reason}): ${message}`, {
       longTermMemory: `Extraction failed: ${reason}`,
       data: { extractionError: { reason, message } },
+    });
+  }
+
+  const digest = digestContent(result.content);
+  const memo = extractMemoByPage.get(ctx.page as unknown as object);
+  const isRepeat = memo && memo.url === result.url && memo.digest === digest;
+  if (isRepeat && memo) {
+    memo.hits += 1;
+    if (memo.hits >= 2) {
+      return fail(
+        `extract_content returned identical content for this URL on a back-to-back call. ` +
+          `The page has not changed. Commit the data you already received to \`memory\` and emit \`done\` now.`,
+        {
+          longTermMemory: "Duplicate extract_content detected; stop and emit done",
+          data: { duplicateExtraction: true, query: result.query, digest },
+        },
+      );
+    }
+  } else {
+    extractMemoByPage.set(ctx.page as unknown as object, {
+      query: action.params.query,
+      url: result.url,
+      digest,
+      hits: 1,
     });
   }
 
