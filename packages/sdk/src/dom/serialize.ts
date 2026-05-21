@@ -183,6 +183,7 @@ export function formatSnapshotDiff(
     typeof budgetsOrLimit === "number"
       ? withBudgetDefaults({ maxDisplayElements: budgetsOrLimit })
       : withBudgetDefaults(budgetsOrLimit);
+  const limit = budgets.maxDisplayElements;
   const fieldChars = budgets.maxFieldChars;
   const totalCap = budgets.maxTotalChars;
 
@@ -204,9 +205,24 @@ export function formatSnapshotDiff(
   );
 
   const lines: string[] = [...header];
-  for (const el of diff.added) lines.push(`+ ${renderElementLine(el, fieldChars)}`);
-  for (const el of diff.removed) lines.push(`- @e${el.index}`);
-  for (const ch of diff.changed) lines.push(`~ ${renderElementLine(ch.next, fieldChars)}`);
+  let renderedDiffLines = 0;
+  let omittedDiffLines = 0;
+
+  const pushDiffLine = (line: string): void => {
+    if (renderedDiffLines >= limit) {
+      omittedDiffLines += 1;
+      return;
+    }
+    lines.push(line);
+    renderedDiffLines += 1;
+  };
+
+  for (const el of diff.added) pushDiffLine(`+ ${renderElementLine(el, fieldChars)}`);
+  for (const el of diff.removed) pushDiffLine(`- @e${el.index}`);
+  for (const ch of diff.changed) pushDiffLine(`~ ${renderElementLine(ch.next, fieldChars)}`);
+  if (omittedDiffLines > 0) {
+    lines.push(`... ${omittedDiffLines} diff entries truncated`);
+  }
   lines.push(`(= ${diff.unchanged} unchanged)`);
 
   const text = lines.join("\n");

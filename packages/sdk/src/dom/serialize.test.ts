@@ -316,4 +316,46 @@ describe("formatSnapshotDiff", () => {
     expect(out.text).not.toMatch(/^\+ /m);
     expect(out.text).not.toMatch(/^~ /m);
   });
+
+  test("honors maxDisplayElements for rendered diff lines", () => {
+    const keepers = Array.from({ length: 8 }, (_, i) =>
+      makeElement(10 + i, `Stay${i}`, { stableId: `s${i}`, axName: `Stay${i}` }),
+    );
+    const prev = snap(keepers);
+    const next = snap([
+      ...keepers,
+      makeElement(1, "Add one", { stableId: "a1", axName: "Add one" }),
+      makeElement(2, "Add two", { stableId: "a2", axName: "Add two" }),
+      makeElement(3, "Add three", { stableId: "a3", axName: "Add three" }),
+    ]);
+    const out = formatSnapshotDiff(prev, next, { maxDisplayElements: 2 });
+
+    expect(out.usedDiff).toBe(true);
+    const diffLines = out.text.split("\n").filter((line) => /^[+~-] /.test(line));
+    expect(diffLines).toHaveLength(2);
+    expect(out.text).toContain("... 1 diff entries truncated");
+    expect(out.text).toContain("(= 8 unchanged)");
+  });
+
+  test("falls back to full snapshot when diff exceeds maxTotalChars", () => {
+    const keepers = Array.from({ length: 8 }, (_, i) =>
+      makeElement(10 + i, `Stay${i}`, { stableId: `s${i}`, axName: `Stay${i}` }),
+    );
+    const prev = snap(keepers);
+    const next = snap([
+      ...keepers,
+      makeElement(1, "Changed", {
+        stableId: "c1",
+        axName: "Changed " + "x".repeat(100),
+      }),
+    ]);
+    const out = formatSnapshotDiff(prev, next, {
+      maxDisplayElements: 20,
+      maxTotalChars: 120,
+    });
+
+    expect(out.usedDiff).toBe(false);
+    expect(out.text).toContain("INTERACTIVE ELEMENTS");
+    expect(out.text).toContain("more truncated");
+  });
 });

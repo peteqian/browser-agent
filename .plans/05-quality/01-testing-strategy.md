@@ -9,7 +9,7 @@ Add confidence around contracts and local browser behavior without requiring hos
 ## Tests
 
 - Unit tests for action normalization and loop detection.
-- Unit tests for DOM serialization budgets.
+- [x] Unit tests for DOM serialization budgets.
 - Contract tests for public exported types where practical.
 - Integration smoke tests for local Chrome launch and navigation.
 - [x] MCP startup smoke test.
