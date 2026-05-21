@@ -30,11 +30,13 @@ import {
   handleType,
   handleTypeBy,
   handleUploadFile,
+} from "./handlers/interaction";
+import {
   handleWait,
   handleWaitForCondition,
   handleWaitForText,
   handleWaitForUrl,
-} from "./handlers/interaction";
+} from "./handlers/waits";
 import {
   handleExtractContent,
   handleFindElements,
