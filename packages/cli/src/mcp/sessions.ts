@@ -35,6 +35,7 @@ export interface SessionRecord {
   profile?: string;
   userDataDir?: string;
   storageStatePath?: string;
+  allowedDomains?: readonly string[];
 }
 
 const sessions = new Map<string, SessionRecord>();

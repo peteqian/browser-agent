@@ -50,6 +50,7 @@ export function registerSessionTools(server: McpServer): void {
         locale: z.string().min(1).optional(),
         timezoneId: z.string().min(1).optional(),
         acceptLanguage: z.string().min(1).optional(),
+        allowedDomains: z.array(z.string().min(1)).optional(),
       },
     },
     async ({
@@ -65,6 +66,7 @@ export function registerSessionTools(server: McpServer): void {
       locale,
       timezoneId,
       acceptLanguage,
+      allowedDomains,
     }) => {
       const paths = resolveBrowserPaths({ profile, userDataDir, storageStatePath });
       const session = await BrowserSession.launch({
@@ -91,6 +93,7 @@ export function registerSessionTools(server: McpServer): void {
         profile: paths.profile,
         userDataDir: paths.userDataDir,
         storageStatePath: paths.storageStatePath,
+        allowedDomains: allowedDomains && allowedDomains.length > 0 ? allowedDomains : undefined,
       };
       registerSession(sessionId, record);
       recordSessionEvent(

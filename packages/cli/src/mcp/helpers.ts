@@ -182,7 +182,10 @@ async function executeSessionAction(record: SessionRecord, action: Action): Prom
     undefined,
     undefined,
     undefined,
-    { snapshotElements: record.latestState?.elements },
+    {
+      snapshotElements: record.latestState?.elements,
+      allowedDomains: record.allowedDomains,
+    },
   );
   applyActiveTarget(record, result);
   return result;
