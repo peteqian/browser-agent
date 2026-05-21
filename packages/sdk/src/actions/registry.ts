@@ -57,13 +57,41 @@ export class ActionRegistry {
   }
 
   parse(name: string, input: unknown): RegisteredAction | null {
+    const result = this.parseDetailed(name, input);
+    return result.ok ? result.action : null;
+  }
+
+  parseDetailed(
+    name: string,
+    input: unknown,
+  ):
+    | { ok: true; action: RegisteredAction }
+    | { ok: false; reason: "unknown_name"; suggestion?: string }
+    | { ok: false; reason: "schema_invalid"; issues: string } {
     const definition = this.definitions.get(name);
-    if (!definition) return null;
+    if (!definition) {
+      const suggestion = this.suggestName(name);
+      return { ok: false, reason: "unknown_name", ...(suggestion ? { suggestion } : {}) };
+    }
 
     const parsed = definition.schema.safeParse(input);
-    if (!parsed.success) return null;
+    if (!parsed.success) {
+      const issues = parsed.error.issues
+        .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+        .join("; ");
+      return { ok: false, reason: "schema_invalid", issues };
+    }
 
-    return { name, params: parsed.data };
+    return { ok: true, action: { name, params: parsed.data } };
+  }
+
+  private suggestName(name: string): string | undefined {
+    const lower = name.toLowerCase();
+    const known = Array.from(this.definitions.keys());
+    const exact = known.find((k) => k.toLowerCase() === lower);
+    if (exact) return exact;
+    const contains = known.find((k) => k.includes(lower) || lower.includes(k));
+    return contains;
   }
 
   async execute(action: RegisteredAction, context: ActionContext): Promise<ActionResult> {

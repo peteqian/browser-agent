@@ -28,16 +28,26 @@ ${historyBlock}
 Observation:
 ${input.observation}
 
-Return exactly one JSON object (no markdown) with this shape:
+Return exactly one JSON object (no markdown, no surrounding prose) with this shape:
 {"name":"<action_name>","params":{...}}
 
-You may add optional top-level fields: "thought" (one-line reasoning), "nextGoal" (next step you intend), "memory" (compact note carried forward). Example:
+\`name\` MUST be one of the action names from the Actions list above. \`params\` MUST match that action's schema. Do not invent action names. If no listed action fits, call \`done\` with success=false explaining why.
+
+Optional top-level fields: "thought" (one-line reasoning), "nextGoal" (next step you intend), "memory" (compact note carried forward).
+
+Good example:
 {"thought":"page loaded","nextGoal":"extract H1","name":"extract_content","params":{"query":"H1"}}
 
-When you finish the task, call the "done" action with the answer in params.summary as plain text (and params.success=true). The summary string is the only thing the caller sees — be specific. Example:
+When you finish the task, call \`done\` with the answer in params.summary (and params.success=true). Done example:
 {"name":"done","params":{"success":true,"summary":"The H1 reads: Example Domain"}}
 
-Do not return any text outside JSON.`;
+BAD examples (these will be rejected):
+- Wrapping prose around JSON ("Here is my decision: { ... }")
+- Markdown code fences
+- An action name not in the Actions catalog (e.g. "click_search_button" when only "click_by" exists)
+- Missing required params for the chosen action
+
+The only output is one JSON object. Nothing before it, nothing after it.`;
 }
 
 /**

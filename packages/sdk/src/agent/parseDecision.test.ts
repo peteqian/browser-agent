@@ -136,7 +136,7 @@ describe("buildFreeformDecisionPrompt", () => {
   test("includes JSON shape directive for freeform adapters", () => {
     const prompt = buildFreeformDecisionPrompt(makeInput());
     expect(prompt).toContain('{"name":"<action_name>","params":{...}}');
-    expect(prompt).toContain("Do not return any text outside JSON");
+    expect(prompt).toContain("only output is one JSON object");
   });
 
   test("documents done.params.summary requirement", () => {

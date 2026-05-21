@@ -65,12 +65,17 @@ export async function runActions<TData>(input: {
     const interrupt = await checkInterrupt(options, step);
     if (interrupt) return { page, actionResults, terminalResult: interrupt };
 
-    const action = actionRegistry.parse(rawAction.name, rawAction.params);
-    if (!action) {
-      actionResults.push({ ok: false, message: "Invalid action payload" });
-      actionHistory.push({ action: rawAction.name, result: "Invalid action payload" });
+    const parseResult = actionRegistry.parseDetailed(rawAction.name, rawAction.params);
+    if (!parseResult.ok) {
+      const detail =
+        parseResult.reason === "unknown_name"
+          ? `Unknown action name "${rawAction.name}"${parseResult.suggestion ? ` — did you mean "${parseResult.suggestion}"?` : ""}. Use only names from the catalog.`
+          : `Schema validation failed for "${rawAction.name}": ${parseResult.issues}`;
+      actionResults.push({ ok: false, message: detail });
+      actionHistory.push({ action: rawAction.name, result: detail });
       continue;
     }
+    const action = parseResult.action;
 
     await session?.eventBus?.emit({ type: "action_start", step, action });
     await emitEvent(options, { type: "action_start", step, action });
