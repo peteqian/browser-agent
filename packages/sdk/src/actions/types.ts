@@ -95,6 +95,13 @@ export const waitForConditionAction = z.object({
   timeoutMs: z.number().int().positive().max(30_000).optional(),
 });
 
+export const setViewportAction = z.object({
+  width: z.number().int().positive().max(8000),
+  height: z.number().int().positive().max(8000),
+  deviceScaleFactor: z.number().positive().max(5).optional(),
+  mobile: z.boolean().optional(),
+});
+
 export const consoleStartAction = z.object({});
 
 export const consoleReadAction = z.object({
@@ -376,6 +383,7 @@ export const actionSchemas = {
   network_har_start: networkHarStartAction,
   network_har_stop: networkHarStopAction,
   network_list_requests: networkListRequestsAction,
+  set_viewport: setViewportAction,
   console_start: consoleStartAction,
   console_read: consoleReadAction,
   console_stop: consoleStopAction,
@@ -429,6 +437,7 @@ export type Action =
   | { name: "network_har_start"; params: z.infer<typeof networkHarStartAction> }
   | { name: "network_har_stop"; params: z.infer<typeof networkHarStopAction> }
   | { name: "network_list_requests"; params: z.infer<typeof networkListRequestsAction> }
+  | { name: "set_viewport"; params: z.infer<typeof setViewportAction> }
   | { name: "console_start"; params: z.infer<typeof consoleStartAction> }
   | { name: "console_read"; params: z.infer<typeof consoleReadAction> }
   | { name: "console_stop"; params: z.infer<typeof consoleStopAction> }

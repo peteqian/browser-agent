@@ -54,6 +54,7 @@ import {
   handleNetworkListRequests,
 } from "./handlers/network";
 import { handleConsoleRead, handleConsoleStart, handleConsoleStop } from "./handlers/console";
+import { handleSetViewport } from "./handlers/emulation";
 import { handleProfilerStart, handleProfilerStop } from "./handlers/profiler";
 import type { FocusState } from "../agent/focus-state";
 import type { ElementInfo } from "../dom/types";
@@ -184,6 +185,8 @@ export async function executeAction(
         return await handleNetworkHarStop(ctx, action);
       case "network_list_requests":
         return await handleNetworkListRequests(ctx, action);
+      case "set_viewport":
+        return await handleSetViewport(ctx, action);
       case "console_start":
         return await handleConsoleStart(ctx, action);
       case "console_read":
