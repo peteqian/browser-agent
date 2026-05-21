@@ -73,6 +73,7 @@ interface CliOptions {
   storageStatePath?: string;
   summary: boolean;
   fullSnapshots: boolean;
+  allowedDomains?: string[];
 }
 
 function printHelp(): void {
@@ -101,6 +102,8 @@ Flags:
   --no-auto-consent          Disable auto consent handling.
   --profile <name>           Named persistent browser profile under ~/.browser-agent.
   --storage-state <path>     Load/save cookies + localStorage at this path.
+  --allowed-domains <list>   Comma-separated allowlist (e.g. "example.com,*.api.com").
+                             Rejects navigate/new_tab to URLs outside the list.
 
 Provider:
   --provider <p>             ${PROVIDERS.join(" | ")}  (default: codex)
@@ -171,6 +174,7 @@ interface ConfigFile {
   autoConsent?: boolean;
   profile?: string;
   storageStatePath?: string;
+  allowedDomains?: string[];
 }
 
 function loadConfig(path: string): ConfigFile {
@@ -235,6 +239,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
       "no-auto-consent": { type: "boolean" },
       profile: { type: "string" },
       "storage-state": { type: "string" },
+      "allowed-domains": { type: "string" },
       config: { type: "string" },
       stdin: { type: "boolean" },
       json: { type: "boolean" },
@@ -335,7 +340,17 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     storageStatePath: (values["storage-state"] as string | undefined) ?? config.storageStatePath,
     summary: Boolean(values.summary),
     fullSnapshots: Boolean(values["full-snapshots"]),
+    allowedDomains: parseAllowedDomains(
+      (values["allowed-domains"] as string | undefined) ?? config.allowedDomains,
+    ),
   };
+}
+
+function parseAllowedDomains(raw: string | string[] | undefined): string[] | undefined {
+  if (raw === undefined) return undefined;
+  const list = Array.isArray(raw) ? raw : raw.split(",");
+  const cleaned = list.map((s) => s.trim()).filter((s) => s.length > 0);
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 function writeVerbose(event: string, data: unknown): void {
@@ -640,6 +655,7 @@ async function main(): Promise<number> {
     transportResolution: resolution,
     vision: "auto" as const,
     fullSnapshots: opts.fullSnapshots,
+    allowedDomains: opts.allowedDomains,
     signal: abortController.signal,
     onEvent,
     onStep: (step: StepInfo) => {
