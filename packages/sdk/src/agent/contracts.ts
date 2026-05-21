@@ -397,4 +397,13 @@ export interface AgentOptions<TData = unknown> {
    * `result.data.structured`. Without this hook, `schemaJson` is ignored.
    */
   extractionLLM?: ExtractionLLMFn;
+  /**
+   * Restrict `navigate` and `new_tab` actions to URLs whose host matches
+   * one of these patterns. Each pattern is either an exact host
+   * (`example.com`) or a wildcard (`*.example.com`, which also matches
+   * the apex). Non-http(s) URLs (about:blank, file:) bypass the check.
+   * Blocked navigations return a deterministic failure result without
+   * touching the network. When undefined or empty, no restriction.
+   */
+  allowedDomains?: readonly string[];
 }

@@ -28,6 +28,7 @@ export interface ActionContext {
   snapshotElements?: readonly ElementInfo[];
   currentStep?: number;
   currentUrl?: string;
+  allowedDomains?: readonly string[];
 }
 
 export interface ActionDefinition<TName extends string = string, TParams = unknown> {
@@ -126,6 +127,7 @@ export function createDefaultActions(): ActionDefinition[] {
           snapshotElements: context.snapshotElements,
           currentStep: context.currentStep,
           currentUrl: context.currentUrl,
+          allowedDomains: context.allowedDomains,
         },
       ),
   }));

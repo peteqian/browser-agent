@@ -1,12 +1,23 @@
 import type { Action } from "../types";
+import { matchesAllowedDomains } from "../../browser/allowed-domains";
 import { fail, ok, requireSession, type ActionResult, type HandlerContext } from "./shared";
 
 type ByName<N extends Action["name"]> = Extract<Action, { name: N }>;
+
+function blockedByAllowlist(url: string, ctx: HandlerContext): ActionResult | undefined {
+  if (matchesAllowedDomains(url, ctx.allowedDomains)) return undefined;
+  return fail(`Navigation to ${url} blocked by allowedDomains policy`, {
+    longTermMemory: `Blocked navigation to ${url} (allowedDomains)`,
+    data: { blocked: { url, reason: "allowedDomains" } },
+  });
+}
 
 export async function handleNavigate(
   ctx: HandlerContext,
   action: ByName<"navigate">,
 ): Promise<ActionResult> {
+  const blocked = blockedByAllowlist(action.params.url, ctx);
+  if (blocked) return blocked;
   const newTab = action.params.newTab ?? false;
   const targetPage = newTab ? await requireSession(ctx.session, action.name).newPage() : ctx.page;
 
@@ -50,6 +61,10 @@ export async function handleNewTab(
   ctx: HandlerContext,
   action: ByName<"new_tab">,
 ): Promise<ActionResult> {
+  if (action.params.url) {
+    const blocked = blockedByAllowlist(action.params.url, ctx);
+    if (blocked) return blocked;
+  }
   const session = requireSession(ctx.session, action.name);
   const tab = await session.newPage();
   if (action.params.url) {

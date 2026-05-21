@@ -96,6 +96,7 @@ export async function runActions<TData>(input: {
           snapshotElements: browserState.elements,
           currentStep: step,
           currentUrl: browserState.url,
+          allowedDomains: options.allowedDomains,
         },
       );
     } finally {

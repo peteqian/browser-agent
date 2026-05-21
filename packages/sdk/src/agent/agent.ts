@@ -85,6 +85,7 @@ export interface SimpleAgentOptions<TData = unknown> extends Partial<AgentProvid
   sensitive_data?: Record<string, string>;
   newTabDetectMs?: number;
   extractionLLM?: ExtractionLLMFn;
+  allowedDomains?: readonly string[];
 }
 
 /**

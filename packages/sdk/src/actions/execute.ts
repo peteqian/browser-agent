@@ -59,6 +59,7 @@ export interface ExecuteActionExtras {
   snapshotElements?: readonly ElementInfo[];
   currentStep?: number;
   currentUrl?: string;
+  allowedDomains?: readonly string[];
 }
 
 export async function executeAction(
@@ -88,6 +89,7 @@ export async function executeAction(
     snapshotElements: extras?.snapshotElements,
     currentStep: extras?.currentStep,
     currentUrl: extras?.currentUrl,
+    allowedDomains: extras?.allowedDomains,
   };
 
   try {

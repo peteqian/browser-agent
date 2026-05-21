@@ -65,6 +65,7 @@ export interface ExecuteActionTimeoutExtras {
   snapshotElements?: readonly ElementInfo[];
   currentStep?: number;
   currentUrl?: string;
+  allowedDomains?: readonly string[];
 }
 
 export async function executeActionWithTimeout(
@@ -102,6 +103,7 @@ export async function executeActionWithTimeout(
         snapshotElements: extras?.snapshotElements,
         currentStep: extras?.currentStep,
         currentUrl: extras?.currentUrl,
+        allowedDomains: extras?.allowedDomains,
       }),
       new Promise<ActionResult>((resolve) => {
         timeout = setTimeout(() => {
