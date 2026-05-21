@@ -159,9 +159,21 @@ SDK-only commands:
 ```bash
 bun --cwd packages/sdk run build
 bun --cwd packages/sdk run test
+bun --cwd packages/sdk run typecheck:examples
 ```
 
-Examples in `examples/` — `bun --cwd packages/sdk run example:goto`, `example:agent`, `example:openai`, `example:typed-output`, `example:custom-action`, `example:remote-cdp`, `example:extraction`, etc. MCP example lives in `packages/cli/examples/`.
+Examples:
+
+- [`examples/goto.ts`](./examples/goto.ts) — drive a page directly with `BrowserSession`.
+- [`examples/simple-agent.ts`](./examples/simple-agent.ts) — use the `Agent` + `Browser` facade.
+- [`examples/agent.ts`](./examples/agent.ts) — run the lower-level `runAgent` loop.
+- [`examples/typed-output.ts`](./examples/typed-output.ts) — validate terminal `done(data=...)` with Zod.
+- [`examples/custom-action.ts`](./examples/custom-action.ts) — register a typed custom action.
+- [`examples/remote-cdp.ts`](./examples/remote-cdp.ts) — attach to an existing DevTools endpoint.
+- [`examples/extraction.ts`](./examples/extraction.ts) — chunk and dedupe extracted page content.
+- [`examples/downloads.ts`](./examples/downloads.ts), [`examples/upload.ts`](./examples/upload.ts), and [`examples/storage-state.ts`](./examples/storage-state.ts) cover local browser workflows.
+
+The MCP example lives in [`packages/cli/examples/mcp.ts`](../cli/examples/mcp.ts).
 
 ## For AI agents
 
