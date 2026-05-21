@@ -13,40 +13,22 @@ import {
   type StepInfo,
   type TransportId,
 } from "@peteqian/browser-agent-sdk";
-import {
-  ensureBrowserExecutable,
-  getBrowserInstallStatus,
-  parseAllowedDomainsInput,
-  type BrowserChannel,
-} from "@peteqian/browser-agent-sdk/internal";
+import { parseAllowedDomainsInput } from "@peteqian/browser-agent-sdk/internal";
 
+import { runBrowserCommand } from "../src/commands/browser-cmd";
+import { runDashboardCommand } from "../src/commands/dashboard-cmd";
+import { runInstallCommand } from "../src/commands/install-cmd";
 import { runSkillsCommand } from "../src/commands/skills";
-import { runInstall, type InstallOptions } from "../src/install";
 import { runProfileCommand } from "../src/commands/profile";
 import { runStateCommand } from "../src/commands/state";
 import { SummaryCollector, renderSummary } from "../src/commands/summary";
-import { getDashboardStatus, runDashboard } from "../src/dashboard/server";
 import { resolveBrowserPaths } from "../src/profiles";
-import type { ClientId } from "../src/install/detect";
-import type { SourceId } from "../src/install/snippet";
 
 const PROVIDERS: readonly ProviderId[] = ["codex", "claude", "openai", "anthropic"];
 const TRANSPORTS: readonly (TransportId | "auto")[] = ["auto", "sdk-agent", "sdk-api", "cli"];
 const ENVS: readonly (EnvId | "auto")[] = ["auto", "local", "cloud"];
 const ENGINES = ["chrome", "lightpanda"] as const;
 type EngineId = (typeof ENGINES)[number];
-const BROWSER_CHANNELS: readonly BrowserChannel[] = [
-  "chromium",
-  "chrome",
-  "chrome-beta",
-  "chrome-dev",
-  "chrome-canary",
-  "msedge",
-  "msedge-beta",
-  "msedge-dev",
-  "msedge-canary",
-  "lightpanda",
-];
 
 interface CliOptions {
   task: string;
@@ -375,191 +357,6 @@ function writeVerbose(event: string, data: unknown): void {
 
 function writeJsonl(event: AgentEvent): void {
   process.stdout.write(`${JSON.stringify(event)}\n`);
-}
-
-const VALID_CLIENTS = new Set<ClientId>(["codex", "claude-code", "cursor"]);
-const VALID_SOURCES = new Set<SourceId>(["npx", "local", "global"]);
-const VALID_SCOPES = new Set(["user", "project"]);
-
-async function runInstallCommand(argv: string[]): Promise<number> {
-  const { values } = parseArgs({
-    args: argv,
-    allowPositionals: false,
-    strict: true,
-    options: {
-      client: { type: "string" },
-      scope: { type: "string" },
-      source: { type: "string" },
-      name: { type: "string" },
-      print: { type: "boolean" },
-      "all-detected": { type: "boolean" },
-      help: { type: "boolean", short: "h" },
-    },
-  });
-
-  if (values.help) {
-    console.log(`browser-agent install — configure MCP clients to launch browser-agent-mcp.
-
-Usage:
-  browser-agent install                              # interactive TUI
-  browser-agent install --client codex,cursor        # non-interactive
-  browser-agent install --all-detected               # write to every detected client
-  browser-agent install --client codex --print       # print snippet only, no write
-
-Flags:
-  --client <ids>      Comma-separated: codex,claude-code,cursor
-  --scope <s>         user | project (default: user; Codex ignores)
-  --source <s>        npx (default) | local | global
-  --name <n>          Server name (default: browser-agent)
-  --print             Print config snippets to stdout, don't write
-  --all-detected      Use detection to pick clients, no prompts
-  --help, -h
-`);
-    return 0;
-  }
-
-  const opts: InstallOptions = {
-    name: values.name as string | undefined,
-    print: Boolean(values.print),
-    allDetected: Boolean(values["all-detected"]),
-  };
-
-  if (values.client) {
-    const ids = (values.client as string)
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    for (const id of ids) {
-      if (!VALID_CLIENTS.has(id as ClientId)) {
-        throw new Error(`--client must be one of: codex,claude-code,cursor. Got: ${id}`);
-      }
-    }
-    opts.clients = ids as ClientId[];
-  }
-  if (values.scope) {
-    if (!VALID_SCOPES.has(values.scope as string)) {
-      throw new Error(`--scope must be user|project. Got: ${values.scope}`);
-    }
-    opts.scope = values.scope as "user" | "project";
-  }
-  if (values.source) {
-    if (!VALID_SOURCES.has(values.source as SourceId)) {
-      throw new Error(`--source must be npx|local|global. Got: ${values.source}`);
-    }
-    opts.source = values.source as SourceId;
-  }
-
-  const results = await runInstall(opts);
-  return results.every((r) => r.ok) ? 0 : 1;
-}
-
-async function runDashboardCommand(argv: string[]): Promise<number> {
-  if (argv[0] === "status") return runDashboardStatus();
-  const { values } = parseArgs({
-    args: argv,
-    allowPositionals: false,
-    strict: true,
-    options: {
-      host: { type: "string" },
-      port: { type: "string" },
-      help: { type: "boolean", short: "h" },
-    },
-  });
-  if (values.help) {
-    console.log(`browser-agent dashboard — run local session dashboard.
-
-Usage:
-  browser-agent dashboard [--host 127.0.0.1] [--port 3217]
-  browser-agent dashboard status
-`);
-    return 0;
-  }
-  const port = values.port ? parseInt(values.port as string, "--port") : 3217;
-  const handle = await runDashboard({
-    host: (values.host as string | undefined) ?? "127.0.0.1",
-    port,
-  });
-  console.log(`browser-agent dashboard listening on ${handle.url}`);
-  await new Promise<void>((resolve) => {
-    process.once("SIGINT", resolve);
-    process.once("SIGTERM", resolve);
-  });
-  await handle.close();
-  return 0;
-}
-
-async function runDashboardStatus(): Promise<number> {
-  const status = await getDashboardStatus({ cleanStale: true });
-  console.log(JSON.stringify(status, null, 2));
-  return status.running ? 0 : 1;
-}
-
-async function runBrowserCommand(argv: string[]): Promise<number> {
-  const subcommand = argv[0]?.startsWith("-") ? "status" : (argv[0] ?? "status");
-  if (!["status", "install"].includes(subcommand)) {
-    throw new Error(
-      `Unknown browser subcommand: ${subcommand}. Run 'browser-agent browser --help'.`,
-    );
-  }
-
-  const { values } = parseArgs({
-    args: argv[0]?.startsWith("-") ? argv : argv.slice(1),
-    allowPositionals: false,
-    strict: true,
-    options: {
-      channel: { type: "string" },
-      json: { type: "boolean" },
-      help: { type: "boolean", short: "h" },
-    },
-  });
-
-  if (values.help) {
-    console.log(`browser-agent browser — inspect or install the browser runtime.
-
-Usage:
-  browser-agent browser status [--channel chromium]
-  browser-agent browser install [--channel chromium]
-
-Flags:
-  --channel <c>       ${BROWSER_CHANNELS.join(" | ")} (default: chromium)
-  --json              Print machine-readable JSON
-  --help, -h
-
-Notes:
-  install uses Playwright's managed Chromium download. It does not remove cookie
-  banners by itself; use persistent profiles and auto-consent for that.
-`);
-    return 0;
-  }
-
-  const channel = values.channel
-    ? parseEnum<BrowserChannel>(values.channel as string, BROWSER_CHANNELS, "--channel")
-    : "chromium";
-  const result =
-    subcommand === "install"
-      ? await ensureBrowserExecutable(channel)
-      : { ...getBrowserInstallStatus(channel), installedNow: false };
-
-  if (values.json) {
-    console.log(JSON.stringify(result, null, 2));
-    return result.found ? 0 : 1;
-  }
-
-  if (result.found) {
-    const installNote = result.installedNow ? "installed now" : "already available";
-    console.log(`browser-agent browser: ${channel} ${installNote}`);
-    console.log(`executable: ${result.executablePath}`);
-    return 0;
-  }
-
-  if (!result.installable) {
-    console.log(`browser-agent browser: ${channel} was not found and is not auto-installable.`);
-    return 1;
-  }
-
-  console.log(`browser-agent browser: ${channel} was not found.`);
-  console.log(`Run: browser-agent browser install --channel ${channel}`);
-  return 1;
 }
 
 async function main(): Promise<number> {
