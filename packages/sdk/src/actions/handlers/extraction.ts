@@ -198,6 +198,18 @@ function classifyExtractionError(message: string): "navigation_in_flight" | "tim
   return "unknown";
 }
 
+/**
+ * Neutralizes attempts by extracted page text to close the `<url>`, `<query>`,
+ * or `<result>` boundary tags that wrap extraction output. A page could
+ * otherwise inject `</result>` followed by adversarial instructions and
+ * tricks the model into treating them as tool output. We rewrite a literal
+ * `</url>` (etc., case-insensitive) into `<-/url>` so the wrapper boundary
+ * stays unique to our serialization.
+ */
+export function escapeExtractionBoundaries(text: string): string {
+  return text.replace(/<\/(url|query|result)>/gi, "<-/$1>");
+}
+
 export async function handleExtractContent(
   ctx: HandlerContext,
   action: ByName<"extract_content">,
@@ -222,8 +234,9 @@ export async function handleExtractContent(
   }
 
   const wrapped =
-    `<url>\n${result.url}\n</url>\n<query>\n${result.query}\n</query>\n` +
-    `<result>\n${result.content}\n</result>`;
+    `<url>\n${escapeExtractionBoundaries(result.url)}\n</url>\n` +
+    `<query>\n${escapeExtractionBoundaries(result.query)}\n</query>\n` +
+    `<result>\n${escapeExtractionBoundaries(result.content)}\n</result>`;
   const statsMsg =
     `Extracted content for query "${action.params.query}": ` +
     `${result.stats.returnedChars}/${result.stats.totalChars} chars` +
