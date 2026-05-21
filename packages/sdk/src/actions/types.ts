@@ -95,6 +95,16 @@ export const waitForConditionAction = z.object({
   timeoutMs: z.number().int().positive().max(30_000).optional(),
 });
 
+export const waitForUrlAction = z.object({
+  /**
+   * Substring or wildcard pattern. Use `*` for one-or-more wildcards
+   * (e.g. `/dashboard*` or `https://*.example.com/*`). Bare substrings
+   * are treated as a contains-check.
+   */
+  pattern: z.string().min(1).max(500),
+  timeoutMs: z.number().int().positive().max(30_000).optional(),
+});
+
 export const setViewportAction = z.object({
   width: z.number().int().positive().max(8000),
   height: z.number().int().positive().max(8000),
@@ -355,6 +365,7 @@ export const actionSchemas = {
   upload_file: uploadFileAction,
   wait_for_text: waitForTextAction,
   wait_for_condition: waitForConditionAction,
+  wait_for_url: waitForUrlAction,
   go_back: noParamsAction,
   go_forward: noParamsAction,
   refresh: noParamsAction,
@@ -409,6 +420,7 @@ export type Action =
   | { name: "upload_file"; params: z.infer<typeof uploadFileAction> }
   | { name: "wait_for_text"; params: z.infer<typeof waitForTextAction> }
   | { name: "wait_for_condition"; params: z.infer<typeof waitForConditionAction> }
+  | { name: "wait_for_url"; params: z.infer<typeof waitForUrlAction> }
   | { name: "go_back"; params: z.infer<typeof noParamsAction> }
   | { name: "go_forward"; params: z.infer<typeof noParamsAction> }
   | { name: "refresh"; params: z.infer<typeof noParamsAction> }

@@ -33,6 +33,7 @@ import {
   handleWait,
   handleWaitForCondition,
   handleWaitForText,
+  handleWaitForUrl,
 } from "./handlers/interaction";
 import {
   handleDone,
@@ -129,6 +130,8 @@ export async function executeAction(
         return await handleWaitForText(ctx, action);
       case "wait_for_condition":
         return await handleWaitForCondition(ctx, action);
+      case "wait_for_url":
+        return await handleWaitForUrl(ctx, action);
       case "go_back":
         return await handleGoBack(ctx);
       case "go_forward":

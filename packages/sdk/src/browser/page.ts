@@ -21,6 +21,7 @@ import {
   waitForCondition,
   waitForStablePage,
   waitForText,
+  waitForUrl,
 } from "./page-navigation";
 import {
   clickAtCoordinates,
@@ -224,6 +225,9 @@ export class Page {
   }
   waitForCondition(expression: string, timeoutMs?: number): Promise<unknown | null> {
     return waitForCondition(this, expression, timeoutMs);
+  }
+  waitForUrl(pattern: string, timeoutMs?: number): Promise<string | null> {
+    return waitForUrl(this, pattern, timeoutMs);
   }
   scrollToText(text: string): Promise<boolean> {
     return scrollToText(this, text);

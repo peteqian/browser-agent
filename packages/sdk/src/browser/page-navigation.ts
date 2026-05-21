@@ -180,6 +180,44 @@ export async function waitForCondition(
   return null;
 }
 
+/**
+ * Match a URL against a user-supplied pattern. `*` is a wildcard (matches
+ * any character sequence). A pattern without `*` is treated as a
+ * contains-check (case-sensitive) so common prefixes like `/dashboard`
+ * work without ceremony. Returns true on match.
+ */
+export function urlMatchesPattern(url: string, pattern: string): boolean {
+  if (!pattern.includes("*")) return url.includes(pattern);
+  const re = new RegExp(
+    "^" +
+      pattern
+        .split("*")
+        .map((s) => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+        .join(".*") +
+      "$",
+  );
+  return re.test(url);
+}
+
+/**
+ * Polls `page.currentUrl()` until the URL matches `pattern` or the
+ * timeout elapses. Returns the matching URL or null on timeout.
+ */
+export async function waitForUrl(
+  page: Page,
+  pattern: string,
+  timeoutMs = 10_000,
+  pollIntervalMs = 100,
+): Promise<string | null> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const current = await page.currentUrl().catch(() => undefined);
+    if (current && urlMatchesPattern(current, pattern)) return current;
+    await delay(pollIntervalMs);
+  }
+  return null;
+}
+
 export async function scrollToText(page: Page, text: string): Promise<boolean> {
   const escaped = JSON.stringify(text);
   return page.evaluate<boolean>(`(() => {

@@ -163,6 +163,8 @@ function defaultActionDescription(name: ActionName): string {
       return "Wait until page text appears.";
     case "wait_for_condition":
       return "Poll a JS expression in the page until it becomes truthy (or timeoutMs elapses).";
+    case "wait_for_url":
+      return "Wait until the current page URL matches the pattern (substring or wildcard with *).";
     case "go_back":
       return "Navigate browser history back.";
     case "go_forward":

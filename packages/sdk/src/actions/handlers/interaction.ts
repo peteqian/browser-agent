@@ -405,6 +405,21 @@ export async function handleWaitForText(
     : fail(`Timed out waiting for text: ${action.params.text}`);
 }
 
+export async function handleWaitForUrl(
+  ctx: HandlerContext,
+  action: ByName<"wait_for_url">,
+): Promise<ActionResult> {
+  const timeoutMs = action.params.timeoutMs ?? 10_000;
+  const url = await ctx.page.waitForUrl(action.params.pattern, timeoutMs);
+  if (url === null) {
+    return fail(`Timed out after ${timeoutMs}ms waiting for URL pattern: ${action.params.pattern}`);
+  }
+  return ok(`URL matched pattern '${action.params.pattern}': ${url}`, {
+    longTermMemory: `URL matched pattern '${action.params.pattern}'`,
+    data: { url },
+  });
+}
+
 export async function handleWaitForCondition(
   ctx: HandlerContext,
   action: ByName<"wait_for_condition">,
