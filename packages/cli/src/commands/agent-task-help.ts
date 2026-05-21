@@ -20,7 +20,8 @@ Usage:
 
 Flags:
   --url <url>                Start URL to navigate to before the first step.
-  --max-steps <n>            Hard cap on loop iterations (default 40).
+  --max-steps <n>            Hard cap on loop iterations. 0 (default) = uncapped;
+                             the loop ends when the model calls done or maxFailures hits.
   --no-headless              Show the browser window.
   --headless                 Run headless (default).
   --engine <e>               ${ENGINES.join(" | ")}  (default: chrome)

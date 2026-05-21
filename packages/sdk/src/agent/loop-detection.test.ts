@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { canonicaliseActionCall, detectRepeatedAction } from "./loop-detection";
+import { canonicaliseActionCall, detectRepeatedAction, detectSameNameRun } from "./loop-detection";
 
 describe("canonicaliseActionCall", () => {
   test("strips index and nth so cosmetic differences collapse", () => {
@@ -40,5 +40,29 @@ describe("detectRepeatedAction", () => {
   test("stops at non-matching prefix", () => {
     const res = detectRepeatedAction(["b", "a", "a"]);
     expect(res).toEqual({ fingerprint: "a", count: 2 });
+  });
+});
+
+describe("detectSameNameRun", () => {
+  test("returns null when threshold not met", () => {
+    expect(detectSameNameRun(["eval", "eval", "eval"], 4)).toBeNull();
+  });
+
+  test("returns the trailing run name + count at threshold", () => {
+    const r = detectSameNameRun(["click", "eval", "eval", "eval", "eval"], 4);
+    expect(r).toEqual({ name: "eval", count: 4 });
+  });
+
+  test("counts only trailing identical names", () => {
+    const r = detectSameNameRun(["eval", "click", "eval", "eval", "eval", "eval"], 4);
+    expect(r).toEqual({ name: "eval", count: 4 });
+  });
+
+  test("returns null when the latest action differs from prior run", () => {
+    expect(detectSameNameRun(["eval", "eval", "eval", "click"], 3)).toBeNull();
+  });
+
+  test("returns null on empty input", () => {
+    expect(detectSameNameRun([], 1)).toBeNull();
   });
 });

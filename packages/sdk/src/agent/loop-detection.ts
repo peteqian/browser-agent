@@ -64,6 +64,27 @@ function stableStringify(value: unknown): string {
 }
 
 /**
+ * Coarser detector keyed on action *name* only (e.g. "eval", "find_elements").
+ * Catches the "same kind of action with cosmetically different params"
+ * rabbit-hole the fingerprint detector misses. Returns the trailing run when
+ * it reaches `threshold`, otherwise null.
+ */
+export function detectSameNameRun(
+  recent: readonly string[],
+  threshold: number,
+): { name: string; count: number } | null {
+  if (recent.length < threshold) return null;
+  const last = recent.at(-1);
+  if (!last) return null;
+  let count = 0;
+  for (let i = recent.length - 1; i >= 0; i--) {
+    if (recent[i] !== last) break;
+    count += 1;
+  }
+  return count >= threshold ? { name: last, count } : null;
+}
+
+/**
  * Returns the most recent action call that has appeared 2+ times in a row
  * inside `recent` (sliding window), or null. The hard-fail threshold is
  * handled separately in the loop driver.

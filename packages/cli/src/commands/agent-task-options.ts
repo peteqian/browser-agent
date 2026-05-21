@@ -212,9 +212,12 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
     process.exit(1);
   }
 
-  const maxSteps = values["max-steps"]
-    ? parseInt(values["max-steps"] as string, "--max-steps")
-    : config.maxSteps;
+  // `--max-steps` accepts 0 to mean "uncapped". Default: 0 (uncapped). Set a
+  // concrete cap with `--max-steps N` if you want one.
+  const maxSteps =
+    values["max-steps"] !== undefined
+      ? parseInt(values["max-steps"] as string, "--max-steps")
+      : (config.maxSteps ?? 0);
   const decisionTimeoutMs = values["decision-timeout"]
     ? parseInt(values["decision-timeout"] as string, "--decision-timeout")
     : config.decisionTimeoutMs;

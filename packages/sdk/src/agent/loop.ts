@@ -3,7 +3,12 @@ import type { PageSnapshot } from "../dom/types";
 import type { AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
 import { emitEvent } from "./emit";
 import { compactHistory } from "./history";
-import { buildLoopFingerprint, canonicaliseActionCall, isRepeatingLoop } from "./loop-detection";
+import {
+  buildLoopFingerprint,
+  canonicaliseActionCall,
+  detectSameNameRun,
+  isRepeatingLoop,
+} from "./loop-detection";
 import {
   DEFAULT_HISTORY_HEAD,
   HISTORY_WINDOW,
@@ -66,6 +71,7 @@ async function runAgentInner<TData = unknown>(
   const actionHistory: Array<{ action: string; result: string }> = [];
   const loopFingerprints: string[] = [];
   const recentActionCalls: string[] = [];
+  const recentActionNames: string[] = [];
   const focusState = createFocusState();
   let consecutiveFailures = 0;
   let loopNudgesUsed = 0;
@@ -157,7 +163,7 @@ async function runAgentInner<TData = unknown>(
       }
 
       const effectiveObservation = applyObservationPrefix(observation, {
-        isLastStep: step === cfg.maxSteps,
+        isLastStep: Number.isFinite(cfg.maxSteps) && step === cfg.maxSteps,
         step,
         maxSteps: cfg.maxSteps,
         loopNotice: pendingLoopNotice,
@@ -262,8 +268,34 @@ async function runAgentInner<TData = unknown>(
       if (cfg.loopDetectionMode !== "off") {
         for (const a of decision.actions ?? []) {
           recentActionCalls.push(canonicaliseActionCall(a.name, a.params));
+          recentActionNames.push(a.name);
         }
         while (recentActionCalls.length > 8) recentActionCalls.shift();
+        while (recentActionNames.length > 8) recentActionNames.shift();
+      }
+
+      // Coarser nudge: if the model keeps reaching for the same *kind* of
+      // action with cosmetically different params (classic case: `eval` with
+      // a slightly different selector each turn), the fingerprint detector
+      // never trips because the params differ. Detect 4+ consecutive same
+      // action names and prod the model toward an alternative.
+      const sameNameNudge = detectSameNameRun(recentActionNames, 4);
+      if (
+        sameNameNudge &&
+        cfg.loopDetectionMode === "nudge" &&
+        loopNudgesUsed < cfg.loopNudgeBudget &&
+        !pendingLoopNotice
+      ) {
+        loopNudgesUsed += 1;
+        pendingLoopNotice = buildSameNameNudge(sameNameNudge);
+        await emitEvent(options, {
+          type: "loop_nudge",
+          step,
+          notice: pendingLoopNotice,
+          nudgesUsed: loopNudgesUsed,
+          budget: cfg.loopNudgeBudget,
+        });
+        recentActionNames.length = 0;
       }
 
       // Loop-detection bookkeeping.
@@ -357,12 +389,13 @@ async function runAgentInner<TData = unknown>(
       }
     }
 
+    const stepsRun = Number.isFinite(cfg.maxSteps) ? (cfg.maxSteps as number) : 0;
     return {
       success: false,
       reason: "max_steps",
-      summary: `Exceeded max steps (${cfg.maxSteps}).`,
+      summary: `Exceeded max steps (${stepsRun}).`,
       data: null,
-      steps: cfg.maxSteps,
+      steps: stepsRun,
     };
   } finally {
     unsubscribeBrowserEvents?.();
@@ -388,8 +421,12 @@ interface ResolvedConfig {
 
 function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
   const loopDetectionMode = options.loopDetectionMode ?? "nudge";
+  const requestedMaxSteps = options.maxSteps;
+  // Treat `0` as "uncapped" so callers can opt out of the step ceiling
+  // explicitly. `undefined` still falls back to the default (40).
+  const maxSteps = requestedMaxSteps === 0 ? Number.POSITIVE_INFINITY : (requestedMaxSteps ?? 40);
   return {
-    maxSteps: options.maxSteps ?? 40,
+    maxSteps,
     stepTimeoutMs: coerceStepTimeoutMs(options.stepTimeoutMs),
     actionTimeoutMs: coerceActionTimeoutMs(options.actionTimeoutMs),
     decisionTimeoutMs: coerceDecisionTimeoutMs(options.decisionTimeoutMs),
@@ -490,4 +527,20 @@ function handleLoopDetection(input: {
   }
 
   return input.nudgesUsed > 0 ? { kind: "reset" } : { kind: "noop" };
+}
+
+const ALTERNATIVES_BY_NAME: Record<string, string> = {
+  eval: "screenshot (with annotate=true), find_elements, find_by_role, find_by_text, or extract_content",
+  find_elements: "find_by_role, find_by_text, find_by_testid, snapshot refs, or extract_content",
+  search_page: "snapshot refs, find_by_text, or extract_content with a tighter query",
+  scroll: "click_by on a 'Next' / 'Load more' control, or extract_content with startFromChar",
+};
+
+function buildSameNameNudge(run: { name: string; count: number }): string {
+  const alt = ALTERNATIVES_BY_NAME[run.name] ?? "a different action";
+  return (
+    `Stagnation notice: \`${run.name}\` has been called ${run.count} times in a row. ` +
+    `The variations aren't producing new information. Switch tactic — try ${alt}. ` +
+    `If you have what you need, call \`done\` now.`
+  );
 }
