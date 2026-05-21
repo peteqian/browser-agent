@@ -209,6 +209,55 @@ describe("runSessionAction", () => {
   });
 });
 
+describe("runSessionAction allowedDomains", () => {
+  test("blocks navigate to URLs outside the session allowlist", async () => {
+    let navigated = false;
+    const page = {
+      targetId: "page-1",
+      currentUrl: async () => "https://example.com/",
+      navigateWithHealthCheck: async () => {
+        navigated = true;
+        return {
+          ok: true,
+          status: "loaded",
+          url: "https://evil.com/",
+          finalUrl: "https://evil.com/",
+          readyState: "complete",
+          durationMs: 1,
+        };
+      },
+      waitForStablePage: async () => {},
+      getPendingNetworkRequests: async () => [],
+      evaluate: async () => "",
+      sendCDP: async () => ({}),
+    } as unknown as Page;
+
+    const record = {
+      session: {
+        listPageTargetIds: async () => ["page-1"],
+      } as unknown as BrowserSession,
+      page,
+      lastAccessedAt: Date.now(),
+      artifacts: [],
+      allowedDomains: ["example.com"],
+      latestState: {
+        url: "https://example.com/",
+        elements: [],
+      } as unknown as BrowserStateSummary,
+    };
+
+    const result = await runSessionAction(
+      record,
+      { name: "navigate", params: { url: "https://evil.com/x" } },
+      { observe: false },
+    );
+    const body = JSON.parse(result.content[0].text);
+    expect(body.ok).toBe(false);
+    expect(body.message).toContain("blocked by allowedDomains");
+    expect(navigated).toBe(false);
+  });
+});
+
 describe("sweepIdleSessions", () => {
   test("removes nothing when the map is empty", async () => {
     await shutdownAllSessions();
