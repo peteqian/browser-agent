@@ -17,6 +17,7 @@ import { wireCdpHandlers } from "./session-handlers";
 import { reconnectIfNeeded } from "./session-reconnect";
 import type {
   AttachedTargetEvent,
+  BrowserSessionConnectOptions,
   BrowserSessionOptions,
   BrowserSessionState,
   DownloadInfo,
@@ -26,6 +27,7 @@ export { Page } from "./page";
 export type {
   BrowserSessionState,
   BrowserSessionOptions,
+  BrowserSessionConnectOptions,
   PendingNetworkRequest,
   SearchPageParams,
   FindElementsParams,
@@ -63,6 +65,15 @@ export class BrowserSession {
 
   static async launch(options: LaunchOptions = {}): Promise<BrowserSession> {
     const session = new BrowserSession({ launch: options });
+    await session.start();
+    return session;
+  }
+
+  static async connect(
+    cdpUrl: string,
+    options: BrowserSessionConnectOptions = {},
+  ): Promise<BrowserSession> {
+    const session = new BrowserSession({ ...options, cdpUrl });
     await session.start();
     return session;
   }

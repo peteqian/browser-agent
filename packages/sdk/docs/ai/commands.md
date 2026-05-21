@@ -33,6 +33,7 @@ CI runs all five on every push to `main` / `dev` and on every PR.
 - `bun run example:simple-agent` `Agent` + `Browser` facade.
 - `bun run example:typed-output` zod-validated terminal payload.
 - `bun run example:custom-action` typed custom action registry.
+- `bun run example:remote-cdp` attach to an existing Chrome DevTools endpoint.
 - `bun run example:openai` OpenAI provider.
 - `bun run example:claude-sdk` Claude Agent SDK provider.
 - `bun run example:codex-sdk` Codex SDK provider.

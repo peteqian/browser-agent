@@ -56,6 +56,7 @@
     "example:simple-agent": "bun run examples/simple-agent.ts",
     "example:typed-output": "bun run examples/typed-output.ts",
     "example:custom-action": "bun run examples/custom-action.ts",
+    "example:remote-cdp": "bun run examples/remote-cdp.ts",
     "example:openai": "bun run examples/openai-agent.ts",
     "example:claude-sdk": "bun run examples/claude-sdk.ts",
     "example:codex-sdk": "bun run examples/codex-sdk.ts",

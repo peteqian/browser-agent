@@ -161,7 +161,7 @@ bun --cwd packages/sdk run build
 bun --cwd packages/sdk run test
 ```
 
-Examples in `examples/` — `bun --cwd packages/sdk run example:goto`, `example:agent`, `example:openai`, `example:typed-output`, `example:custom-action`, `example:extraction`, etc. MCP example lives in `packages/cli/examples/`.
+Examples in `examples/` — `bun --cwd packages/sdk run example:goto`, `example:agent`, `example:openai`, `example:typed-output`, `example:custom-action`, `example:remote-cdp`, `example:extraction`, etc. MCP example lives in `packages/cli/examples/`.
 
 ## For AI agents
 

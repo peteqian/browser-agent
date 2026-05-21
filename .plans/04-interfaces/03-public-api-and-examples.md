@@ -1,6 +1,6 @@
 # Public API And Examples
 
-Status: PARTIAL. Typed output and custom-action examples are done; load this file when changing exports or examples.
+Status: PARTIAL. Typed output, custom-action, and remote-CDP examples are done; load this file when changing exports or examples.
 
 ## Goal
 
@@ -17,7 +17,7 @@ Keep the package easy to consume as a library.
 
 - Basic navigation.
 - Agent task with local Chrome.
-- Agent task with remote CDP attach.
+- [x] Agent task with remote CDP attach.
 - Structured extraction example.
 - [x] Custom action example.
 

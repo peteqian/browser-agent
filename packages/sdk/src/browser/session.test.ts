@@ -101,6 +101,18 @@ describe("Page navigation watchdog", () => {
 });
 
 describe("BrowserSession reconnect watchdog", () => {
+  test("constructs remote CDP sessions without local launch ownership", () => {
+    const session = new BrowserSession({
+      cdpUrl: "ws://127.0.0.1:9222/devtools/browser/test",
+      profile: { reconnectOnDisconnect: false },
+    });
+
+    expect(session.profile.cdpUrl).toBe("ws://127.0.0.1:9222/devtools/browser/test");
+    expect(session.profile.isRemoteConnection()).toBe(true);
+    expect(session.profile.isManagedLocal()).toBe(false);
+    expect(session.profile.reconnectOnDisconnect).toBe(false);
+  });
+
   test("emits cdp_reconnect_failed when reconnect is disabled", async () => {
     const session = new BrowserSession({
       profile: { cdpUrl: "ws://127.0.0.1:1/devtools/browser/test", reconnectOnDisconnect: false },

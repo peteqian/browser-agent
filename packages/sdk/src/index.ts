@@ -7,7 +7,11 @@
  */
 
 export { BrowserSession, Page } from "./browser/session";
-export type { NavigationHealthResult, NavigationHealthStatus } from "./browser/session";
+export type {
+  BrowserSessionConnectOptions,
+  NavigationHealthResult,
+  NavigationHealthStatus,
+} from "./browser/session";
 export type { BrowserPermission, BrowserPermissionGrant } from "./browser/profile";
 export type { BrowserOriginStorageState, BrowserStorageState } from "./browser/storage-state";
 export {

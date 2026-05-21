@@ -146,6 +146,13 @@ await session.close();
 
 When you pass `session` and/or `page`, the loop will not own their lifecycle.
 
+To attach to a browser that is already exposing Chrome DevTools Protocol:
+
+```ts
+const session = await BrowserSession.connect(process.env.BROWSER_AGENT_CDP_URL!);
+const page = (await session.listPages())[0] ?? (await session.newPage());
+```
+
 ## Forcing a transport
 
 ```ts
@@ -172,3 +179,4 @@ console.log(`${PACKAGE_NAME} ${VERSION}`);
 ## Examples
 
 - [`examples/custom-action.ts`](../../examples/custom-action.ts) shows how to add a typed action with `ActionDefinition` and `ActionResult`.
+- [`examples/remote-cdp.ts`](../../examples/remote-cdp.ts) shows how to attach to an existing Chrome DevTools endpoint.
