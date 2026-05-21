@@ -1,4 +1,3 @@
-import type { ElementBBox, ElementInfo } from "../../dom/types";
 import type { Action } from "../types";
 import { fail, ok, resolveBackendId, type ActionResult, type HandlerContext } from "./shared";
 
