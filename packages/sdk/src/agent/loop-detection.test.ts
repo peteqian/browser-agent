@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 
-import { canonicaliseActionCall, detectRepeatedAction, detectSameNameRun } from "./loop-detection";
+import {
+  canonicaliseActionCall,
+  detectAlternatingPair,
+  detectRepeatedAction,
+  detectSameNameRun,
+} from "./loop-detection";
 
 describe("canonicaliseActionCall", () => {
   test("strips index and nth so cosmetic differences collapse", () => {
@@ -64,5 +69,35 @@ describe("detectSameNameRun", () => {
 
   test("returns null on empty input", () => {
     expect(detectSameNameRun([], 1)).toBeNull();
+  });
+});
+
+describe("detectAlternatingPair", () => {
+  test("returns null below threshold", () => {
+    expect(detectAlternatingPair(["a", "b", "a", "b"], 3)).toBeNull();
+  });
+
+  test("fires on 3 full alternations (6 actions)", () => {
+    expect(detectAlternatingPair(["a", "b", "a", "b", "a", "b"], 3)).toEqual({
+      a: "a",
+      b: "b",
+      pairs: 3,
+    });
+  });
+
+  test("rejects identical pair (a === b)", () => {
+    expect(detectAlternatingPair(["a", "a", "a", "a", "a", "a"], 3)).toBeNull();
+  });
+
+  test("looks only at the trailing window", () => {
+    expect(detectAlternatingPair(["x", "x", "a", "b", "a", "b", "a", "b"], 3)).toEqual({
+      a: "a",
+      b: "b",
+      pairs: 3,
+    });
+  });
+
+  test("rejects when the trailing window breaks pattern", () => {
+    expect(detectAlternatingPair(["a", "b", "a", "b", "a", "c"], 3)).toBeNull();
   });
 });

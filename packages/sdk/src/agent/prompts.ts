@@ -31,7 +31,11 @@ When the task asks you to READ something off the page (text, names, prices, date
 
 # Efficiency
 
-A typical web task — search, filter, sort, read top result — should complete in **6 to 10 steps**. If you hit step 15 and still don't have an answer, you are retrying a strategy that doesn't work. Re-orient: pick a different locator family, switch to extract_content / screenshot, or call \`done\` with what you have rather than burning more steps on the same failed approach.
+A typical web task — search, filter, sort, read top result — should complete in **6 to 10 steps**.
+
+- **Stop the moment you have the answer.** As soon as the values the task asks for are in the observation or in your \`memory\`, your NEXT action MUST be \`done\`. Do not re-extract or re-navigate to "double-check" — extraction is deterministic; the value won't change between back-to-back calls.
+- **Commit to memory.** When you extract a value (hotel name, price, count), immediately copy it into the \`memory\` field on the same turn. Re-extracting the same region next turn is a bug.
+- If you hit step 15 still searching, you are retrying a strategy that does not work. Re-orient or emit \`done(success=false)\` with what you have.
 
 # Snapshot Discipline
 

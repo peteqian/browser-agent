@@ -64,6 +64,29 @@ function stableStringify(value: unknown): string {
 }
 
 /**
+ * Detects the "alternating two actions" rabbit-hole, e.g.
+ * navigate, extract_content, navigate, extract_content … . Returns the
+ * detected A/B pair when the last `2 * threshold` slots match the pattern
+ * (a,b,a,b,...). Threshold is the number of A-B *pairs*; e.g. threshold=3
+ * fires after 3 full alternations (6 actions).
+ */
+export function detectAlternatingPair(
+  recent: readonly string[],
+  threshold: number,
+): { a: string; b: string; pairs: number } | null {
+  if (recent.length < threshold * 2) return null;
+  const tail = recent.slice(-threshold * 2);
+  const a = tail[0];
+  const b = tail[1];
+  if (!a || !b || a === b) return null;
+  for (let i = 0; i < tail.length; i++) {
+    const expected = i % 2 === 0 ? a : b;
+    if (tail[i] !== expected) return null;
+  }
+  return { a, b, pairs: threshold };
+}
+
+/**
  * Coarser detector keyed on action *name* only (e.g. "eval", "find_elements").
  * Catches the "same kind of action with cosmetically different params"
  * rabbit-hole the fingerprint detector misses. Returns the trailing run when

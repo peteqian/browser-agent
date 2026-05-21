@@ -6,6 +6,7 @@ import { compactHistory } from "./history";
 import {
   buildLoopFingerprint,
   canonicaliseActionCall,
+  detectAlternatingPair,
   detectSameNameRun,
   isRepeatingLoop,
 } from "./loop-detection";
@@ -280,14 +281,21 @@ async function runAgentInner<TData = unknown>(
       // never trips because the params differ. Detect 4+ consecutive same
       // action names and prod the model toward an alternative.
       const sameNameNudge = detectSameNameRun(recentActionNames, 4);
+      const alternatingNudge = sameNameNudge ? null : detectAlternatingPair(recentActionNames, 3);
+      const triggeredNudge =
+        sameNameNudge && buildSameNameNudge(sameNameNudge)
+          ? buildSameNameNudge(sameNameNudge)
+          : alternatingNudge
+            ? buildAlternatingNudge(alternatingNudge)
+            : null;
       if (
-        sameNameNudge &&
+        triggeredNudge &&
         cfg.loopDetectionMode === "nudge" &&
         loopNudgesUsed < cfg.loopNudgeBudget &&
         !pendingLoopNotice
       ) {
         loopNudgesUsed += 1;
-        pendingLoopNotice = buildSameNameNudge(sameNameNudge);
+        pendingLoopNotice = triggeredNudge;
         await emitEvent(options, {
           type: "loop_nudge",
           step,
@@ -542,5 +550,13 @@ function buildSameNameNudge(run: { name: string; count: number }): string {
     `Stagnation notice: \`${run.name}\` has been called ${run.count} times in a row. ` +
     `The variations aren't producing new information. Switch tactic — try ${alt}. ` +
     `If you have what you need, call \`done\` now.`
+  );
+}
+
+function buildAlternatingNudge(pair: { a: string; b: string; pairs: number }): string {
+  return (
+    `Stagnation notice: you have alternated \`${pair.a}\` and \`${pair.b}\` for ${pair.pairs} cycles. ` +
+    `This is the same loop pattern. Either commit the value you've already extracted to memory and emit \`done\`, ` +
+    `or switch strategy entirely.`
   );
 }
