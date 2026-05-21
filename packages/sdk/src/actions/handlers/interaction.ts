@@ -404,3 +404,18 @@ export async function handleWaitForText(
     ? ok(`Text found: ${action.params.text}`, { longTermMemory: "Found text on page" })
     : fail(`Timed out waiting for text: ${action.params.text}`);
 }
+
+export async function handleWaitForCondition(
+  ctx: HandlerContext,
+  action: ByName<"wait_for_condition">,
+): Promise<ActionResult> {
+  const timeoutMs = action.params.timeoutMs ?? 10_000;
+  const value = await ctx.page.waitForCondition(action.params.expression, timeoutMs);
+  if (value === null) {
+    return fail(`Timed out after ${timeoutMs}ms waiting for: ${action.params.expression}`);
+  }
+  return ok(`Condition became truthy: ${action.params.expression}`, {
+    longTermMemory: "Wait-for-condition succeeded",
+    data: { value },
+  });
+}

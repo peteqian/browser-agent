@@ -18,6 +18,7 @@ import {
   navigateWithHealthCheck,
   refresh,
   scrollToText,
+  waitForCondition,
   waitForStablePage,
   waitForText,
 } from "./page-navigation";
@@ -220,6 +221,9 @@ export class Page {
   }
   waitForText(text: string, timeoutMs?: number): Promise<boolean> {
     return waitForText(this, text, timeoutMs);
+  }
+  waitForCondition(expression: string, timeoutMs?: number): Promise<unknown | null> {
+    return waitForCondition(this, expression, timeoutMs);
   }
   scrollToText(text: string): Promise<boolean> {
     return scrollToText(this, text);

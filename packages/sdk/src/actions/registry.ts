@@ -161,6 +161,8 @@ function defaultActionDescription(name: ActionName): string {
       return "Upload local file paths to a file input.";
     case "wait_for_text":
       return "Wait until page text appears.";
+    case "wait_for_condition":
+      return "Poll a JS expression in the page until it becomes truthy (or timeoutMs elapses).";
     case "go_back":
       return "Navigate browser history back.";
     case "go_forward":

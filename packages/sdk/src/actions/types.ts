@@ -90,6 +90,11 @@ export const waitForTextAction = z.object({
   timeoutMs: z.number().int().positive().max(30_000).optional(),
 });
 
+export const waitForConditionAction = z.object({
+  expression: z.string().min(1).max(4_000),
+  timeoutMs: z.number().int().positive().max(30_000).optional(),
+});
+
 export const noParamsAction = z.object({});
 
 export const newTabAction = z.object({
@@ -319,6 +324,7 @@ export const actionSchemas = {
   select_option: selectOptionAction,
   upload_file: uploadFileAction,
   wait_for_text: waitForTextAction,
+  wait_for_condition: waitForConditionAction,
   go_back: noParamsAction,
   go_forward: noParamsAction,
   refresh: noParamsAction,
@@ -367,6 +373,7 @@ export type Action =
   | { name: "select_option"; params: z.infer<typeof selectOptionAction> }
   | { name: "upload_file"; params: z.infer<typeof uploadFileAction> }
   | { name: "wait_for_text"; params: z.infer<typeof waitForTextAction> }
+  | { name: "wait_for_condition"; params: z.infer<typeof waitForConditionAction> }
   | { name: "go_back"; params: z.infer<typeof noParamsAction> }
   | { name: "go_forward"; params: z.infer<typeof noParamsAction> }
   | { name: "refresh"; params: z.infer<typeof noParamsAction> }

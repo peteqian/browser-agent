@@ -157,6 +157,29 @@ export async function waitForText(page: Page, text: string, timeoutMs = 10_000):
   return false;
 }
 
+/**
+ * Polls a JS expression in the page until it evaluates truthy or the
+ * timeout elapses. The expression runs inside an IIFE so it can use
+ * statements (e.g. `return window.x`). Throws are swallowed per poll —
+ * a page that errors midload should still get a chance to settle. Returns
+ * the truthy value (cast to JSON-safe) on success, `null` on timeout.
+ */
+export async function waitForCondition(
+  page: Page,
+  expression: string,
+  timeoutMs = 10_000,
+  pollIntervalMs = 100,
+): Promise<unknown | null> {
+  const wrapped = `(() => { try { return (${expression}); } catch { return undefined; } })()`;
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const value = await page.evaluate<unknown>(wrapped).catch(() => undefined);
+    if (value) return value;
+    await delay(pollIntervalMs);
+  }
+  return null;
+}
+
 export async function scrollToText(page: Page, text: string): Promise<boolean> {
   const escaped = JSON.stringify(text);
   return page.evaluate<boolean>(`(() => {

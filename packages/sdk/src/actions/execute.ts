@@ -31,6 +31,7 @@ import {
   handleTypeBy,
   handleUploadFile,
   handleWait,
+  handleWaitForCondition,
   handleWaitForText,
 } from "./handlers/interaction";
 import {
@@ -120,6 +121,8 @@ export async function executeAction(
         return await handleUploadFile(ctx, action);
       case "wait_for_text":
         return await handleWaitForText(ctx, action);
+      case "wait_for_condition":
+        return await handleWaitForCondition(ctx, action);
       case "go_back":
         return await handleGoBack(ctx);
       case "go_forward":
