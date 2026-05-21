@@ -406,4 +406,12 @@ export interface AgentOptions<TData = unknown> {
    * touching the network. When undefined or empty, no restriction.
    */
   allowedDomains?: readonly string[];
+  /**
+   * Soft budget in steps. Past this number, every observation carries a
+   * "STEP BUDGET EXCEEDED, call done now" notice. Past advisory + 4 the
+   * loop hard-stops with reason="failed". Default: 10. Set higher for
+   * genuinely large tasks; set very high (e.g. 1000) to effectively
+   * disable.
+   */
+  stepBudgetAdvisory?: number;
 }

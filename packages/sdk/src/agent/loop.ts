@@ -164,11 +164,28 @@ async function runAgentInner<TData = unknown>(
         });
       }
 
+      // Soft step-budget: once we cross the advisory, every observation
+      // gets a hard "wrap up NOW" notice. After advisory + 4 we hard-stop.
+      const overBudgetBy = step - cfg.stepBudgetAdvisory;
+      const budgetNotice =
+        overBudgetBy > 0
+          ? `STEP BUDGET EXCEEDED: you are ${overBudgetBy} step(s) past the typical ${cfg.stepBudgetAdvisory}-step budget for a task like this. Your NEXT action MUST be \`done\` with whatever you have — set success=true if you have the answer or success=false with a summary of what you got.`
+          : null;
+      if (Number.isFinite(cfg.maxSteps) === false && overBudgetBy >= 5) {
+        return {
+          success: false,
+          reason: "failed",
+          summary: `Stopped after ${step} steps (${overBudgetBy} past the ${cfg.stepBudgetAdvisory}-step advisory budget). The model would not converge. Set options.stepBudgetAdvisory higher if the task genuinely needs more steps.`,
+          data: null,
+          steps: step,
+        };
+      }
+      const composedNotice = [pendingLoopNotice, budgetNotice].filter(Boolean).join("\n\n") || null;
       const effectiveObservation = applyObservationPrefix(observation, {
         isLastStep: Number.isFinite(cfg.maxSteps) && step === cfg.maxSteps,
         step,
         maxSteps: cfg.maxSteps,
-        loopNotice: pendingLoopNotice,
+        loopNotice: composedNotice,
         latestExtraction,
       });
       pendingLoopNotice = null;
@@ -448,6 +465,7 @@ interface ResolvedConfig {
   planning: boolean;
   historyHead: number;
   historyTail: number;
+  stepBudgetAdvisory: number;
 }
 
 function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
@@ -456,8 +474,10 @@ function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
   // Treat `0` as "uncapped" so callers can opt out of the step ceiling
   // explicitly. `undefined` still falls back to the default (40).
   const maxSteps = requestedMaxSteps === 0 ? Number.POSITIVE_INFINITY : (requestedMaxSteps ?? 40);
+  const stepBudgetAdvisory = options.stepBudgetAdvisory ?? 10;
   return {
     maxSteps,
+    stepBudgetAdvisory,
     stepTimeoutMs: coerceStepTimeoutMs(options.stepTimeoutMs),
     actionTimeoutMs: coerceActionTimeoutMs(options.actionTimeoutMs),
     decisionTimeoutMs: coerceDecisionTimeoutMs(options.decisionTimeoutMs),
