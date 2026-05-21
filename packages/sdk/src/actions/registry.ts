@@ -133,14 +133,22 @@ function defaultActionDescription(name: ActionName): string {
       return "Load a URL in the current tab or a new tab.";
     case "click":
       return "(legacy) Click by numeric [index]. Prefer `click_by` with a stable locator; indices reshuffle between snapshots.";
+    case "focus":
+      return "Focus an element by numeric [index] so later keyboard actions target it.";
     case "type":
-      return "(legacy) Type into a numeric [index] input. Prefer `type_by` with a stable locator.";
+      return "(legacy) Type into a numeric [index] input using browser keyboard input. Prefer `type_by` with a stable locator.";
+    case "fill":
+      return "Focus and replace text in an indexed input using browser keyboard input.";
     case "scroll":
       return "Scroll the page or indexed scrollable element.";
     case "wait":
       return "Wait for dynamic page content.";
     case "send_keys":
       return "Send keyboard keys to the active element.";
+    case "press":
+      return "Press one keyboard key or chord on the active element.";
+    case "keyboard_type":
+      return "Type text into the currently focused element using browser keyboard input.";
     case "select_option":
       return "(legacy) Choose a dropdown option on numeric [index]. Prefer `select_by`.";
     case "upload_file":

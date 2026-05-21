@@ -13,10 +13,17 @@ npm install -g @peteqian/browser-agent
 ```bash
 browser-agent "Find the top result on Hacker News and print its title."
 browser-agent "..." --provider openai --model gpt-4.1-mini
+browser-agent browser status
+browser-agent browser install
 browser-agent --probe --provider claude
 ```
 
 Run `browser-agent --help` for the full flag list.
+
+`browser-agent browser install` installs Playwright-managed Chromium when no
+browser executable is discoverable. Cookie and login persistence is handled by
+profiles (`--profile <name>`) and storage state, not by the browser binary
+choice alone.
 
 ## MCP server
 

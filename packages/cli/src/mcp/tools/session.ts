@@ -3,14 +3,19 @@ import { z } from "zod";
 
 import { executeAction } from "@peteqian/browser-agent-sdk/internal";
 import { BrowserSession } from "@peteqian/browser-agent-sdk";
-import { jsonResult } from "../helpers";
+import { actionResult, jsonResult, runSessionAction } from "../helpers";
+import { resolveBrowserPaths } from "../../profiles";
 import {
   deleteSession,
   ensureSweeper,
+  findSessionByProfile,
   getSession,
+  listSessionEvents,
+  listSessionRecords,
   nextSessionId,
   registerSession,
-  setCurrentPage,
+  recordSessionEvent,
+  type SessionRecord,
 } from "../sessions";
 
 export function registerSessionTools(server: McpServer): void {
@@ -22,23 +27,131 @@ export function registerSessionTools(server: McpServer): void {
       inputSchema: {
         headless: z.boolean().optional().default(true),
         startUrl: z.string().optional(),
+        autoConsent: z.boolean().optional().default(true),
+        profile: z.string().min(1).optional(),
+        userDataDir: z.string().min(1).optional(),
+        storageStatePath: z.string().min(1).optional(),
+        saveStorageStateOnClose: z.boolean().optional(),
+        executablePath: z.string().min(1).optional(),
+        channel: z
+          .enum([
+            "chromium",
+            "chrome",
+            "chrome-beta",
+            "chrome-dev",
+            "chrome-canary",
+            "msedge",
+            "msedge-beta",
+            "msedge-dev",
+            "msedge-canary",
+            "lightpanda",
+          ])
+          .optional(),
+        locale: z.string().min(1).optional(),
+        timezoneId: z.string().min(1).optional(),
+        acceptLanguage: z.string().min(1).optional(),
       },
     },
-    async ({ headless, startUrl }) => {
-      const session = await BrowserSession.launch({ headless });
+    async ({
+      headless,
+      startUrl,
+      autoConsent,
+      profile,
+      userDataDir,
+      storageStatePath,
+      saveStorageStateOnClose,
+      executablePath,
+      channel,
+      locale,
+      timezoneId,
+      acceptLanguage,
+    }) => {
+      const paths = resolveBrowserPaths({ profile, userDataDir, storageStatePath });
+      const session = await BrowserSession.launch({
+        headless,
+        autoConsent,
+        userDataDir: paths.userDataDir,
+        storageStatePath: paths.storageStatePath,
+        saveStorageStateOnClose,
+        executablePath,
+        channel,
+        locale,
+        timezoneId,
+        acceptLanguage,
+      });
       const page = await session.newPage();
       const sessionId = nextSessionId();
-      registerSession(sessionId, {
+      const now = Date.now();
+      const record = {
         session,
         page,
-        lastAccessedAt: Date.now(),
+        createdAt: now,
+        lastAccessedAt: now,
         artifacts: [],
-      });
+        profile: paths.profile,
+        userDataDir: paths.userDataDir,
+        storageStatePath: paths.storageStatePath,
+      };
+      registerSession(sessionId, record);
+      recordSessionEvent(
+        record,
+        { kind: "lifecycle", name: "launch_session", ok: true },
+        sessionId,
+      );
       ensureSweeper();
+      let navigation: unknown;
       if (startUrl) {
-        await page.goto(startUrl);
+        navigation = await page.navigateWithHealthCheck(startUrl);
       }
-      return jsonResult({ sessionId });
+      return actionResult(record, { sessionId, ...(navigation ? { navigation } : {}) });
+    },
+  );
+
+  registerTool(
+    "list_sessions",
+    {
+      description: "List live sessions currently held by this MCP daemon.",
+      inputSchema: {},
+    },
+    async () => {
+      const sessions = await Promise.all(
+        listSessionRecords().map(async ([sessionId, record]) => ({
+          sessionId,
+          ...(await sessionSummary(record)),
+        })),
+      );
+      return jsonResult({ sessions });
+    },
+  );
+
+  registerTool(
+    "attach_session",
+    {
+      description:
+        "Attach to a live session by sessionId or by named profile. Returns the current observation.",
+      inputSchema: {
+        sessionId: z.string().optional(),
+        profile: z.string().min(1).optional(),
+      },
+    },
+    async ({ sessionId, profile }) => {
+      if (!sessionId && !profile) throw new Error("Provide sessionId or profile.");
+      const resolved = sessionId
+        ? ([sessionId, getSession(sessionId)] as const)
+        : findSessionByProfile(profile as string);
+      if (!resolved) throw new Error(`No live session for profile: ${profile}`);
+      const [attachedSessionId, record] = resolved;
+      record.lastAccessedAt = Date.now();
+      recordSessionEvent(
+        record,
+        { kind: "lifecycle", name: "attach_session", ok: true },
+        attachedSessionId,
+      );
+      return actionResult(record, {
+        attached: true,
+        sessionId: attachedSessionId,
+        ...(await sessionSummary(record)),
+      });
     },
   );
 
@@ -53,7 +166,9 @@ export function registerSessionTools(server: McpServer): void {
       const page = await record.session.newPage();
       if (url) await page.goto(url);
       record.page = page;
-      return jsonResult({ targetId: page.targetId, active: true });
+      record.latestState = undefined;
+      recordSessionEvent(record, { kind: "lifecycle", name: "new_tab", ok: true }, sessionId);
+      return actionResult(record, { targetId: page.targetId, active: true });
     },
   );
 
@@ -82,13 +197,11 @@ export function registerSessionTools(server: McpServer): void {
     },
     async ({ sessionId, targetId, pageId }) => {
       const record = getSession(sessionId);
-      const result = await executeAction(
-        record.page,
+      return runSessionAction(
+        record,
         { name: "switch_tab", params: { targetId, pageId } },
-        record.session,
+        { sessionId },
       );
-      if (result.activeTargetId) setCurrentPage(record, result.activeTargetId);
-      return jsonResult(result);
     },
   );
 
@@ -104,13 +217,11 @@ export function registerSessionTools(server: McpServer): void {
     },
     async ({ sessionId, targetId, pageId }) => {
       const record = getSession(sessionId);
-      const result = await executeAction(
-        record.page,
+      return runSessionAction(
+        record,
         { name: "close_tab", params: { targetId, pageId } },
-        record.session,
+        { sessionId },
       );
-      if (result.activeTargetId) setCurrentPage(record, result.activeTargetId);
-      return jsonResult(result);
     },
   );
 
@@ -122,6 +233,7 @@ export function registerSessionTools(server: McpServer): void {
     },
     async ({ sessionId }) => {
       const record = getSession(sessionId);
+      recordSessionEvent(record, { kind: "lifecycle", name: "close_session", ok: true }, sessionId);
       await record.session.close();
       deleteSession(sessionId);
       return jsonResult({ closed: true });
@@ -140,6 +252,16 @@ export function registerSessionTools(server: McpServer): void {
         record.page,
         { name: "close_browser", params: {} },
         record.session,
+      );
+      recordSessionEvent(
+        record,
+        {
+          kind: "lifecycle",
+          name: "close_browser",
+          ok: result.ok,
+          message: result.message,
+        },
+        sessionId,
       );
       deleteSession(sessionId);
       return jsonResult(result);
@@ -162,6 +284,49 @@ export function registerSessionTools(server: McpServer): void {
       return jsonResult({ artifacts: items });
     },
   );
+
+  registerTool(
+    "list_session_events",
+    {
+      description: "List recent lifecycle/action events recorded for a live session.",
+      inputSchema: {
+        sessionId: z.string(),
+        limit: z.number().int().positive().max(200).optional(),
+      },
+    },
+    async ({ sessionId, limit }) => {
+      const record = getSession(sessionId);
+      return jsonResult({ events: listSessionEvents(record, limit ?? 50) });
+    },
+  );
+}
+
+async function sessionSummary(record: SessionRecord) {
+  let url = record.latestState?.url;
+  if (!url) {
+    try {
+      url = await record.page.currentUrl();
+    } catch {
+      url = undefined;
+    }
+  }
+  let targetIds: string[] = [];
+  try {
+    targetIds = await record.session.listPageTargetIds();
+  } catch {
+    targetIds = [];
+  }
+  return {
+    createdAt: record.createdAt ?? record.lastAccessedAt,
+    lastAccessedAt: record.lastAccessedAt,
+    activeTargetId: record.page.targetId,
+    targetIds,
+    eventCount: record.events?.length ?? 0,
+    ...(url ? { url } : {}),
+    ...(record.profile ? { profile: record.profile } : {}),
+    ...(record.userDataDir ? { userDataDir: record.userDataDir } : {}),
+    ...(record.storageStatePath ? { storageStatePath: record.storageStatePath } : {}),
+  };
 }
 
 type ToolRegistrar = (

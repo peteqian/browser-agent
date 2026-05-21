@@ -37,9 +37,11 @@ formatter renders each as one line tagged with its `[index]`.
 }
 ```
 
-## `[index]` refs
+## `@eN` / `[index]` refs
 
-- A small integer printed in the snapshot listing, e.g. `[7]`.
+- A compact element reference printed in the snapshot listing, e.g. `@e7`.
+- The underlying numeric index is still `7`; MCP tools accept either
+  `index: 7` or `ref: "@e7"` where supported.
 - Resolved through `SelectorMap.byIndex` (`packages/sdk/src/dom/cdp-snapshot.ts`)
   to a `backendNodeId` + optional `frameId`. CDP `DOM.resolveNode` then
   produces an object id the action handler clicks/types.
@@ -49,8 +51,10 @@ formatter renders each as one line tagged with its `[index]`.
 
 Rules:
 
-- Re-snapshot after any `navigate`, `click`, `type` with `submit`,
-  `scroll` that reveals new content, or after `wait_for_text` fires.
+- MCP action tools return a fresh observation and cache its selector map on
+  the daemon session, so the next tool call can use the visible `@eN` refs.
+- Re-snapshot after any out-of-band page change, or call `get_snapshot` when
+  you need to refresh refs without acting.
 - Within one snapshot, batch multiple non-mutating reads
   (`get_dropdown_options`, `find_text`) freely.
 

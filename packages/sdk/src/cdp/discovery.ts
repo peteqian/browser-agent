@@ -17,6 +17,17 @@ export type BrowserChannel =
 
 const DEFAULT_CHANNEL: BrowserChannel = "chromium";
 
+export interface BrowserInstallStatus {
+  channel: BrowserChannel;
+  executablePath: string | null;
+  found: boolean;
+  installable: boolean;
+}
+
+export interface BrowserInstallResult extends BrowserInstallStatus {
+  installedNow: boolean;
+}
+
 interface PatternGroup {
   group: string;
   paths: string[];
@@ -253,6 +264,18 @@ export function discoverBrowserExecutable(
   return null;
 }
 
+export function getBrowserInstallStatus(
+  channel: BrowserChannel = DEFAULT_CHANNEL,
+): BrowserInstallStatus {
+  const executablePath = discoverBrowserExecutable(channel);
+  return {
+    channel,
+    executablePath,
+    found: Boolean(executablePath),
+    installable: channel !== "lightpanda",
+  };
+}
+
 function runCommand(command: string, args: string[], timeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
@@ -311,4 +334,21 @@ export async function installChromiumWithPlaywright(): Promise<void> {
   }
 
   throw lastError ?? new Error("Failed to install Chromium with Playwright");
+}
+
+export async function ensureBrowserExecutable(
+  channel: BrowserChannel = DEFAULT_CHANNEL,
+): Promise<BrowserInstallResult> {
+  const before = getBrowserInstallStatus(channel);
+  if (before.executablePath) {
+    return { ...before, installedNow: false };
+  }
+
+  if (!before.installable) {
+    return { ...before, installedNow: false };
+  }
+
+  await installChromiumWithPlaywright();
+  const after = getBrowserInstallStatus(channel);
+  return { ...after, installedNow: true };
 }

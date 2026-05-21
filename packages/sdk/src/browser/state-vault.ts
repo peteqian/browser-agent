@@ -217,7 +217,7 @@ export async function renameState(
     await rename(oldPath, newPath);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-      throw new Error(`State not found: ${oldName}`);
+      throw new Error(`State not found: ${oldName}`, { cause: error });
     }
     throw error;
   }

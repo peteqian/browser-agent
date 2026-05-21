@@ -42,6 +42,16 @@ export const typeAction = z.object({
   mode: z.enum(["replace", "append"]).default("replace"),
 });
 
+export const focusAction = z.object({
+  index: z.number().int().nonnegative(),
+});
+
+export const fillAction = z.object({
+  index: z.number().int().nonnegative(),
+  text: z.string(),
+  submit: z.boolean().optional(),
+});
+
 export const scrollAction = z.object({
   direction: z.enum(["up", "down", "top", "bottom"]),
   amount: z.number().int().positive().optional(),
@@ -55,6 +65,14 @@ export const waitAction = z.object({
 
 export const sendKeysAction = z.object({
   keys: z.string().min(1),
+});
+
+export const pressAction = z.object({
+  key: z.string().min(1),
+});
+
+export const keyboardTypeAction = z.object({
+  text: z.string().min(1),
 });
 
 export const selectOptionAction = z.object({
@@ -290,10 +308,14 @@ export const doneAction = z.object({
 export const actionSchemas = {
   navigate: navigateAction,
   click: clickAction,
+  focus: focusAction,
   type: typeAction,
+  fill: fillAction,
   scroll: scrollAction,
   wait: waitAction,
   send_keys: sendKeysAction,
+  press: pressAction,
+  keyboard_type: keyboardTypeAction,
   select_option: selectOptionAction,
   upload_file: uploadFileAction,
   wait_for_text: waitForTextAction,
@@ -334,10 +356,14 @@ export type ActionName = keyof typeof actionSchemas;
 export type Action =
   | { name: "navigate"; params: z.infer<typeof navigateAction> }
   | { name: "click"; params: z.infer<typeof clickAction> }
+  | { name: "focus"; params: z.infer<typeof focusAction> }
   | { name: "type"; params: z.infer<typeof typeAction> }
+  | { name: "fill"; params: z.infer<typeof fillAction> }
   | { name: "scroll"; params: z.infer<typeof scrollAction> }
   | { name: "wait"; params: z.infer<typeof waitAction> }
   | { name: "send_keys"; params: z.infer<typeof sendKeysAction> }
+  | { name: "press"; params: z.infer<typeof pressAction> }
+  | { name: "keyboard_type"; params: z.infer<typeof keyboardTypeAction> }
   | { name: "select_option"; params: z.infer<typeof selectOptionAction> }
   | { name: "upload_file"; params: z.infer<typeof uploadFileAction> }
   | { name: "wait_for_text"; params: z.infer<typeof waitForTextAction> }

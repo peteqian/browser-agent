@@ -8,6 +8,7 @@ export async function goto(
   page: Page,
   url: string,
   waitUntil: "load" | "domcontentloaded" = "load",
+  timeoutMs = 30_000,
 ): Promise<void> {
   const navigation = await page.sendCDP<{ errorText?: string }>("Page.navigate", { url });
   if (navigation.errorText) {
@@ -15,7 +16,6 @@ export async function goto(
   }
 
   const startedAt = Date.now();
-  const timeoutMs = 30_000;
   while (Date.now() - startedAt < timeoutMs) {
     const readyState = await page.evaluate<string>("document.readyState").catch(() => "loading");
     if (waitUntil === "domcontentloaded") {
@@ -79,7 +79,8 @@ export async function navigateWithHealthCheck(
     finishNavigationHealth(page, { ...input, url, startedAt });
 
   try {
-    await goto(page, url);
+    await goto(page, url, "domcontentloaded", 8_000);
+    await page.waitForStablePage(700).catch(() => {});
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return finish({ ok: false, status: navigationFailureStatus(message), warning: message });
@@ -91,17 +92,18 @@ export async function navigateWithHealthCheck(
   let empty = await appearsEmptyPage(page).catch(() => false);
   if (!empty) return finish({ ok: true, status: "loaded" });
 
-  await delay(3_000);
+  await delay(700);
   empty = await appearsEmptyPage(page).catch(() => false);
   if (!empty) return finish({ ok: true, status: "loaded" });
 
   try {
-    await goto(page, url);
+    await goto(page, url, "domcontentloaded", 8_000);
+    await page.waitForStablePage(700).catch(() => {});
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return finish({ ok: false, status: navigationFailureStatus(message), warning: message });
   }
-  await delay(5_000);
+  await delay(1_000);
   empty = await appearsEmptyPage(page).catch(() => false);
   if (empty) {
     return finish({

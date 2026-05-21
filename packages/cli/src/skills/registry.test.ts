@@ -6,7 +6,7 @@ describe("SkillRegistry", () => {
   test("list() returns both bundled skills", async () => {
     const registry = new SkillRegistry();
     const skills = await registry.list();
-    const names = skills.map((s) => s.name).sort();
+    const names = skills.map((s) => s.name).toSorted();
     expect(names).toEqual(["core", "mcp"]);
     for (const skill of skills) {
       expect(skill.summary.length).toBeGreaterThan(0);

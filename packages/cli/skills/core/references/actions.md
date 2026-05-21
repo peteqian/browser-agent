@@ -19,17 +19,29 @@ Each entry: one-line description + minimal JSON params.
 
 ## Interaction (index-based)
 
+- **`run_actions`** — MCP-only helper that runs 1-10 simple actions in
+  order and returns one final observation. Use only when no intermediate
+  `@eN` refresh is needed. Example:
+  `{ "actions": [{ "name": "focus", "ref": "@e4" }, { "name": "keyboard_type", "text": "Sydney" }, { "name": "press", "key": "Enter" }] }`
 - **`click`** — Click element `[index]` from the latest snapshot, or by
-  pixel coords. `{ "index": 7 }`
-- **`type`** — Type text into element `[index]`. Default `mode` is
+  pixel coords. MCP tools also accept `ref: "@e7"`. `{ "index": 7 }`
+- **`focus`** — Focus an element so later keyboard calls target it.
+  `{ "index": 4 }`
+- **`type`** — Type text into element `[index]` using browser input. Default `mode` is
   `"replace"`; set `submit: true` to press Enter after.
   `{ "index": 4, "text": "hello", "submit": true }`
+- **`fill`** — Focus and replace text in element `[index]`.
+  `{ "index": 4, "text": "Sydney" }`
 - **`select_option`** — Choose a `<select>` option by visible label or
   value. `{ "index": 9, "value": "AU" }`
 - **`upload_file`** — Set files on a file input.
   `{ "index": 2, "paths": ["/tmp/a.pdf"] }`
 - **`send_keys`** — Send raw key string to the focused element.
   `{ "keys": "Control+A" }`
+- **`press`** — Press a key or chord on the focused element.
+  `{ "key": "Enter" }`
+- **`keyboard_type`** — Type text into the focused element.
+  `{ "text": "Sydney" }`
 - **`scroll`** — Scroll page or container at `[index]`.
   `{ "direction": "down", "pages": 1 }`
 

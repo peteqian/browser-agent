@@ -6,9 +6,9 @@ Versioned guidance for host agents (Claude Code, Cursor, Codex) driving
 ## What this controls
 
 A long-lived Chromium session driven over CDP. A single `sessionId` holds the
-browser, tabs, navigation history, and a per-step DOM snapshot. Every
-interactive action is keyed against the most recent snapshot — stale indices
-fail loudly.
+browser, tabs, navigation history, storage/profile state, and the latest DOM
+snapshot. Every interactive action is keyed against the most recent observation
+— stale refs fail loudly.
 
 ## When to launch a session
 
@@ -20,28 +20,42 @@ Launch exactly one session per task. Reuse it across tabs.
    failure paths. The MCP server sweeps idle sessions but explicit close is
    cheaper.
 
+If the browser runtime itself is missing, run
+`browser-agent browser status` or `browser-agent browser install` before
+starting the MCP workflow. That installs a managed Chromium build; it does not
+replace profile persistence or cookie handling.
+
 ## Snapshot-first workflow
 
 Always observe before acting.
 
-1. `get_snapshot({ sessionId })` → markdown listing of interactive elements,
-   each tagged `[index]` with role, name/text, href, testid, etc.
-2. Choose a target element from the listing. Read its `[index]` number.
-3. Issue an action referring to that index — `click`, `type`,
-   `select_option`, `upload_file`, `scroll`, `get_dropdown_options`.
-4. After any navigation or DOM mutation, re-snapshot. Indices are
-   re-numbered every snapshot. Do not reuse old indices.
+1. `launch_session({ headless, startUrl? })` or `get_snapshot({ sessionId })`
+   returns an observation listing interactive elements as `@eN`.
+2. Choose a target element from that observation.
+3. Issue an action with `ref: "@eN"` or `index: N` — `click`, `focus`, `fill`,
+   `type`, `select_option`, `upload_file`, `scroll`, `get_dropdown_options`.
+4. Most action tools return the next observation and cache its selector map on
+   the daemon session. Use the newest returned `@eN` refs for the next action.
+
+For repeatable auth/session persistence, launch with
+`profile: "site-name"`. The CLI/MCP layer maps that name to
+`~/.browser-agent/profiles/<name>/user-data` and
+`~/.browser-agent/profiles/<name>/storage-state.json`.
+If the host loses the active `sessionId`, call `list_sessions` or
+`attach_session({ profile: "site-name" })` while the daemon is still alive.
+For dashboard/debugging, `list_session_events({ sessionId })` returns the
+recent lifecycle/action log.
 
 If the snapshot is too noisy, narrow with `find_elements({ selector })` (CSS
 selector) or `search_page({ pattern })` (text/regex) before snapshotting
 again.
 
-## `[index]` refs vs `stableId` vs `click_by`
+## `@eN` refs vs `stableId` vs `click_by`
 
 Three ways to target an element. Prefer in this order:
 
-1. **`[index]`** — cheapest, valid only against the latest snapshot. Use for
-   simple click/type sequences immediately after a snapshot.
+1. **`@eN` / `index`** — cheapest, valid only against the latest observation.
+   Use for simple click/type sequences immediately after an observation.
 2. **`stableId`** — 8-hex-char hash from `ElementInfo.stableId`. Survives
    most re-renders. Pass via `click_by({ locator: { stableId } })` when you
    need to re-target the same conceptual element after a refresh.
@@ -56,8 +70,9 @@ See `references/snapshot.md` for the full shape.
 Navigation: `navigate`, `go_back`, `go_forward`, `refresh`, `new_tab`,
 `switch_tab`, `close_tab`, `close_browser`.
 
-Interaction: `click`, `click_by`, `type`, `type_by`, `select_option`,
-`select_by`, `upload_file`, `send_keys`, `scroll`.
+Interaction: `click`, `click_by`, `focus`, `fill`, `type`, `type_by`,
+`select_option`, `select_by`, `upload_file`, `send_keys`, `press`,
+`keyboard_type`, `scroll`.
 
 Observation: `get_snapshot` (MCP) / serialized snapshot, `find_elements`,
 `search_page`, `find_text`, `get_dropdown_options`, `extract_content`,
@@ -69,15 +84,18 @@ Full list with shape: `references/actions.md`.
 
 ## Common pitfalls
 
-- **Stale index.** Acting on an `[index]` from a snapshot taken before a
+- **Stale ref.** Acting on an `@eN` from an observation taken before a
   click/navigation will resolve to a different element or fail. Re-snapshot
-  after every state change.
+  or use the observation returned by the previous action after every state
+  change.
 - **Coordinate clicks.** `click` accepts `coordinateX`/`coordinateY` as a
   fallback. Reach for `index` first; coordinates break on layout shift.
 - **`type` does not clear by default.** It clears before typing (`mode:
 "replace"`). Use `mode: "append"` when you want to extend existing text.
 - **`submit: true`** on `type` presses Enter after typing — combines a type
   and a form submit into one step.
+- **Autocomplete fields.** Prefer `fill` or `focus` + `keyboard_type` +
+  `press` so the page receives browser keyboard events.
 - **`find_elements` returns a CSS-selected list**, not interactive elements
   only. For role-based lookup, prefer `click_by`.
 - **`extract_content` is for reading**, not scraping every page. It runs an
@@ -91,8 +109,8 @@ Full list with shape: `references/actions.md`.
 ## Multi-step / persistent sessions
 
 The MCP server keeps the browser alive across tool calls. Treat each
-sequence of `get_snapshot` → action as one logical step. Do not relaunch
-the browser between calls — `getSession(sessionId)` is the contract.
+returned observation → action as one logical step. Do not relaunch the browser
+between calls — `getSession(sessionId)` is the contract.
 
 ## Diagnosing slow runs
 

@@ -1,4 +1,4 @@
-import { BrowserSession, type Page } from "@peteqian/browser-agent-sdk";
+import { BrowserSession, type BrowserStateSummary, type Page } from "@peteqian/browser-agent-sdk";
 
 export type ArtifactKind = "screenshot" | "pdf";
 
@@ -8,18 +8,42 @@ export interface SessionArtifact {
   createdAt: number;
 }
 
+export type SessionEventKind = "lifecycle" | "action";
+
+export interface SessionEvent {
+  id: number;
+  kind: SessionEventKind;
+  name: string;
+  createdAt: number;
+  ok?: boolean;
+  message?: string;
+  durationMs?: number;
+  url?: string;
+}
+
+export type SessionEventListener = (event: { sessionId?: string; event: SessionEvent }) => void;
+
 export interface SessionRecord {
   session: BrowserSession;
   page: Page;
+  createdAt?: number;
   lastAccessedAt: number;
   artifacts: SessionArtifact[];
+  events?: SessionEvent[];
+  nextEventId?: number;
+  latestState?: BrowserStateSummary;
+  profile?: string;
+  userDataDir?: string;
+  storageStatePath?: string;
 }
 
 const sessions = new Map<string, SessionRecord>();
 let sessionCounter = 0;
+const eventListeners = new Set<SessionEventListener>();
 
 const MCP_SESSION_TTL_MS = Number(process.env.MCP_SESSION_TTL_MS ?? 30 * 60 * 1000);
 const MCP_SESSION_SWEEP_MS = Number(process.env.MCP_SESSION_SWEEP_MS ?? 10 * 60 * 1000);
+const MCP_SESSION_EVENT_LIMIT = Number(process.env.MCP_SESSION_EVENT_LIMIT ?? 200);
 let sweepTimer: ReturnType<typeof setInterval> | undefined;
 
 export function nextSessionId(): string {
@@ -29,6 +53,10 @@ export function nextSessionId(): string {
 
 export function registerSession(id: string, record: SessionRecord): void {
   sessions.set(id, record);
+}
+
+export function listSessionRecords(): Array<[string, SessionRecord]> {
+  return Array.from(sessions.entries());
 }
 
 export function deleteSession(id: string): void {
@@ -42,6 +70,46 @@ export function getSession(sessionId: string): SessionRecord {
   }
   record.lastAccessedAt = Date.now();
   return record;
+}
+
+export function findSessionByProfile(profile: string): [string, SessionRecord] | undefined {
+  const normalized = profile.trim();
+  return listSessionRecords()
+    .filter(([, record]) => record.profile === normalized)
+    .toSorted(
+      ([, a], [, b]) =>
+        (b.lastAccessedAt ?? b.createdAt ?? 0) - (a.lastAccessedAt ?? a.createdAt ?? 0),
+    )[0];
+}
+
+export function recordSessionEvent(
+  record: SessionRecord,
+  event: Omit<SessionEvent, "id" | "createdAt"> & { createdAt?: number },
+  sessionId?: string,
+): SessionEvent {
+  const createdAt = event.createdAt ?? Date.now();
+  const id = record.nextEventId ?? 1;
+  record.nextEventId = id + 1;
+  const stored: SessionEvent = { ...event, id, createdAt };
+  record.events ??= [];
+  record.events.push(stored);
+  if (record.events.length > MCP_SESSION_EVENT_LIMIT) {
+    record.events.splice(0, record.events.length - MCP_SESSION_EVENT_LIMIT);
+  }
+  for (const listener of eventListeners) listener({ sessionId, event: stored });
+  return stored;
+}
+
+export function listSessionEvents(record: SessionRecord, limit = 50): SessionEvent[] {
+  const events = record.events ?? [];
+  return events.slice(Math.max(0, events.length - limit));
+}
+
+export function subscribeSessionEvents(listener: SessionEventListener): () => void {
+  eventListeners.add(listener);
+  return () => {
+    eventListeners.delete(listener);
+  };
 }
 
 async function disposeSession(sessionId: string): Promise<void> {

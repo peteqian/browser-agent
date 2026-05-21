@@ -137,7 +137,7 @@ describe("state vault", () => {
     await writeFixture("a");
     await writeFixture("b");
     const res = await cleanAllStates();
-    expect(res.removed.sort()).toEqual(["a", "b"]);
+    expect(res.removed.toSorted()).toEqual(["a", "b"]);
     expect(await listStates()).toEqual([]);
   });
 

@@ -40,6 +40,7 @@ export function installCursor(opts: CursorInstallOptions): CursorInstallResult {
       const reason = err instanceof Error ? err.message : String(err);
       throw new Error(
         `${path} is not valid JSON (${reason}); refusing to overwrite. Fix or remove the file and rerun.`,
+        { cause: err },
       );
     }
   }

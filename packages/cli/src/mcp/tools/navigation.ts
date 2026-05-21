@@ -1,9 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import { executeAction } from "@peteqian/browser-agent-sdk/internal";
-import { jsonResult } from "../helpers";
-import { getSession, setCurrentPage } from "../sessions";
+import { runSessionAction } from "../helpers";
+import { getSession } from "../sessions";
 
 export function registerNavigationTools(server: McpServer): void {
   const registerTool = server.registerTool.bind(server) as ToolRegistrar;
@@ -19,13 +18,7 @@ export function registerNavigationTools(server: McpServer): void {
     },
     async ({ sessionId, url, newTab }) => {
       const record = getSession(sessionId);
-      const result = await executeAction(
-        record.page,
-        { name: "navigate", params: { url, newTab } },
-        record.session,
-      );
-      if (result.activeTargetId) setCurrentPage(record, result.activeTargetId);
-      return jsonResult(result);
+      return runSessionAction(record, { name: "navigate", params: { url, newTab } });
     },
   );
 
@@ -36,8 +29,8 @@ export function registerNavigationTools(server: McpServer): void {
       inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "go_back", params: {} }));
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "go_back", params: {} });
     },
   );
 
@@ -48,8 +41,8 @@ export function registerNavigationTools(server: McpServer): void {
       inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "go_forward", params: {} }));
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "go_forward", params: {} });
     },
   );
 
@@ -60,8 +53,8 @@ export function registerNavigationTools(server: McpServer): void {
       inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "refresh", params: {} }));
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "refresh", params: {} });
     },
   );
 }

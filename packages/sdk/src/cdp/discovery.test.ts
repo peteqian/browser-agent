@@ -3,7 +3,12 @@ import { mkdtempSync, rmSync, writeFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { discoverBrowserExecutable, type BrowserChannel } from "./discovery";
+import {
+  discoverBrowserExecutable,
+  getBrowserInstallStatus,
+  ensureBrowserExecutable,
+  type BrowserChannel,
+} from "./discovery";
 
 describe("BrowserChannel", () => {
   it("accepts lightpanda channel", () => {
@@ -42,5 +47,50 @@ describe("discoverBrowserExecutable(lightpanda)", () => {
     process.env.LIGHTPANDA_PATH = stubPath;
     const result = discoverBrowserExecutable("chrome");
     expect(result).not.toBe(stubPath);
+  });
+});
+
+describe("browser install status", () => {
+  let dir: string;
+  let stubPath: string;
+  const prevChrome = process.env.BROWSER_AGENT_CHROME;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "chrome-discovery-"));
+    stubPath = join(dir, "chrome");
+    writeFileSync(stubPath, "#!/bin/sh\nexit 0\n");
+    chmodSync(stubPath, 0o755);
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+    if (prevChrome === undefined) {
+      delete process.env.BROWSER_AGENT_CHROME;
+    } else {
+      process.env.BROWSER_AGENT_CHROME = prevChrome;
+    }
+  });
+
+  it("reports the resolved browser executable", () => {
+    process.env.BROWSER_AGENT_CHROME = stubPath;
+
+    expect(getBrowserInstallStatus("chromium")).toEqual({
+      channel: "chromium",
+      executablePath: stubPath,
+      found: true,
+      installable: true,
+    });
+  });
+
+  it("does not run install when an executable is already available", async () => {
+    process.env.BROWSER_AGENT_CHROME = stubPath;
+
+    await expect(ensureBrowserExecutable("chromium")).resolves.toEqual({
+      channel: "chromium",
+      executablePath: stubPath,
+      found: true,
+      installable: true,
+      installedNow: false,
+    });
   });
 });

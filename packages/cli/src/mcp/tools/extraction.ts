@@ -1,13 +1,17 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
+import { executeAction, formatSnapshotForLLM } from "@peteqian/browser-agent-sdk/internal";
 import {
-  executeAction,
-  formatSnapshotForLLM,
-  serializePage,
-} from "@peteqian/browser-agent-sdk/internal";
-import { jsonResult, textResult } from "../helpers";
+  indexFromRef,
+  jsonResult,
+  refreshSessionState,
+  runSessionAction,
+  textResult,
+} from "../helpers";
 import { getSession, recordArtifact } from "../sessions";
+
+const elementRef = z.string().regex(/^@?e\d+$/, "Use @eN from the latest observation.");
 
 export function registerExtractionTools(server: McpServer): void {
   const registerTool = server.registerTool.bind(server) as ToolRegistrar;
@@ -19,9 +23,11 @@ export function registerExtractionTools(server: McpServer): void {
       inputSchema: { sessionId: z.string() },
     },
     async ({ sessionId }) => {
-      const { page } = getSession(sessionId);
-      const { snapshot } = await serializePage(page);
-      return textResult(formatSnapshotForLLM(snapshot));
+      const record = getSession(sessionId);
+      const state = await refreshSessionState(record);
+      return textResult(
+        formatSnapshotForLLM(state.snapshot, { maxDisplayElements: 100, maxTotalChars: 12_000 }),
+      );
     },
   );
 
@@ -40,13 +46,11 @@ export function registerExtractionTools(server: McpServer): void {
       },
     },
     async ({ sessionId, pattern, regex, caseSensitive, contextChars, cssScope, maxResults }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, {
-          name: "search_page",
-          params: { pattern, regex, caseSensitive, contextChars, cssScope, maxResults },
-        }),
-      );
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "search_page",
+        params: { pattern, regex, caseSensitive, contextChars, cssScope, maxResults },
+      });
     },
   );
 
@@ -63,13 +67,11 @@ export function registerExtractionTools(server: McpServer): void {
       },
     },
     async ({ sessionId, selector, attributes, maxResults, includeText }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, {
-          name: "find_elements",
-          params: { selector, attributes, maxResults, includeText },
-        }),
-      );
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "find_elements",
+        params: { selector, attributes, maxResults, includeText },
+      });
     },
   );
 
@@ -79,14 +81,18 @@ export function registerExtractionTools(server: McpServer): void {
       description: "Get dropdown options from select element [index].",
       inputSchema: {
         sessionId: z.string(),
-        index: z.number().int().nonnegative(),
+        index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
       },
     },
-    async ({ sessionId, index }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, { name: "get_dropdown_options", params: { index } }),
-      );
+    async ({ sessionId, index, ref }) => {
+      const resolved = indexFromRef({ index, ref });
+      if (typeof resolved !== "number") throw new Error("Provide index or ref, e.g. @e4.");
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "get_dropdown_options",
+        params: { index: resolved },
+      });
     },
   );
 
@@ -98,10 +104,22 @@ export function registerExtractionTools(server: McpServer): void {
     },
     async ({ sessionId, fileName }) => {
       const record = getSession(sessionId);
-      const result = await executeAction(record.page, {
-        name: "screenshot",
-        params: { fileName },
-      });
+      const result = await executeAction(
+        record.page,
+        {
+          name: "screenshot",
+          params: { fileName },
+        },
+        record.session,
+        undefined,
+        record.latestState?.selectorMap,
+        undefined,
+        undefined,
+        undefined,
+        {
+          snapshotElements: record.latestState?.elements,
+        },
+      );
       recordArtifact(record, "screenshot", result);
       return jsonResult(result);
     },
@@ -114,8 +132,8 @@ export function registerExtractionTools(server: McpServer): void {
       inputSchema: { sessionId: z.string(), text: z.string().min(1) },
     },
     async ({ sessionId, text }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "find_text", params: { text } }));
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "find_text", params: { text } });
     },
   );
 
@@ -134,10 +152,22 @@ export function registerExtractionTools(server: McpServer): void {
     },
     async ({ sessionId, fileName, printBackground, landscape, scale, paperFormat }) => {
       const record = getSession(sessionId);
-      const result = await executeAction(record.page, {
-        name: "save_as_pdf",
-        params: { fileName, printBackground, landscape, scale, paperFormat },
-      });
+      const result = await executeAction(
+        record.page,
+        {
+          name: "save_as_pdf",
+          params: { fileName, printBackground, landscape, scale, paperFormat },
+        },
+        record.session,
+        undefined,
+        record.latestState?.selectorMap,
+        undefined,
+        undefined,
+        undefined,
+        {
+          snapshotElements: record.latestState?.elements,
+        },
+      );
       recordArtifact(record, "pdf", result);
       return jsonResult(result);
     },
@@ -154,8 +184,8 @@ export function registerExtractionTools(server: McpServer): void {
       },
     },
     async ({ sessionId, expression }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "eval", params: { expression } }));
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "eval", params: { expression } });
     },
   );
 
@@ -173,13 +203,11 @@ export function registerExtractionTools(server: McpServer): void {
       },
     },
     async ({ sessionId, query, extractLinks, extractImages, startFromChar, maxChars }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, {
-          name: "extract_content",
-          params: { query, extractLinks, extractImages, startFromChar, maxChars },
-        }),
-      );
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "extract_content",
+        params: { query, extractLinks, extractImages, startFromChar, maxChars },
+      });
     },
   );
 }

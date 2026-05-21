@@ -13,11 +13,18 @@ import {
   type StepInfo,
   type TransportId,
 } from "@peteqian/browser-agent-sdk";
+import {
+  ensureBrowserExecutable,
+  getBrowserInstallStatus,
+  type BrowserChannel,
+} from "@peteqian/browser-agent-sdk/internal";
 
 import { runSkillsCommand } from "../src/commands/skills";
 import { runInstall, type InstallOptions } from "../src/install";
 import { runStateCommand } from "../src/commands/state";
 import { SummaryCollector, renderSummary } from "../src/commands/summary";
+import { getDashboardStatus, runDashboard } from "../src/dashboard/server";
+import { resolveBrowserPaths } from "../src/profiles";
 import type { ClientId } from "../src/install/detect";
 import type { SourceId } from "../src/install/snippet";
 
@@ -26,6 +33,18 @@ const TRANSPORTS: readonly (TransportId | "auto")[] = ["auto", "sdk-agent", "sdk
 const ENVS: readonly (EnvId | "auto")[] = ["auto", "local", "cloud"];
 const ENGINES = ["chrome", "lightpanda"] as const;
 type EngineId = (typeof ENGINES)[number];
+const BROWSER_CHANNELS: readonly BrowserChannel[] = [
+  "chromium",
+  "chrome",
+  "chrome-beta",
+  "chrome-dev",
+  "chrome-canary",
+  "msedge",
+  "msedge-beta",
+  "msedge-dev",
+  "msedge-canary",
+  "lightpanda",
+];
 
 interface CliOptions {
   task: string;
@@ -48,6 +67,9 @@ interface CliOptions {
   outputFile?: string;
   probe: boolean;
   engine: EngineId;
+  autoConsent: boolean;
+  profile?: string;
+  storageStatePath?: string;
   summary: boolean;
   fullSnapshots: boolean;
 }
@@ -57,7 +79,10 @@ function printHelp(): void {
 
 Usage:
   browser-agent "<task>" [flags]
+  browser-agent browser status              # check browser executable
+  browser-agent browser install             # install managed Chromium
   browser-agent install [--help]              # configure MCP clients
+  browser-agent dashboard [--port 3217]       # run local HTTP dashboard
   browser-agent state <subcommand> [--help]   # manage saved-state vault
   browser-agent --stdin                       # read task from stdin
   browser-agent --probe --provider <p>        # show what transport would resolve
@@ -70,6 +95,10 @@ Flags:
   --no-headless              Show the browser window.
   --headless                 Run headless (default).
   --engine <e>               ${ENGINES.join(" | ")}  (default: chrome)
+  --auto-consent             Auto-dismiss common cookie/consent banners (default).
+  --no-auto-consent          Disable auto consent handling.
+  --profile <name>           Named persistent browser profile under ~/.browser-agent.
+  --storage-state <path>     Load/save cookies + localStorage at this path.
 
 Provider:
   --provider <p>             ${PROVIDERS.join(" | ")}  (default: codex)
@@ -137,6 +166,9 @@ interface ConfigFile {
   env?: EnvId | "auto";
   outputFile?: string;
   engine?: EngineId;
+  autoConsent?: boolean;
+  profile?: string;
+  storageStatePath?: string;
 }
 
 function loadConfig(path: string): ConfigFile {
@@ -197,6 +229,10 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
       "max-failures": { type: "string" },
       "output-file": { type: "string" },
       engine: { type: "string" },
+      "auto-consent": { type: "boolean" },
+      "no-auto-consent": { type: "boolean" },
+      profile: { type: "string" },
+      "storage-state": { type: "string" },
       config: { type: "string" },
       stdin: { type: "boolean" },
       json: { type: "boolean" },
@@ -238,6 +274,11 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     : values.headless
       ? true
       : (config.headless ?? true);
+  const autoConsent = values["no-auto-consent"]
+    ? false
+    : values["auto-consent"]
+      ? true
+      : (config.autoConsent ?? true);
 
   let task = positionals.join(" ").trim();
   if (values.stdin) {
@@ -287,6 +328,9 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     outputFile: (values["output-file"] as string | undefined) ?? config.outputFile,
     probe: Boolean(values.probe),
     engine,
+    autoConsent,
+    profile: (values.profile as string | undefined) ?? config.profile,
+    storageStatePath: (values["storage-state"] as string | undefined) ?? config.storageStatePath,
     summary: Boolean(values.summary),
     fullSnapshots: Boolean(values["full-snapshots"]),
   };
@@ -376,10 +420,125 @@ Flags:
   return results.every((r) => r.ok) ? 0 : 1;
 }
 
+async function runDashboardCommand(argv: string[]): Promise<number> {
+  if (argv[0] === "status") return runDashboardStatus();
+  const { values } = parseArgs({
+    args: argv,
+    allowPositionals: false,
+    strict: true,
+    options: {
+      host: { type: "string" },
+      port: { type: "string" },
+      help: { type: "boolean", short: "h" },
+    },
+  });
+  if (values.help) {
+    console.log(`browser-agent dashboard — run local session dashboard.
+
+Usage:
+  browser-agent dashboard [--host 127.0.0.1] [--port 3217]
+  browser-agent dashboard status
+`);
+    return 0;
+  }
+  const port = values.port ? parseInt(values.port as string, "--port") : 3217;
+  const handle = await runDashboard({
+    host: (values.host as string | undefined) ?? "127.0.0.1",
+    port,
+  });
+  console.log(`browser-agent dashboard listening on ${handle.url}`);
+  await new Promise<void>((resolve) => {
+    process.once("SIGINT", resolve);
+    process.once("SIGTERM", resolve);
+  });
+  await handle.close();
+  return 0;
+}
+
+async function runDashboardStatus(): Promise<number> {
+  const status = await getDashboardStatus({ cleanStale: true });
+  console.log(JSON.stringify(status, null, 2));
+  return status.running ? 0 : 1;
+}
+
+async function runBrowserCommand(argv: string[]): Promise<number> {
+  const subcommand = argv[0]?.startsWith("-") ? "status" : (argv[0] ?? "status");
+  if (!["status", "install"].includes(subcommand)) {
+    throw new Error(
+      `Unknown browser subcommand: ${subcommand}. Run 'browser-agent browser --help'.`,
+    );
+  }
+
+  const { values } = parseArgs({
+    args: argv[0]?.startsWith("-") ? argv : argv.slice(1),
+    allowPositionals: false,
+    strict: true,
+    options: {
+      channel: { type: "string" },
+      json: { type: "boolean" },
+      help: { type: "boolean", short: "h" },
+    },
+  });
+
+  if (values.help) {
+    console.log(`browser-agent browser — inspect or install the browser runtime.
+
+Usage:
+  browser-agent browser status [--channel chromium]
+  browser-agent browser install [--channel chromium]
+
+Flags:
+  --channel <c>       ${BROWSER_CHANNELS.join(" | ")} (default: chromium)
+  --json              Print machine-readable JSON
+  --help, -h
+
+Notes:
+  install uses Playwright's managed Chromium download. It does not remove cookie
+  banners by itself; use persistent profiles and auto-consent for that.
+`);
+    return 0;
+  }
+
+  const channel = values.channel
+    ? parseEnum<BrowserChannel>(values.channel as string, BROWSER_CHANNELS, "--channel")
+    : "chromium";
+  const result =
+    subcommand === "install"
+      ? await ensureBrowserExecutable(channel)
+      : { ...getBrowserInstallStatus(channel), installedNow: false };
+
+  if (values.json) {
+    console.log(JSON.stringify(result, null, 2));
+    return result.found ? 0 : 1;
+  }
+
+  if (result.found) {
+    const installNote = result.installedNow ? "installed now" : "already available";
+    console.log(`browser-agent browser: ${channel} ${installNote}`);
+    console.log(`executable: ${result.executablePath}`);
+    return 0;
+  }
+
+  if (!result.installable) {
+    console.log(`browser-agent browser: ${channel} was not found and is not auto-installable.`);
+    return 1;
+  }
+
+  console.log(`browser-agent browser: ${channel} was not found.`);
+  console.log(`Run: browser-agent browser install --channel ${channel}`);
+  return 1;
+}
+
 async function main(): Promise<number> {
   const argv = process.argv.slice(2);
+  if (argv[0] === "browser") {
+    return runBrowserCommand(argv.slice(1));
+  }
   if (argv[0] === "install") {
     return runInstallCommand(argv.slice(1));
+  }
+  if (argv[0] === "dashboard") {
+    return runDashboardCommand(argv.slice(1));
   }
   if (argv[0] === "skills") {
     return runSkillsCommand(argv.slice(1));
@@ -453,6 +612,10 @@ async function main(): Promise<number> {
   process.on("SIGINT", handleInt);
   process.on("SIGTERM", handleTerm);
 
+  const browserPaths = resolveBrowserPaths({
+    profile: opts.profile,
+    storageStatePath: opts.storageStatePath,
+  });
   const agentOptions = {
     task: opts.task,
     startUrl: opts.url,
@@ -463,6 +626,9 @@ async function main(): Promise<number> {
     maxFailures: opts.maxFailures,
     launch: {
       headless: opts.headless,
+      autoConsent: opts.autoConsent,
+      userDataDir: browserPaths.userDataDir,
+      storageStatePath: browserPaths.storageStatePath,
       ...(opts.engine === "lightpanda" ? { channel: "lightpanda" as const } : {}),
     },
     decide,

@@ -66,7 +66,7 @@ export class SkillRegistry {
         const mdFiles = entries
           .filter((e) => e.isFile() && e.name.endsWith(".md"))
           .map((e) => e.name)
-          .sort();
+          .toSorted();
         for (const file of mdFiles) {
           const body = await readFile(join(referencesDir, file), "utf-8");
           refs.push({ file, body });

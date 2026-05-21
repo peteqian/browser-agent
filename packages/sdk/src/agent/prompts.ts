@@ -15,6 +15,7 @@ At each step you receive:
 Action catalog: the per-turn catalog lists what's available. Two action families exist:
 
   PREFERRED (semantic): click_by, type_by, select_by, focus_area, extract_content.
+  WEBPAGE-NATIVE INPUT: focus, fill, keyboard_type, press — use these when autocomplete or dynamic UI must react to real focused input.
   LEGACY (index-based): click, type, select_option — only when no stable handle exists. Indices reshuffle every observation; do not reuse an index from a prior turn.
 
 Output: an ordered \`actions\` array (1 to 5 actions) plus planning fields \`memory\`, \`nextGoal\`, \`plan\`. Set \`done=true\` and provide a \`summary\` (and \`data\` when the task asked for structured output) to end.

@@ -105,7 +105,12 @@ describe("captureCdpSnapshot", () => {
   test("filters non-interactive and hidden nodes; assigns sequential indexes", async () => {
     const snapshot = buildSnapshot([
       { tag: "div", backendNodeId: 10, bounds: [0, 0, 50, 50] }, // not interactive
-      { tag: "button", backendNodeId: 11, bounds: [0, 0, 50, 50] },
+      {
+        tag: "button",
+        backendNodeId: 11,
+        attributes: [["aria-label", "Visible"]],
+        bounds: [0, 0, 50, 50],
+      },
       { tag: "button", backendNodeId: 12, display: "none", bounds: [0, 0, 50, 50] },
       {
         tag: "button",
@@ -162,9 +167,9 @@ describe("captureCdpSnapshot", () => {
 
   test("sorts elements by paint order", async () => {
     const snapshot = buildSnapshot([
-      { tag: "button", backendNodeId: 1, paintOrder: 5 },
-      { tag: "button", backendNodeId: 2, paintOrder: 1 },
-      { tag: "button", backendNodeId: 3, paintOrder: 3 },
+      { tag: "button", backendNodeId: 1, attributes: [["aria-label", "One"]], paintOrder: 5 },
+      { tag: "button", backendNodeId: 2, attributes: [["aria-label", "Two"]], paintOrder: 1 },
+      { tag: "button", backendNodeId: 3, attributes: [["aria-label", "Three"]], paintOrder: 3 },
     ]);
     const page = makePage({
       "Accessibility.getFullAXTree": { nodes: [] },
@@ -181,6 +186,7 @@ describe("captureCdpSnapshot", () => {
     const nodes = Array.from({ length: 10 }, (_, i) => ({
       tag: "button",
       backendNodeId: 100 + i,
+      attributes: [["aria-label", `Button ${i}`]] as Array<[string, string]>,
       paintOrder: i,
     }));
     const snapshot = buildSnapshot(nodes);
@@ -199,7 +205,14 @@ describe("captureCdpSnapshot", () => {
 
   test("includes role from attribute fallback when AX tree is missing", async () => {
     const snapshot = buildSnapshot([
-      { tag: "div", backendNodeId: 9, attributes: [["role", "button"]] },
+      {
+        tag: "div",
+        backendNodeId: 9,
+        attributes: [
+          ["role", "button"],
+          ["aria-label", "Role button"],
+        ],
+      },
     ]);
     const page = makePage({
       "Accessibility.getFullAXTree": { nodes: [] },

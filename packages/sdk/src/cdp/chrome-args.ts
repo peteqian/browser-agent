@@ -106,6 +106,8 @@ export const CHROME_DEFAULT_ARGS = [
   "--disable-extensions-http-throttling",
   "--extensions-on-chrome-urls",
   "--disable-default-apps",
+  "--window-size=1280,900",
+  "--force-device-scale-factor=1",
   `--disable-features=${CHROME_DISABLED_COMPONENTS.join(",")}`,
 ];
 

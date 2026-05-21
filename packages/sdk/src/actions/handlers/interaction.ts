@@ -62,6 +62,18 @@ export async function handleClick(
   return finalizeOk();
 }
 
+export async function handleFocus(
+  ctx: HandlerContext,
+  action: ByName<"focus">,
+): Promise<ActionResult> {
+  const resolved = resolveBackendId(ctx.selectorMap, action.params.index);
+  if (!resolved.ok) return fail(resolved.message);
+  const result = await ctx.page.focusByBackendNodeId(resolved.backendNodeId);
+  if (result.ok) return ok(`Focused [${action.params.index}]`);
+  if (result.reason === "index_stale") return fail(staleMessage(action.params.index));
+  return fail(`Element [${action.params.index}] not focusable`);
+}
+
 function findElementByIndex(
   ctx: HandlerContext,
   index: number,
@@ -162,6 +174,25 @@ export async function handleType(
   return fail(`Element [${action.params.index}] failed value verification`);
 }
 
+export async function handleFill(
+  ctx: HandlerContext,
+  action: ByName<"fill">,
+): Promise<ActionResult> {
+  const result = await handleType(ctx, {
+    name: "type",
+    params: {
+      index: action.params.index,
+      text: action.params.text,
+      submit: action.params.submit,
+      mode: "replace",
+    },
+  });
+  if (!result.ok) return result;
+  return ok(`Filled [${action.params.index}]${action.params.submit ? " and submitted" : ""}`, {
+    longTermMemory: `Filled [${action.params.index}]`,
+  });
+}
+
 export async function handleScroll(
   ctx: HandlerContext,
   action: ByName<"scroll">,
@@ -194,6 +225,26 @@ export async function handleSendKeys(
 ): Promise<ActionResult> {
   await ctx.page.sendKeys(action.params.keys);
   return ok(`Sent keys: ${action.params.keys}`);
+}
+
+export async function handlePress(
+  ctx: HandlerContext,
+  action: ByName<"press">,
+): Promise<ActionResult> {
+  await ctx.page.pressKey(action.params.key);
+  return ok(`Pressed key: ${action.params.key}`);
+}
+
+export async function handleKeyboardType(
+  ctx: HandlerContext,
+  action: ByName<"keyboard_type">,
+): Promise<ActionResult> {
+  const sub = substituteSecrets(action.params.text, ctx.sensitiveData);
+  if (!sub.ok) {
+    return fail(`Keyboard type aborted: unknown secret placeholder <secret>${sub.key}</secret>`);
+  }
+  await ctx.page.keyboardType(sub.value);
+  return ok("Typed text with keyboard input");
 }
 
 export async function handleSelectOption(

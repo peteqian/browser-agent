@@ -17,12 +17,16 @@ import {
 import {
   handleClick,
   handleDblclick,
+  handleFill,
+  handleFocus,
   handleHover,
+  handleKeyboardType,
   handleScroll,
   handleClickBy,
   handleSelectBy,
   handleSelectOption,
   handleSendKeys,
+  handlePress,
   handleType,
   handleTypeBy,
   handleUploadFile,
@@ -92,14 +96,22 @@ export async function executeAction(
         return await handleNavigate(ctx, action);
       case "click":
         return await handleClick(ctx, action);
+      case "focus":
+        return await handleFocus(ctx, action);
       case "type":
         return await handleType(ctx, action);
+      case "fill":
+        return await handleFill(ctx, action);
       case "scroll":
         return await handleScroll(ctx, action);
       case "wait":
         return await handleWait(ctx, action);
       case "send_keys":
         return await handleSendKeys(ctx, action);
+      case "press":
+        return await handlePress(ctx, action);
+      case "keyboard_type":
+        return await handleKeyboardType(ctx, action);
       case "select_option":
         return await handleSelectOption(ctx, action);
       case "upload_file":

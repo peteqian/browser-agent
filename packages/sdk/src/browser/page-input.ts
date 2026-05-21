@@ -7,6 +7,16 @@ export async function clickByBackendNodeId(
   page: Page,
   backendNodeId: number,
 ): Promise<{ ok: true } | { ok: false; reason: "index_stale" }> {
+  const direct = await clickDirectForFormControl(page, backendNodeId);
+  if (direct.ok) return { ok: true };
+  if (direct.reason === "index_stale") return { ok: false, reason: "index_stale" };
+
+  const point = await clickPointForBackendNode(page, backendNodeId);
+  if (point.ok) {
+    await clickAtCoordinates(page, point.x, point.y);
+    return { ok: true };
+  }
+
   const result = await page.callOnBackendNode<void>(
     backendNodeId,
     `function() {
@@ -16,6 +26,77 @@ export async function clickByBackendNodeId(
     }`,
   );
   return result.ok ? { ok: true } : { ok: false, reason: "index_stale" };
+}
+
+async function clickDirectForFormControl(
+  page: Page,
+  backendNodeId: number,
+): Promise<{ ok: true } | { ok: false; reason: "not_form_control" | "index_stale" }> {
+  const result = await page.callOnBackendNode<"clicked" | "not_form_control">(
+    backendNodeId,
+    `function() {
+      const tag = this.tagName;
+      const type = String(this.type || "").toLowerCase();
+      const isNativeChoice = tag === "INPUT" && (type === "checkbox" || type === "radio");
+      if (!isNativeChoice) {
+        return "not_form_control";
+      }
+      this.scrollIntoView({ block: "center", inline: "center" });
+      const label = this.closest("label") || (this.id ? document.querySelector(\`label[for="\${CSS.escape(this.id)}"]\`) : null);
+      if (label && typeof label.click === "function") label.click();
+      else this.click();
+      return "clicked";
+    }`,
+  );
+  if (!result.ok) return { ok: false, reason: "index_stale" };
+  return result.value === "clicked" ? { ok: true } : { ok: false, reason: "not_form_control" };
+}
+
+async function clickPointForBackendNode(
+  page: Page,
+  backendNodeId: number,
+): Promise<{ ok: true; x: number; y: number } | { ok: false }> {
+  const rect = await page.callOnBackendNode<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    right: number;
+    bottom: number;
+  }>(
+    backendNodeId,
+    `function() {
+      const read = () => {
+        const r = this.getBoundingClientRect();
+        return {
+          x: r.left,
+          y: r.top,
+          width: r.width,
+          height: r.height,
+          right: r.right,
+          bottom: r.bottom,
+        };
+      };
+      let r = read();
+      const visible =
+        r.width > 0 &&
+        r.height > 0 &&
+        r.x >= 0 &&
+        r.y >= 0 &&
+        r.right <= window.innerWidth &&
+        r.bottom <= window.innerHeight;
+      if (!visible) {
+        this.scrollIntoView({ block: "center", inline: "center" });
+        r = read();
+      }
+      return r;
+    }`,
+  );
+  if (!rect.ok) return { ok: false };
+  const x = rect.value.x + rect.value.width / 2;
+  const y = rect.value.y + rect.value.height / 2;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return { ok: false };
+  return { ok: true, x, y };
 }
 
 export async function clickAtCoordinates(page: Page, x: number, y: number): Promise<void> {
@@ -42,6 +123,17 @@ export async function clickAtCoordinates(page: Page, x: number, y: number): Prom
   });
 }
 
+export async function focusByBackendNodeId(
+  page: Page,
+  backendNodeId: number,
+): Promise<
+  { ok: true } | { ok: false; reason: "index_stale" } | { ok: false; reason: "not_typable" }
+> {
+  const result = await focusTypableByBackendNodeId(page, backendNodeId, "keep");
+  if (!result.ok) return result;
+  return { ok: true };
+}
+
 export async function typeByBackendNodeId(
   page: Page,
   backendNodeId: number,
@@ -54,61 +146,110 @@ export async function typeByBackendNodeId(
   | { ok: false; reason: "not_typable" }
   | { ok: false; reason: "value_mismatch" }
 > {
-  type TypeJsResult =
-    | "not_typable"
-    | { kind: "ok" }
-    | { kind: "value_mismatch"; expected: string; actual: string };
-  const result = await page.callOnBackendNode<TypeJsResult>(
+  const focused = await focusTypableByBackendNodeId(
+    page,
     backendNodeId,
-    `function(text, submit, mode) {
-      const tag = this.tagName;
-      const isInputLike = tag === "INPUT" || tag === "TEXTAREA";
-      if (!isInputLike && !this.isContentEditable) return "not_typable";
-      this.focus();
+    mode === "replace" ? "clear" : "keep",
+  );
+  if (!focused.ok) return focused;
+
+  const point = await clickPointForBackendNode(page, backendNodeId);
+  if (point.ok) {
+    await clickAtCoordinates(page, point.x, point.y);
+    if (mode === "replace") await clearActiveElement(page);
+  }
+
+  await keyboardType(page, text);
+  if (submit) await pressKey(page, "Enter");
+
+  const actual = await readTypableValue(page, backendNodeId);
+  if (!actual.ok) return actual;
+  if (mode === "replace" && actual.value !== text) {
+    return { ok: false, reason: "value_mismatch" };
+  }
+  if (mode === "append" && !actual.value.endsWith(text)) {
+    return { ok: false, reason: "value_mismatch" };
+  }
+  return { ok: true };
+}
+
+async function focusTypableByBackendNodeId(
+  page: Page,
+  backendNodeId: number,
+  mode: "clear" | "keep",
+): Promise<
+  { ok: true } | { ok: false; reason: "index_stale" } | { ok: false; reason: "not_typable" }
+> {
+  type FocusJsResult = "not_typable" | { kind: "ok" };
+  const result = await page.callOnBackendNode<FocusJsResult>(
+    backendNodeId,
+    `function(mode) {
+      const findTypable = (el) => {
+        const tag = el.tagName;
+        const isInputLike = tag === "INPUT" || tag === "TEXTAREA";
+        if (isInputLike || el.isContentEditable) return el;
+        if (!el.querySelector) return null;
+        return el.querySelector("input:not([type='hidden']), textarea, [contenteditable='true']");
+      };
+      const target = findTypable(this);
+      if (!target) return "not_typable";
+      const tag = target.tagName;
+      target.scrollIntoView({ block: "center", inline: "center" });
+      target.focus();
       const setValue = (v) => {
-        if (this.isContentEditable) { this.textContent = v; return; }
+        if (target.isContentEditable) { target.textContent = v; return; }
         const proto = tag === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
         const desc = Object.getOwnPropertyDescriptor(proto, "value");
         const setter = desc && desc.set;
-        if (setter) setter.call(this, v); else this.value = v;
+        if (setter) setter.call(target, v); else target.value = v;
       };
-      if (mode === "replace") {
-        try { if (typeof this.select === "function") this.select(); } catch (_) {}
+      if (mode === "clear") {
+        try { if (typeof target.select === "function") target.select(); } catch (_) {}
         setValue("");
-        this.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+        target.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "deleteContentBackward" }));
+        target.dispatchEvent(new Event("change", { bubbles: true }));
       }
-      const prefix = mode === "append"
-        ? (this.isContentEditable ? (this.textContent || "") : (this.value || ""))
-        : "";
-      const expected = prefix + text;
-      setValue(expected);
-      this.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
-      this.dispatchEvent(new Event("change", { bubbles: true }));
-      if (submit) {
-        const form = this.form;
-        if (form) {
-          if (form.requestSubmit) form.requestSubmit(); else form.submit();
-        } else {
-          this.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-          this.dispatchEvent(new KeyboardEvent("keyup", { key: "Enter", bubbles: true }));
-        }
-      }
-      const actual = this.isContentEditable ? (this.textContent || "") : (this.value || "");
-      if (actual !== expected) return { kind: "value_mismatch", expected: expected, actual: actual };
       return { kind: "ok" };
     }`,
-    [text, submit, mode],
+    [mode],
   );
   if (!result.ok) {
     if (result.reason === "index_stale") return { ok: false, reason: "index_stale" };
     return { ok: false, reason: "not_typable" };
   }
   if (result.value === "not_typable") return { ok: false, reason: "not_typable" };
-  if (typeof result.value === "object" && result.value.kind === "value_mismatch") {
-    // Discard expected/actual at this boundary — they may contain a secret.
-    return { ok: false, reason: "value_mismatch" };
-  }
   return { ok: true };
+}
+
+async function readTypableValue(
+  page: Page,
+  backendNodeId: number,
+): Promise<
+  | { ok: true; value: string }
+  | { ok: false; reason: "index_stale" }
+  | { ok: false; reason: "not_typable" }
+> {
+  const result = await page.callOnBackendNode<string | "not_typable">(
+    backendNodeId,
+    `function() {
+      const findTypable = (el) => {
+        const tag = el.tagName;
+        const isInputLike = tag === "INPUT" || tag === "TEXTAREA";
+        if (isInputLike || el.isContentEditable) return el;
+        if (!el.querySelector) return null;
+        return el.querySelector("input:not([type='hidden']), textarea, [contenteditable='true']");
+      };
+      const target = findTypable(this);
+      if (!target) return "not_typable";
+      return target.isContentEditable ? (target.textContent || "") : (target.value || "");
+    }`,
+  );
+  if (!result.ok) {
+    if (result.reason === "index_stale") return { ok: false, reason: "index_stale" };
+    return { ok: false, reason: "not_typable" };
+  }
+  if (result.value === "not_typable") return { ok: false, reason: "not_typable" };
+  return { ok: true, value: result.value };
 }
 
 export async function selectOptionByBackendNodeId(
@@ -187,6 +328,45 @@ export async function sendKeys(page: Page, keys: string): Promise<void> {
       modifiers: modifierMask,
     });
   }
+}
+
+export async function pressKey(page: Page, key: string): Promise<void> {
+  await sendKeys(page, key);
+}
+
+export async function keyboardType(page: Page, text: string): Promise<void> {
+  for (const char of Array.from(text)) {
+    await page.sendCDP("Input.dispatchKeyEvent", {
+      type: "char",
+      text: char,
+      unmodifiedText: char,
+    });
+  }
+}
+
+async function clearActiveElement(page: Page): Promise<void> {
+  await page.sendCDP("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "a",
+    code: "KeyA",
+    modifiers: 2,
+  });
+  await page.sendCDP("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "a",
+    code: "KeyA",
+    modifiers: 2,
+  });
+  await page.sendCDP("Input.dispatchKeyEvent", {
+    type: "keyDown",
+    key: "Backspace",
+    code: "Backspace",
+  });
+  await page.sendCDP("Input.dispatchKeyEvent", {
+    type: "keyUp",
+    key: "Backspace",
+    code: "Backspace",
+  });
 }
 
 /**

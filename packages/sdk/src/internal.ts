@@ -7,6 +7,12 @@
 export { CDPClient } from "./cdp/client";
 export { launchBrowser } from "./cdp/launch";
 export type { LaunchOptions, LaunchedBrowser } from "./cdp/launch";
+export {
+  discoverBrowserExecutable,
+  ensureBrowserExecutable,
+  getBrowserInstallStatus,
+} from "./cdp/discovery";
+export type { BrowserChannel, BrowserInstallResult, BrowserInstallStatus } from "./cdp/discovery";
 
 export { BrowserProfile } from "./browser/profile";
 export type {

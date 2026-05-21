@@ -25,7 +25,10 @@ import {
   clickAtCoordinates,
   clickByBackendNodeId,
   findNearestFileInputBackendNodeId,
+  focusByBackendNodeId,
   getDropdownOptionsByBackendNodeId,
+  keyboardType,
+  pressKey,
   scroll,
   scrollByPages,
   selectOptionByBackendNodeId,
@@ -197,8 +200,8 @@ export class Page {
   // Delegating wrappers — public API surface.
   // ============================================================
 
-  goto(url: string, waitUntil?: "load" | "domcontentloaded"): Promise<void> {
-    return goto(this, url, waitUntil);
+  goto(url: string, waitUntil?: "load" | "domcontentloaded", timeoutMs?: number): Promise<void> {
+    return goto(this, url, waitUntil, timeoutMs);
   }
   goBack(): Promise<boolean> {
     return goBack(this);
@@ -228,6 +231,9 @@ export class Page {
   clickAtCoordinates(x: number, y: number): Promise<void> {
     return clickAtCoordinates(this, x, y);
   }
+  focusByBackendNodeId(backendNodeId: number) {
+    return focusByBackendNodeId(this, backendNodeId);
+  }
   typeByBackendNodeId(
     backendNodeId: number,
     text: string,
@@ -241,6 +247,12 @@ export class Page {
   }
   sendKeys(keys: string): Promise<void> {
     return sendKeys(this, keys);
+  }
+  pressKey(key: string): Promise<void> {
+    return pressKey(this, key);
+  }
+  keyboardType(text: string): Promise<void> {
+    return keyboardType(this, text);
   }
   findNearestFileInputBackendNodeId(backendNodeId: number) {
     return findNearestFileInputBackendNodeId(this, backendNodeId);

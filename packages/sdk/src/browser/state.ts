@@ -52,7 +52,7 @@ export async function captureBrowserState(
   session?: BrowserSession,
   options: BrowserStateOptions = {},
 ): Promise<BrowserStateSummary> {
-  await page.waitForStablePage(3_000).catch(() => {
+  await page.waitForStablePage(700).catch(() => {
     // A usable state is better than failing the whole step because the page is busy.
   });
 

@@ -4,6 +4,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { PACKAGE_NAME, VERSION } from "../version";
 
 import { registerAgentTool } from "./tools/agent";
+import { registerDaemonTools } from "./tools/daemon";
 import { registerDialogTools } from "./tools/dialog";
 import { registerExtractionTools } from "./tools/extraction";
 import { registerInteractionTools } from "./tools/interaction";
@@ -27,6 +28,7 @@ export { buildProgressForwarder } from "./helpers";
 export function createServer(): McpServer {
   const server = new McpServer({ name: PACKAGE_NAME, version: VERSION });
   registerSessionTools(server);
+  registerDaemonTools(server);
   registerNavigationTools(server);
   registerInteractionTools(server);
   registerExtractionTools(server);
@@ -68,6 +70,7 @@ export async function runStdioServer(): Promise<RunStdioServerHandle> {
     resolveClosed();
   };
 
+  // oxlint-disable-next-line unicorn/prefer-add-event-listener -- MCP transport exposes onclose.
   transport.onclose = () => {
     void dispose();
   };

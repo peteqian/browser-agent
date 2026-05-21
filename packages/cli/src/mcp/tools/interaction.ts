@@ -1,12 +1,138 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import { executeAction } from "@peteqian/browser-agent-sdk/internal";
-import { jsonResult } from "../helpers";
+import type { Action } from "@peteqian/browser-agent-sdk/internal";
+import { indexFromRef, runSessionAction, runSessionActions } from "../helpers";
 import { getSession } from "../sessions";
+
+const elementRef = z.string().regex(/^@?e\d+$/, "Use @eN from the latest observation.");
+const maybeElementRef = {
+  index: z.number().int().nonnegative().optional(),
+  ref: elementRef.optional(),
+};
+const batchActionSchema = z.discriminatedUnion("name", [
+  z.object({
+    name: z.literal("click"),
+    ...maybeElementRef,
+    coordinateX: z.number().int().optional(),
+    coordinateY: z.number().int().optional(),
+  }),
+  z.object({ name: z.literal("focus"), ...maybeElementRef }),
+  z.object({
+    name: z.literal("type"),
+    ...maybeElementRef,
+    text: z.string(),
+    submit: z.boolean().optional(),
+    mode: z.enum(["replace", "append"]).optional(),
+  }),
+  z.object({
+    name: z.literal("fill"),
+    ...maybeElementRef,
+    text: z.string(),
+    submit: z.boolean().optional(),
+  }),
+  z.object({ name: z.literal("press"), key: z.string().min(1) }),
+  z.object({ name: z.literal("keyboard_type"), text: z.string().min(1) }),
+  z.object({ name: z.literal("send_keys"), keys: z.string().min(1) }),
+  z.object({ name: z.literal("wait"), ms: z.number().int().positive().max(10_000) }),
+  z.object({
+    name: z.literal("scroll"),
+    direction: z.enum(["up", "down", "top", "bottom"]),
+    amount: z.number().int().positive().optional(),
+    pages: z.number().positive().max(10).optional(),
+    ...maybeElementRef,
+  }),
+  z.object({ name: z.literal("hover"), ...maybeElementRef }),
+  z.object({ name: z.literal("dblclick"), ...maybeElementRef }),
+  z.object({
+    name: z.literal("select_option"),
+    ...maybeElementRef,
+    value: z.string().min(1),
+  }),
+]);
+
+function readIndex(input: { index?: number; ref?: string }): number {
+  const index = indexFromRef(input);
+  if (typeof index === "number") return index;
+  throw new Error("Provide index or ref, e.g. @e4.");
+}
+
+function toBatchAction(input: z.infer<typeof batchActionSchema>): Action {
+  switch (input.name) {
+    case "click":
+      return {
+        name: "click",
+        params: {
+          index: indexFromRef(input),
+          coordinateX: input.coordinateX,
+          coordinateY: input.coordinateY,
+        },
+      };
+    case "focus":
+      return { name: "focus", params: { index: readIndex(input) } };
+    case "type":
+      return {
+        name: "type",
+        params: {
+          index: readIndex(input),
+          text: input.text,
+          submit: input.submit,
+          mode: input.mode ?? "replace",
+        },
+      };
+    case "fill":
+      return {
+        name: "fill",
+        params: { index: readIndex(input), text: input.text, submit: input.submit },
+      };
+    case "press":
+      return { name: "press", params: { key: input.key } };
+    case "keyboard_type":
+      return { name: "keyboard_type", params: { text: input.text } };
+    case "send_keys":
+      return { name: "send_keys", params: { keys: input.keys } };
+    case "wait":
+      return { name: "wait", params: { ms: input.ms } };
+    case "scroll":
+      return {
+        name: "scroll",
+        params: {
+          direction: input.direction,
+          amount: input.amount,
+          pages: input.pages,
+          index: indexFromRef(input),
+        },
+      };
+    case "hover":
+      return { name: "hover", params: { index: readIndex(input) } };
+    case "dblclick":
+      return { name: "dblclick", params: { index: readIndex(input) } };
+    case "select_option":
+      return {
+        name: "select_option",
+        params: { index: readIndex(input), value: input.value },
+      };
+  }
+}
 
 export function registerInteractionTools(server: McpServer): void {
   const registerTool = server.registerTool.bind(server) as ToolRegistrar;
+  registerTool(
+    "run_actions",
+    {
+      description:
+        "Run 1-10 simple page actions in order and return one final observation. Use only when no intermediate observation is needed.",
+      inputSchema: {
+        sessionId: z.string(),
+        actions: z.array(batchActionSchema).min(1).max(10),
+      },
+    },
+    async ({ sessionId, actions }) => {
+      const record = getSession(sessionId);
+      return runSessionActions(record, actions.map(toBatchAction));
+    },
+  );
+
   registerTool(
     "send_keys",
     {
@@ -14,8 +140,32 @@ export function registerInteractionTools(server: McpServer): void {
       inputSchema: { sessionId: z.string(), keys: z.string().min(1) },
     },
     async ({ sessionId, keys }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "send_keys", params: { keys } }));
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "send_keys", params: { keys } });
+    },
+  );
+
+  registerTool(
+    "press",
+    {
+      description: "Press a keyboard key or chord on the active element, e.g. Enter or Meta+A.",
+      inputSchema: { sessionId: z.string(), key: z.string().min(1) },
+    },
+    async ({ sessionId, key }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "press", params: { key } });
+    },
+  );
+
+  registerTool(
+    "keyboard_type",
+    {
+      description: "Type text into the currently focused element using browser keyboard input.",
+      inputSchema: { sessionId: z.string(), text: z.string().min(1) },
+    },
+    async ({ sessionId, text }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "keyboard_type", params: { text } });
     },
   );
 
@@ -25,15 +175,17 @@ export function registerInteractionTools(server: McpServer): void {
       description: "Select option on dropdown element [index] by label or value.",
       inputSchema: {
         sessionId: z.string(),
-        index: z.number().int().nonnegative(),
+        index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
         value: z.string().min(1),
       },
     },
-    async ({ sessionId, index, value }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, { name: "select_option", params: { index, value } }),
-      );
+    async ({ sessionId, index, ref, value }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "select_option",
+        params: { index: readIndex({ index, ref }), value },
+      });
     },
   );
 
@@ -43,15 +195,17 @@ export function registerInteractionTools(server: McpServer): void {
       description: "Upload local file path(s) to input element [index].",
       inputSchema: {
         sessionId: z.string(),
-        index: z.number().int().nonnegative(),
+        index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
         paths: z.array(z.string().min(1)).min(1),
       },
     },
-    async ({ sessionId, index, paths }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, { name: "upload_file", params: { index, paths } }),
-      );
+    async ({ sessionId, index, ref, paths }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "upload_file",
+        params: { index: readIndex({ index, ref }), paths },
+      });
     },
   );
 
@@ -66,10 +220,8 @@ export function registerInteractionTools(server: McpServer): void {
       },
     },
     async ({ sessionId, text, timeoutMs }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, { name: "wait_for_text", params: { text, timeoutMs } }),
-      );
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "wait_for_text", params: { text, timeoutMs } });
     },
   );
 
@@ -83,8 +235,8 @@ export function registerInteractionTools(server: McpServer): void {
       },
     },
     async ({ sessionId, ms }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "wait", params: { ms } }));
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "wait", params: { ms } });
     },
   );
 
@@ -95,18 +247,36 @@ export function registerInteractionTools(server: McpServer): void {
       inputSchema: {
         sessionId: z.string(),
         index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
         coordinateX: z.number().int().optional(),
         coordinateY: z.number().int().optional(),
       },
     },
-    async ({ sessionId, index, coordinateX, coordinateY }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, {
-          name: "click",
-          params: { index, coordinateX, coordinateY },
-        }),
-      );
+    async ({ sessionId, index, ref, coordinateX, coordinateY }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "click",
+        params: { index: indexFromRef({ index, ref }), coordinateX, coordinateY },
+      });
+    },
+  );
+
+  registerTool(
+    "focus",
+    {
+      description: "Focus element [index] or ref @eN.",
+      inputSchema: {
+        sessionId: z.string(),
+        index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
+      },
+    },
+    async ({ sessionId, index, ref }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "focus",
+        params: { index: readIndex({ index, ref }) },
+      });
     },
   );
 
@@ -117,20 +287,41 @@ export function registerInteractionTools(server: McpServer): void {
         "Type text into element [index]. Set submit=true to press Enter. mode='replace' (default) clears the field first; mode='append' keeps the existing value.",
       inputSchema: {
         sessionId: z.string(),
-        index: z.number().int().nonnegative(),
+        index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
         text: z.string(),
         submit: z.boolean().optional(),
         mode: z.enum(["replace", "append"]).optional(),
       },
     },
-    async ({ sessionId, index, text, submit, mode }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, {
-          name: "type",
-          params: { index, text, submit, mode: mode ?? "replace" },
-        }),
-      );
+    async ({ sessionId, index, ref, text, submit, mode }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "type",
+        params: { index: readIndex({ index, ref }), text, submit, mode: mode ?? "replace" },
+      });
+    },
+  );
+
+  registerTool(
+    "fill",
+    {
+      description:
+        "Focus and replace text in element [index] or ref @eN using browser-native input events.",
+      inputSchema: {
+        sessionId: z.string(),
+        index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
+        text: z.string(),
+        submit: z.boolean().optional(),
+      },
+    },
+    async ({ sessionId, index, ref, text, submit }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "fill",
+        params: { index: readIndex({ index, ref }), text, submit },
+      });
     },
   );
 
@@ -138,11 +329,18 @@ export function registerInteractionTools(server: McpServer): void {
     "hover",
     {
       description: "Hover the mouse over element [index].",
-      inputSchema: { sessionId: z.string(), index: z.number().int().nonnegative() },
+      inputSchema: {
+        sessionId: z.string(),
+        index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
+      },
     },
-    async ({ sessionId, index }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "hover", params: { index } }));
+    async ({ sessionId, index, ref }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "hover",
+        params: { index: readIndex({ index, ref }) },
+      });
     },
   );
 
@@ -150,11 +348,18 @@ export function registerInteractionTools(server: McpServer): void {
     "dblclick",
     {
       description: "Double-click element [index].",
-      inputSchema: { sessionId: z.string(), index: z.number().int().nonnegative() },
+      inputSchema: {
+        sessionId: z.string(),
+        index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
+      },
     },
-    async ({ sessionId, index }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "dblclick", params: { index } }));
+    async ({ sessionId, index, ref }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "dblclick",
+        params: { index: readIndex({ index, ref }) },
+      });
     },
   );
 
@@ -169,10 +374,8 @@ export function registerInteractionTools(server: McpServer): void {
       },
     },
     async ({ sessionId, role, name }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, { name: "find_by_role", params: { role, name } }),
-      );
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "find_by_role", params: { role, name } });
     },
   );
 
@@ -184,8 +387,8 @@ export function registerInteractionTools(server: McpServer): void {
       inputSchema: { sessionId: z.string(), text: z.string().min(1) },
     },
     async ({ sessionId, text }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "find_by_text", params: { text } }));
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "find_by_text", params: { text } });
     },
   );
 
@@ -196,8 +399,8 @@ export function registerInteractionTools(server: McpServer): void {
       inputSchema: { sessionId: z.string(), testid: z.string().min(1) },
     },
     async ({ sessionId, testid }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(await executeAction(page, { name: "find_by_testid", params: { testid } }));
+      const record = getSession(sessionId);
+      return runSessionAction(record, { name: "find_by_testid", params: { testid } });
     },
   );
 
@@ -211,16 +414,15 @@ export function registerInteractionTools(server: McpServer): void {
         amount: z.number().int().positive().optional(),
         pages: z.number().positive().max(10).optional(),
         index: z.number().int().nonnegative().optional(),
+        ref: elementRef.optional(),
       },
     },
-    async ({ sessionId, direction, amount, pages, index }) => {
-      const { page } = getSession(sessionId);
-      return jsonResult(
-        await executeAction(page, {
-          name: "scroll",
-          params: { direction, amount, pages, index },
-        }),
-      );
+    async ({ sessionId, direction, amount, pages, index, ref }) => {
+      const record = getSession(sessionId);
+      return runSessionAction(record, {
+        name: "scroll",
+        params: { direction, amount, pages, index: indexFromRef({ index, ref }) },
+      });
     },
   );
 }
