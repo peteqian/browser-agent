@@ -74,6 +74,7 @@ interface CliOptions {
   summary: boolean;
   fullSnapshots: boolean;
   allowedDomains?: string[];
+  initScripts?: string[];
 }
 
 function printHelp(): void {
@@ -104,6 +105,8 @@ Flags:
   --storage-state <path>     Load/save cookies + localStorage at this path.
   --allowed-domains <list>   Comma-separated allowlist (e.g. "example.com,*.api.com").
                              Rejects navigate/new_tab to URLs outside the list.
+  --init-script <path>       Path to a JS file injected via Page.addScriptToEvaluateOnNewDocument
+                             before every navigation. Repeatable.
 
 Provider:
   --provider <p>             ${PROVIDERS.join(" | ")}  (default: codex)
@@ -175,6 +178,7 @@ interface ConfigFile {
   profile?: string;
   storageStatePath?: string;
   allowedDomains?: string[];
+  initScripts?: string[];
 }
 
 function loadConfig(path: string): ConfigFile {
@@ -240,6 +244,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
       profile: { type: "string" },
       "storage-state": { type: "string" },
       "allowed-domains": { type: "string" },
+      "init-script": { type: "string", multiple: true },
       config: { type: "string" },
       stdin: { type: "boolean" },
       json: { type: "boolean" },
@@ -343,7 +348,24 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     allowedDomains: parseAllowedDomains(
       (values["allowed-domains"] as string | undefined) ?? config.allowedDomains,
     ),
+    initScripts: loadInitScripts(
+      (values["init-script"] as string[] | undefined) ?? config.initScripts,
+    ),
   };
+}
+
+function loadInitScripts(paths: string[] | undefined): string[] | undefined {
+  if (!paths || paths.length === 0) return undefined;
+  const sources: string[] = [];
+  for (const p of paths) {
+    try {
+      sources.push(readFileSync(p, "utf8"));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new Error(`--init-script: cannot read ${p}: ${msg}`);
+    }
+  }
+  return sources;
 }
 
 function parseAllowedDomains(raw: string | string[] | undefined): string[] | undefined {
@@ -649,6 +671,7 @@ async function main(): Promise<number> {
       autoConsent: opts.autoConsent,
       userDataDir: browserPaths.userDataDir,
       storageStatePath: browserPaths.storageStatePath,
+      initScripts: opts.initScripts,
       ...(opts.engine === "lightpanda" ? { channel: "lightpanda" as const } : {}),
     },
     decide,

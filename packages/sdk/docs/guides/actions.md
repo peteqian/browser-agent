@@ -48,11 +48,11 @@ The LLM picks from a fixed menu of named actions defined in `src/actions/types.t
 
 ## Waiting
 
-| Name                 | Params                            | What                            |
-| -------------------- | --------------------------------- | ------------------------------- |
-| `wait`               | `ms` (≤10s)                       | Sleep                           |
-| `wait_for_text`      | `text`, `timeoutMs?` (≤30s)       | Poll DOM for text               |
-| `wait_for_condition` | `expression`, `timeoutMs?` (≤30s) | Poll JS expression until truthy |
+| Name                 | Params                            | What                                                            |
+| -------------------- | --------------------------------- | --------------------------------------------------------------- |
+| `wait`               | `ms` (≤10s)                       | Sleep                                                           |
+| `wait_for_text`      | `text`, `timeoutMs?` (≤30s)       | Poll DOM for text                                               |
+| `wait_for_condition` | `expression`, `timeoutMs?` (≤30s) | Poll JS expression until truthy                                 |
 | `wait_for_url`       | `pattern`, `timeoutMs?` (≤30s)    | Wait until page URL matches pattern (substring or `*` wildcard) |
 
 ## Reading
