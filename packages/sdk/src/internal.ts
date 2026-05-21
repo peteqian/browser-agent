@@ -20,6 +20,7 @@ export type {
   BrowserPermissionGrant,
   BrowserProfileInit,
 } from "./browser/profile";
+export { matchesAllowedDomains, parseAllowedDomainsInput } from "./browser/allowed-domains";
 export type { NavigationHealthResult, NavigationHealthStatus } from "./browser/session";
 export type { BrowserOriginStorageState, BrowserStorageState } from "./browser/storage-state";
 export {

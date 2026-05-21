@@ -54,6 +54,13 @@ interface RequestSummary {
   durationMs?: number;
 }
 
+function matchesStatus(responseStatus: number | undefined, filter: FilterSpec["status"]): boolean {
+  if (filter === undefined) return true;
+  if (responseStatus === undefined) return false;
+  if (typeof filter === "number") return responseStatus === filter;
+  return Math.floor(responseStatus / 100) === Number(filter[0]);
+}
+
 export function filterNetworkEntries(
   entries: Iterable<HarEntry>,
   spec: FilterSpec,
@@ -68,17 +75,7 @@ export function filterNetworkEntries(
     total += 1;
     if (urlNeedle && !e.request.url.toLowerCase().includes(urlNeedle)) continue;
     if (methodNeedle && e.request.method.toUpperCase() !== methodNeedle) continue;
-    if (spec.status !== undefined) {
-      const s = e.response?.status;
-      if (s === undefined) continue;
-      if (typeof spec.status === "number") {
-        if (s !== spec.status) continue;
-      } else {
-        const bucket = Math.floor(s / 100);
-        const wanted = Number(spec.status[0]);
-        if (bucket !== wanted) continue;
-      }
-    }
+    if (!matchesStatus(e.response?.status, spec.status)) continue;
     matched += 1;
     if (out.length < max) {
       const duration =

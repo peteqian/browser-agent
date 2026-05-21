@@ -19,29 +19,12 @@ export async function handleCookiesGet(
   action: ByName<"cookies_get">,
 ): Promise<ActionResult> {
   try {
-    const result = (await ctx.page.sendCDP("Storage.getCookies", {})) as {
+    const urls =
+      action.params.urls && action.params.urls.length > 0 ? action.params.urls : undefined;
+    const result = (await ctx.page.sendCDP("Network.getCookies", urls ? { urls } : {})) as {
       cookies?: CDPCookie[];
     };
-    let cookies = result.cookies ?? [];
-    if (action.params.urls && action.params.urls.length > 0) {
-      const hosts = new Set(
-        action.params.urls.map((u) => {
-          try {
-            return new URL(u).hostname.toLowerCase();
-          } catch {
-            return "";
-          }
-        }),
-      );
-      cookies = cookies.filter((c) => {
-        const host = c.domain.replace(/^\./, "").toLowerCase();
-        for (const h of hosts) {
-          if (!h) continue;
-          if (host === h || h.endsWith(`.${host}`) || host.endsWith(`.${h}`)) return true;
-        }
-        return false;
-      });
-    }
+    const cookies = result.cookies ?? [];
     const max = action.params.maxResults ?? 200;
     const sliced = cookies.slice(0, max);
     return ok(`Got ${sliced.length}/${cookies.length} cookies`, {
@@ -59,7 +42,7 @@ export async function handleCookiesSet(
   action: ByName<"cookies_set">,
 ): Promise<ActionResult> {
   try {
-    await ctx.page.sendCDP("Storage.setCookies", { cookies: action.params.cookies });
+    await ctx.page.sendCDP("Network.setCookies", { cookies: action.params.cookies });
     return ok(
       `Set ${action.params.cookies.length} cookie${action.params.cookies.length === 1 ? "" : "s"}`,
       {
@@ -78,7 +61,7 @@ export async function handleCookiesClear(
   _action: ByName<"cookies_clear">,
 ): Promise<ActionResult> {
   try {
-    await ctx.page.sendCDP("Storage.clearCookies", {});
+    await ctx.page.sendCDP("Network.clearBrowserCookies", {});
     return ok("Cleared all cookies", { longTermMemory: "Cleared all cookies" });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

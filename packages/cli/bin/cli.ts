@@ -16,6 +16,7 @@ import {
 import {
   ensureBrowserExecutable,
   getBrowserInstallStatus,
+  parseAllowedDomainsInput,
   type BrowserChannel,
 } from "@peteqian/browser-agent-sdk/internal";
 
@@ -345,7 +346,7 @@ async function buildOptions(argv: string[]): Promise<CliOptions> {
     storageStatePath: (values["storage-state"] as string | undefined) ?? config.storageStatePath,
     summary: Boolean(values.summary),
     fullSnapshots: Boolean(values["full-snapshots"]),
-    allowedDomains: parseAllowedDomains(
+    allowedDomains: parseAllowedDomainsInput(
       (values["allowed-domains"] as string | undefined) ?? config.allowedDomains,
     ),
     initScripts: loadInitScripts(
@@ -366,13 +367,6 @@ function loadInitScripts(paths: string[] | undefined): string[] | undefined {
     }
   }
   return sources;
-}
-
-function parseAllowedDomains(raw: string | string[] | undefined): string[] | undefined {
-  if (raw === undefined) return undefined;
-  const list = Array.isArray(raw) ? raw : raw.split(",");
-  const cleaned = list.map((s) => s.trim()).filter((s) => s.length > 0);
-  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 function writeVerbose(event: string, data: unknown): void {

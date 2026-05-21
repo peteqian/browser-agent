@@ -33,3 +33,18 @@ export function matchesAllowedDomains(
   }
   return false;
 }
+
+/**
+ * Normalize user-supplied allowedDomains input from a config file or CLI
+ * flag. Accepts a comma-separated string, an array of strings, or
+ * undefined; returns a cleaned array, or undefined when empty.
+ */
+export function parseAllowedDomainsInput(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  const list = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+  const cleaned = list
+    .filter((s): s is string => typeof s === "string")
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  return cleaned.length > 0 ? cleaned : undefined;
+}

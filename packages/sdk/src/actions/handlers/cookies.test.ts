@@ -21,7 +21,7 @@ function fakePage(impl: Record<string, (params?: unknown) => unknown>): {
 describe("handleCookiesGet", () => {
   test("returns all cookies when no urls filter", async () => {
     const { page } = fakePage({
-      "Storage.getCookies": () => ({
+      "Network.getCookies": () => ({
         cookies: [
           {
             name: "a",
@@ -43,9 +43,9 @@ describe("handleCookiesGet", () => {
     expect((r.data as { total: number }).total).toBe(2);
   });
 
-  test("filters cookies by url host", async () => {
-    const { page } = fakePage({
-      "Storage.getCookies": () => ({
+  test("forwards urls filter to Network.getCookies", async () => {
+    const { page, calls } = fakePage({
+      "Network.getCookies": () => ({
         cookies: [
           {
             name: "a",
@@ -55,7 +55,6 @@ describe("handleCookiesGet", () => {
             secure: false,
             httpOnly: false,
           },
-          { name: "b", value: "2", domain: "other.com", path: "/", secure: false, httpOnly: false },
         ],
       }),
     });
@@ -63,14 +62,13 @@ describe("handleCookiesGet", () => {
       name: "cookies_get",
       params: { urls: ["https://example.com/"] },
     });
-    const data = r.data as { cookies: Array<{ name: string }> };
-    expect(data.cookies.length).toBe(1);
-    expect(data.cookies[0]?.name).toBe("a");
+    expect(r.ok).toBe(true);
+    expect(calls[0]?.params).toEqual({ urls: ["https://example.com/"] });
   });
 
   test("maxResults caps returned cookies", async () => {
     const { page } = fakePage({
-      "Storage.getCookies": () => ({
+      "Network.getCookies": () => ({
         cookies: Array.from({ length: 10 }, (_, i) => ({
           name: `c${i}`,
           value: "x",
@@ -118,7 +116,7 @@ describe("handleCookiesSet", () => {
       },
     });
     expect(r.ok).toBe(true);
-    expect(calls[0]?.method).toBe("Storage.setCookies");
+    expect(calls[0]?.method).toBe("Network.setCookies");
     const params = calls[0]?.params as { cookies: unknown[] } | undefined;
     expect(params?.cookies.length).toBe(2);
   });
@@ -132,6 +130,6 @@ describe("handleCookiesClear", () => {
       params: {},
     });
     expect(r.ok).toBe(true);
-    expect(calls[0]?.method).toBe("Storage.clearCookies");
+    expect(calls[0]?.method).toBe("Network.clearBrowserCookies");
   });
 });

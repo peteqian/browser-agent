@@ -2,12 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { BrowserSession } from "../../browser/session";
 import type { Page } from "../../browser/page";
-import {
-  consoleRecorderFor,
-  handleConsoleRead,
-  handleConsoleStart,
-  handleConsoleStop,
-} from "./console";
+import { handleConsoleRead, handleConsoleStart, handleConsoleStop } from "./console";
 import type { HandlerContext } from "./shared";
 
 interface Listener {
@@ -94,8 +89,8 @@ describe("console capture", () => {
         timestamp: 1,
       });
     handleConsoleRead(ctx, { name: "console_read", params: { clear: true } });
-    const recorder = consoleRecorderFor(page);
-    expect(recorder?.entries.length).toBe(0);
+    const after = handleConsoleRead(ctx, { name: "console_read", params: {} });
+    expect((after.data as { total: number }).total).toBe(0);
   });
 
   test("read fails when no capture is active", () => {

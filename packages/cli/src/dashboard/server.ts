@@ -24,6 +24,7 @@ import {
 import { browserAgentHome, resolveBrowserPaths } from "../profiles";
 import {
   actionSchemas,
+  parseAllowedDomainsInput,
   type Action,
   type BrowserChannel,
 } from "@peteqian/browser-agent-sdk/internal";
@@ -287,7 +288,7 @@ async function launchSession(input: unknown) {
   const locale = typeof body.locale === "string" ? body.locale : undefined;
   const timezoneId = typeof body.timezoneId === "string" ? body.timezoneId : undefined;
   const acceptLanguage = typeof body.acceptLanguage === "string" ? body.acceptLanguage : undefined;
-  const allowedDomains = parseAllowedDomains(body.allowedDomains);
+  const allowedDomains = parseAllowedDomainsInput(body.allowedDomains);
   const paths = resolveBrowserPaths({ profile, userDataDir, storageStatePath });
   const session = await BrowserSession.launch({
     headless,
@@ -326,15 +327,6 @@ async function launchSession(input: unknown) {
     ...(navigation ? { navigation } : {}),
     observation: record.latestState?.observation,
   };
-}
-
-function parseAllowedDomains(value: unknown): readonly string[] | undefined {
-  if (!Array.isArray(value)) return undefined;
-  const cleaned = value
-    .filter((v): v is string => typeof v === "string")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
-  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 function parseBrowserChannel(value: unknown): BrowserChannel | undefined {

@@ -48,6 +48,7 @@ function normalizeLevel(raw: string): ConsoleLevel {
     case "warning":
     case "error":
     case "debug":
+    case "exception":
       return raw;
     case "warn":
       return "warning";
@@ -133,7 +134,7 @@ export function handleConsoleRead(
   if (!recorder) {
     return fail("No console capture in progress; call console_start first");
   }
-  const want = action.params.level === "warn" ? "warning" : action.params.level;
+  const want = action.params.level ? normalizeLevel(action.params.level) : undefined;
   const filtered = want
     ? recorder.entries.filter((e) => e.level === want)
     : recorder.entries.slice();
@@ -164,9 +165,4 @@ export function handleConsoleStop(
     longTermMemory: `Stopped console capture (${recorder.entries.length} entries)`,
     data: { totalCaptured: recorder.entries.length },
   });
-}
-
-/** Visible for tests. */
-export function consoleRecorderFor(page: Page): ConsoleRecorder | undefined {
-  return recorderByTarget.get(page);
 }

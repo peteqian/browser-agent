@@ -161,7 +161,7 @@ export async function enableDomains(
     );
   }
   for (const source of profile.initScripts) {
-    if (typeof source !== "string" || source.length === 0) continue;
+    if (source.length === 0) continue;
     await client.send("Page.addScriptToEvaluateOnNewDocument", { source }, sessionId);
   }
   // Always override UA + UA-Client-Hints so we don't ship "HeadlessChrome"

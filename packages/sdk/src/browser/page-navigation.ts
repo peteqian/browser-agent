@@ -157,13 +157,9 @@ export async function waitForText(page: Page, text: string, timeoutMs = 10_000):
   return false;
 }
 
-/**
- * Polls a JS expression in the page until it evaluates truthy or the
- * timeout elapses. The expression runs inside an IIFE so it can use
- * statements (e.g. `return window.x`). Throws are swallowed per poll —
- * a page that errors midload should still get a chance to settle. Returns
- * the truthy value (cast to JSON-safe) on success, `null` on timeout.
- */
+/** Wraps in an IIFE so the expression can use statements; per-poll throws
+ *  are swallowed because a page errors mid-navigation should still get a
+ *  chance to settle. Returns the truthy value, or null on timeout. */
 export async function waitForCondition(
   page: Page,
   expression: string,
@@ -180,12 +176,8 @@ export async function waitForCondition(
   return null;
 }
 
-/**
- * Match a URL against a user-supplied pattern. `*` is a wildcard (matches
- * any character sequence). A pattern without `*` is treated as a
- * contains-check (case-sensitive) so common prefixes like `/dashboard`
- * work without ceremony. Returns true on match.
- */
+/** `*` is wildcard; a pattern without `*` is a substring contains-check
+ *  so callers can pass `/dashboard` without escaping. */
 export function urlMatchesPattern(url: string, pattern: string): boolean {
   if (!pattern.includes("*")) return url.includes(pattern);
   const re = new RegExp(
@@ -199,10 +191,6 @@ export function urlMatchesPattern(url: string, pattern: string): boolean {
   return re.test(url);
 }
 
-/**
- * Polls `page.currentUrl()` until the URL matches `pattern` or the
- * timeout elapses. Returns the matching URL or null on timeout.
- */
 export async function waitForUrl(
   page: Page,
   pattern: string,
