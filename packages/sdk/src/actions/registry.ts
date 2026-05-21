@@ -219,6 +219,12 @@ function defaultActionDescription(name: ActionName): string {
       return "Stop recording and return collected HAR-like JSON (or write to file).";
     case "network_list_requests":
       return "List requests captured by the active HAR recorder, filtered by url substring/method/status. Requires network_har_start first.";
+    case "console_start":
+      return "Begin buffering console messages (log/info/warning/error/debug) and uncaught exceptions for the current page.";
+    case "console_read":
+      return "Return buffered console entries. Optional level filter and maxResults; clear=true empties the buffer after read.";
+    case "console_stop":
+      return "Stop console capture and return the count of buffered entries.";
     case "profiler_start":
       return "Start a CDP performance trace on the current page. Pair with profiler_stop to capture a Chrome trace JSON.";
     case "profiler_stop":

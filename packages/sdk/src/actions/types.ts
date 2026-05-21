@@ -95,6 +95,16 @@ export const waitForConditionAction = z.object({
   timeoutMs: z.number().int().positive().max(30_000).optional(),
 });
 
+export const consoleStartAction = z.object({});
+
+export const consoleReadAction = z.object({
+  level: z.enum(["log", "info", "warning", "warn", "error", "debug", "exception"]).optional(),
+  maxResults: z.number().int().positive().max(500).optional(),
+  clear: z.boolean().optional(),
+});
+
+export const consoleStopAction = z.object({});
+
 export const networkListRequestsAction = z.object({
   /** Substring match against the request URL (case-insensitive). */
   urlIncludes: z.string().min(1).max(500).optional(),
@@ -366,6 +376,9 @@ export const actionSchemas = {
   network_har_start: networkHarStartAction,
   network_har_stop: networkHarStopAction,
   network_list_requests: networkListRequestsAction,
+  console_start: consoleStartAction,
+  console_read: consoleReadAction,
+  console_stop: consoleStopAction,
   profiler_start: profilerStartAction,
   profiler_stop: profilerStopAction,
   done: doneAction,
@@ -416,6 +429,9 @@ export type Action =
   | { name: "network_har_start"; params: z.infer<typeof networkHarStartAction> }
   | { name: "network_har_stop"; params: z.infer<typeof networkHarStopAction> }
   | { name: "network_list_requests"; params: z.infer<typeof networkListRequestsAction> }
+  | { name: "console_start"; params: z.infer<typeof consoleStartAction> }
+  | { name: "console_read"; params: z.infer<typeof consoleReadAction> }
+  | { name: "console_stop"; params: z.infer<typeof consoleStopAction> }
   | { name: "profiler_start"; params: z.infer<typeof profilerStartAction> }
   | { name: "profiler_stop"; params: z.infer<typeof profilerStopAction> }
   | { name: "done"; params: z.infer<typeof doneAction> };

@@ -53,6 +53,7 @@ import {
   handleNetworkHarStop,
   handleNetworkListRequests,
 } from "./handlers/network";
+import { handleConsoleRead, handleConsoleStart, handleConsoleStop } from "./handlers/console";
 import { handleProfilerStart, handleProfilerStop } from "./handlers/profiler";
 import type { FocusState } from "../agent/focus-state";
 import type { ElementInfo } from "../dom/types";
@@ -183,6 +184,12 @@ export async function executeAction(
         return await handleNetworkHarStop(ctx, action);
       case "network_list_requests":
         return await handleNetworkListRequests(ctx, action);
+      case "console_start":
+        return await handleConsoleStart(ctx, action);
+      case "console_read":
+        return handleConsoleRead(ctx, action);
+      case "console_stop":
+        return handleConsoleStop(ctx, action);
       case "profiler_start":
         return await handleProfilerStart(ctx, action);
       case "profiler_stop":
