@@ -52,6 +52,8 @@ Read this file first. It is the compact routing table for the deeper plan files.
 - CLI `--verbose` now forwards every `AgentEvent` (not just codex raw output and `agent.step`) to stderr as timestamped JSONL (`{"t","event","data"}`). Composes with `--json`: JSONL events still go to stdout while verbose copies land on stderr.
 - CHANGELOG.md `Unreleased` section refreshed to cover every slice landed since the last release (DOM snapshot, action safety, action filtering, fixture infra, extraction classification/dedupe, final-step nudge, loop nudges, memory, judge, MCP sweeper, MCP artifacts) and explicitly notes the public-API audit decisions for `BrowserSession.waitForNewPageTarget`, `BrowserSession.findNearestFileInputBackendNodeId`, `JudgeFn`, and the intentionally-internal MCP artifact helpers.
 - MCP server tracks filesystem artifacts (screenshots, PDFs) per session. The `screenshot` and `save_as_pdf` tool wrappers feed result paths through `recordArtifact` into a per-session `artifacts` list; in-memory base64 screenshots without `data.path` are skipped. A new `list_artifacts` MCP tool returns them in creation order, optionally filtered by `kind`. `SessionArtifact`, `ArtifactKind`, and `recordArtifact` are exported for harnesses.
+- Persistent dashboard daemon workflows are implemented. `browser-agent dashboard` writes a health-checkable daemon manifest, the dashboard owns long-lived sessions, and fresh MCP processes can drive those sessions through `daemon_status`, launch/list/attach, snapshot, named extraction/screenshot/PDF/artifact tools, generic action execution, events, and close.
+- Dashboard inspection now includes selected-session snapshot, events, raw action execution, and artifact visibility so saved screenshots/PDFs are discoverable from the browser UI as well as MCP/API calls.
 
 ## Skip Unless Relevant
 
@@ -69,7 +71,7 @@ Read this file first. It is the compact routing table for the deeper plan files.
 - Layer 3: safer click/type/upload semantics, new-tab detection, coordinate scaling, and page-specific action filtering.
 - Layer 4: clean markdown extraction, structure-aware chunking, schema extraction, extraction LLM hook, and pagination dedupe.
 - Layer 5: loop nudges, opt-in strict loop stopping, message compaction, persistent run memory, and optional final judge.
-- Layer 6: MCP session cleanup/artifacts and examples for extraction, downloads, upload, storage state, and MCP.
+- Layer 6: complete for MCP session cleanup/artifacts, dashboard-daemon workflows, profile inspection, and examples for extraction, downloads, upload, storage state, and MCP.
 - Layer 7: browser integration fixture pages, local diagnostics, and privacy/redaction tests.
 
 ## Non-Goals
