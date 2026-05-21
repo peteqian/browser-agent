@@ -474,7 +474,10 @@ function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
   // Treat `0` as "uncapped" so callers can opt out of the step ceiling
   // explicitly. `undefined` still falls back to the default (40).
   const maxSteps = requestedMaxSteps === 0 ? Number.POSITIVE_INFINITY : (requestedMaxSteps ?? 40);
-  const stepBudgetAdvisory = options.stepBudgetAdvisory ?? 10;
+  // Advisory budget: past this step every observation gets a STOP NOW notice;
+  // past advisory + 4 the loop hard-stops. 12 is a generous typical-task cap
+  // that leaves a small buffer for chatty models without going runaway.
+  const stepBudgetAdvisory = options.stepBudgetAdvisory ?? 12;
   return {
     maxSteps,
     stepBudgetAdvisory,
