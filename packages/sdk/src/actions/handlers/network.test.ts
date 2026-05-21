@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { handleNetworkHarStart, handleNetworkHarStop } from "./network";
+import { filterNetworkEntries, handleNetworkHarStart, handleNetworkHarStop } from "./network";
 import type { HandlerContext } from "./shared";
 import type { Page } from "../../browser/page";
 
@@ -86,5 +86,105 @@ describe("network_har_* handlers", () => {
     const ctx: HandlerContext = { page };
     const r = await handleNetworkHarStop(ctx, { name: "network_har_stop", params: {} });
     expect(r.ok).toBe(false);
+  });
+});
+
+describe("filterNetworkEntries", () => {
+  type HarEntryShape =
+    Parameters<typeof filterNetworkEntries>[0] extends Iterable<infer T> ? T : never;
+  function entry(
+    overrides: Partial<{
+      requestId: string;
+      method: string;
+      url: string;
+      status?: number;
+      mimeType?: string;
+      durationSec?: number;
+    }> = {},
+  ): HarEntryShape {
+    const status = overrides.status;
+    const duration = overrides.durationSec;
+    return {
+      request: {
+        requestId: overrides.requestId ?? "r1",
+        method: overrides.method ?? "GET",
+        url: overrides.url ?? "https://example.com/a",
+        headers: {},
+        timestamp: 0,
+      },
+      response:
+        status !== undefined
+          ? {
+              status,
+              statusText: "",
+              headers: {},
+              mimeType: overrides.mimeType ?? "text/html",
+              timestamp: duration ?? 0,
+            }
+          : undefined,
+      timing: { startedAt: 0, completedAt: duration },
+    } as HarEntryShape;
+  }
+
+  test("returns all entries when filter is empty", () => {
+    const r = filterNetworkEntries([entry({ requestId: "1" }), entry({ requestId: "2" })], {});
+    expect(r.total).toBe(2);
+    expect(r.matched).toBe(2);
+    expect(r.entries.length).toBe(2);
+  });
+
+  test("urlIncludes is case-insensitive substring", () => {
+    const r = filterNetworkEntries(
+      [
+        entry({ url: "https://API.example.com/users" }),
+        entry({ url: "https://example.com/static.js" }),
+      ],
+      { urlIncludes: "api" },
+    );
+    expect(r.matched).toBe(1);
+    expect(r.entries[0]?.url).toContain("API");
+  });
+
+  test("method filter case-insensitive", () => {
+    const r = filterNetworkEntries([entry({ method: "POST" }), entry({ method: "GET" })], {
+      method: "post",
+    });
+    expect(r.matched).toBe(1);
+    expect(r.entries[0]?.method).toBe("POST");
+  });
+
+  test("status bucket filter (4xx)", () => {
+    const r = filterNetworkEntries(
+      [entry({ status: 200 }), entry({ status: 404 }), entry({ status: 500 })],
+      { status: "4xx" },
+    );
+    expect(r.matched).toBe(1);
+    expect(r.entries[0]?.status).toBe(404);
+  });
+
+  test("exact status number filter", () => {
+    const r = filterNetworkEntries(
+      [entry({ status: 200 }), entry({ status: 201 }), entry({ status: 200 })],
+      { status: 200 },
+    );
+    expect(r.matched).toBe(2);
+  });
+
+  test("entries without a response are excluded when status filter set", () => {
+    const r = filterNetworkEntries([entry({ status: 200 }), entry({})], { status: "2xx" });
+    expect(r.matched).toBe(1);
+  });
+
+  test("maxResults caps returned entries but matched still counts all", () => {
+    const items = Array.from({ length: 10 }, (_, i) => entry({ requestId: `r${i}` }));
+    const r = filterNetworkEntries(items, { maxResults: 3 });
+    expect(r.total).toBe(10);
+    expect(r.matched).toBe(10);
+    expect(r.entries.length).toBe(3);
+  });
+
+  test("durationMs computed from start/completedAt in seconds", () => {
+    const r = filterNetworkEntries([entry({ status: 200, durationSec: 0.25 })], {});
+    expect(r.entries[0]?.durationMs).toBe(250);
   });
 });

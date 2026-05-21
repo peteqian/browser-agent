@@ -95,6 +95,19 @@ export const waitForConditionAction = z.object({
   timeoutMs: z.number().int().positive().max(30_000).optional(),
 });
 
+export const networkListRequestsAction = z.object({
+  /** Substring match against the request URL (case-insensitive). */
+  urlIncludes: z.string().min(1).max(500).optional(),
+  /** HTTP method filter, e.g. "GET", "POST". */
+  method: z.string().min(1).max(20).optional(),
+  /** "2xx"/"3xx"/"4xx"/"5xx" or a specific status code. */
+  status: z
+    .union([z.number().int().min(100).max(599), z.enum(["1xx", "2xx", "3xx", "4xx", "5xx"])])
+    .optional(),
+  /** Cap the number of returned entries. Default 50, max 500. */
+  maxResults: z.number().int().positive().max(500).optional(),
+});
+
 export const noParamsAction = z.object({});
 
 export const newTabAction = z.object({
@@ -352,6 +365,7 @@ export const actionSchemas = {
   dialog_handle: dialogHandleAction,
   network_har_start: networkHarStartAction,
   network_har_stop: networkHarStopAction,
+  network_list_requests: networkListRequestsAction,
   profiler_start: profilerStartAction,
   profiler_stop: profilerStopAction,
   done: doneAction,
@@ -401,6 +415,7 @@ export type Action =
   | { name: "dialog_handle"; params: z.infer<typeof dialogHandleAction> }
   | { name: "network_har_start"; params: z.infer<typeof networkHarStartAction> }
   | { name: "network_har_stop"; params: z.infer<typeof networkHarStopAction> }
+  | { name: "network_list_requests"; params: z.infer<typeof networkListRequestsAction> }
   | { name: "profiler_start"; params: z.infer<typeof profilerStartAction> }
   | { name: "profiler_stop"; params: z.infer<typeof profilerStopAction> }
   | { name: "done"; params: z.infer<typeof doneAction> };

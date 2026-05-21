@@ -48,10 +48,10 @@ The LLM picks from a fixed menu of named actions defined in `src/actions/types.t
 
 ## Waiting
 
-| Name            | Params                      | What              |
-| --------------- | --------------------------- | ----------------- |
-| `wait`          | `ms` (≤10s)                 | Sleep             |
-| `wait_for_text` | `text`, `timeoutMs?` (≤30s) | Poll DOM for text |
+| Name                 | Params                            | What                            |
+| -------------------- | --------------------------------- | ------------------------------- |
+| `wait`               | `ms` (≤10s)                       | Sleep                           |
+| `wait_for_text`      | `text`, `timeoutMs?` (≤30s)       | Poll DOM for text               |
 | `wait_for_condition` | `expression`, `timeoutMs?` (≤30s) | Poll JS expression until truthy |
 
 ## Reading
@@ -82,6 +82,7 @@ The LLM picks from a fixed menu of named actions defined in `src/actions/types.t
 | `dialog_handle`     | `accept`, `text?` | Accept or dismiss the active dialog    |
 | `network_har_start` | –                 | Begin recording network requests       |
 | `network_har_stop`  | `fileName?`       | Stop recording and optionally save HAR |
+| `network_list_requests` | `urlIncludes?`, `method?`, `status?`, `maxResults?` | Filter requests captured by the active recorder |
 | `profiler_start`    | `categories?`     | Start a Chrome trace                   |
 | `profiler_stop`     | `fileName?`       | Stop trace and optionally save JSON    |
 

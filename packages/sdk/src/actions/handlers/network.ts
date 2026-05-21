@@ -38,6 +38,66 @@ interface NetworkRecorder {
 
 const recorderByTarget = new WeakMap<Page, NetworkRecorder>();
 
+interface FilterSpec {
+  urlIncludes?: string;
+  method?: string;
+  status?: number | "1xx" | "2xx" | "3xx" | "4xx" | "5xx";
+  maxResults?: number;
+}
+
+interface RequestSummary {
+  requestId: string;
+  method: string;
+  url: string;
+  status?: number;
+  mimeType?: string;
+  durationMs?: number;
+}
+
+export function filterNetworkEntries(
+  entries: Iterable<HarEntry>,
+  spec: FilterSpec,
+): { total: number; matched: number; entries: RequestSummary[] } {
+  const max = spec.maxResults ?? 50;
+  const urlNeedle = spec.urlIncludes?.toLowerCase();
+  const methodNeedle = spec.method?.toUpperCase();
+  let total = 0;
+  let matched = 0;
+  const out: RequestSummary[] = [];
+  for (const e of entries) {
+    total += 1;
+    if (urlNeedle && !e.request.url.toLowerCase().includes(urlNeedle)) continue;
+    if (methodNeedle && e.request.method.toUpperCase() !== methodNeedle) continue;
+    if (spec.status !== undefined) {
+      const s = e.response?.status;
+      if (s === undefined) continue;
+      if (typeof spec.status === "number") {
+        if (s !== spec.status) continue;
+      } else {
+        const bucket = Math.floor(s / 100);
+        const wanted = Number(spec.status[0]);
+        if (bucket !== wanted) continue;
+      }
+    }
+    matched += 1;
+    if (out.length < max) {
+      const duration =
+        e.response && e.timing.completedAt !== undefined
+          ? Math.round((e.timing.completedAt - e.timing.startedAt) * 1000)
+          : undefined;
+      out.push({
+        requestId: e.request.requestId,
+        method: e.request.method,
+        url: e.request.url,
+        status: e.response?.status,
+        mimeType: e.response?.mimeType,
+        durationMs: duration,
+      });
+    }
+  }
+  return { total, matched, entries: out };
+}
+
 interface RequestWillBeSent {
   requestId: string;
   request: { method: string; url: string; headers: Record<string, string> };
@@ -185,5 +245,23 @@ export async function handleNetworkHarStop(
   return ok(`HAR captured: ${har.entries.length} entries`, {
     longTermMemory: `Captured HAR with ${har.entries.length} entries`,
     data: { har },
+  });
+}
+
+export async function handleNetworkListRequests(
+  ctx: HandlerContext,
+  action: ByName<"network_list_requests">,
+): Promise<ActionResult> {
+  const recorder = recorderByTarget.get(ctx.page);
+  if (!recorder) {
+    return fail("No HAR recording in progress; call network_har_start first");
+  }
+  const result = filterNetworkEntries(recorder.entries.values(), action.params);
+  const desc =
+    `Matched ${result.matched}/${result.total} request${result.total === 1 ? "" : "s"}` +
+    (result.matched > result.entries.length ? ` (showing ${result.entries.length})` : "");
+  return ok(desc, {
+    longTermMemory: `Listed ${result.matched} network request${result.matched === 1 ? "" : "s"}`,
+    data: result,
   });
 }
