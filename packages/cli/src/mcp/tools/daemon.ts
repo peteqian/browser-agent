@@ -71,6 +71,7 @@ export function registerDaemonTools(server: McpServer): void {
         locale: z.string().min(1).optional(),
         timezoneId: z.string().min(1).optional(),
         acceptLanguage: z.string().min(1).optional(),
+        allowedDomains: z.array(z.string().min(1)).optional(),
       },
     },
     async (input) => jsonResult(await daemonRequest("/api/sessions", "POST", input)),
