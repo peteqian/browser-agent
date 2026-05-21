@@ -21,6 +21,7 @@ import {
 
 import { runSkillsCommand } from "../src/commands/skills";
 import { runInstall, type InstallOptions } from "../src/install";
+import { runProfileCommand } from "../src/commands/profile";
 import { runStateCommand } from "../src/commands/state";
 import { SummaryCollector, renderSummary } from "../src/commands/summary";
 import { getDashboardStatus, runDashboard } from "../src/dashboard/server";
@@ -83,6 +84,7 @@ Usage:
   browser-agent browser install             # install managed Chromium
   browser-agent install [--help]              # configure MCP clients
   browser-agent dashboard [--port 3217]       # run local HTTP dashboard
+  browser-agent profile <subcommand> [--help] # manage persistent profiles
   browser-agent state <subcommand> [--help]   # manage saved-state vault
   browser-agent --stdin                       # read task from stdin
   browser-agent --probe --provider <p>        # show what transport would resolve
@@ -542,6 +544,9 @@ async function main(): Promise<number> {
   }
   if (argv[0] === "skills") {
     return runSkillsCommand(argv.slice(1));
+  }
+  if (argv[0] === "profile") {
+    return runProfileCommand(argv.slice(1));
   }
   if (argv[0] === "state") {
     return runStateCommand(argv.slice(1));

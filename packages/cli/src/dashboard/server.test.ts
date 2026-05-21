@@ -20,6 +20,12 @@ describe("dashboard server", () => {
     expect(html).toContain('dataset.action = "close"');
     expect(html).toContain('{ method: "DELETE" }');
     expect(html).toContain("replaceChildren");
+    expect(html).toContain("/snapshot");
+    expect(html).toContain("/action");
+    expect(html).toContain("activeSessionId");
+    expect(html).toContain("catch (error)");
+    expect(html).toContain("refreshActiveSession");
+    expect(html).toContain("selectSession(created.sessionId)");
   });
 
   test("ignores malformed daemon manifests", () => {

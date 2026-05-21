@@ -32,7 +32,7 @@ bun --cwd packages/cli run dev:mcp
 
 ## Multi-step workflows
 
-Single-shot CLI invocations (`browser-agent run ...`) launch a fresh browser per call. For multi-step agent loops that need a long-lived browser session across many tool calls — the same pattern as a background daemon — use the MCP server `browser-agent-mcp`. It holds the `BrowserSession` open between tool invocations so the agent can `launch_session` once and then issue many `navigate` / `click` / `type` / `extract` calls against the same tab.
+Single-shot CLI invocations (`browser-agent "task..."`) launch a fresh browser per call. For multi-step agent loops that need a long-lived browser session across many tool calls — the same pattern as a background daemon — use the MCP server `browser-agent-mcp`. It holds the `BrowserSession` open between tool invocations so the agent can `launch_session` once and then issue many `navigate` / `click` / `type` / `extract` calls against the same tab.
 
 | Use case                                 | Tool                      |
 | ---------------------------------------- | ------------------------- |
@@ -99,6 +99,8 @@ For auth and repeat visits, launch with a named profile:
 Named profiles store a persistent Chrome profile and storage-state file under
 `~/.browser-agent/profiles/<name>/`, so cookies and localStorage survive the
 next MCP session. The CLI mirrors this with `browser-agent --profile booking`.
+Use `browser-agent profile list` / `show <name>` / `clear <name>` to inspect
+or remove profile directories when they are no longer needed.
 
 If the host loses the `sessionId` while the MCP daemon is still running, use
 `list_sessions` to see live sessions or `attach_session({ profile: "booking" })`
