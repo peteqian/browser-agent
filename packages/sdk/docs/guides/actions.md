@@ -77,17 +77,17 @@ The LLM picks from a fixed menu of named actions defined in `src/actions/types.t
 
 ## Browser Events
 
-| Name                    | Params                                              | What                                            |
-| ----------------------- | --------------------------------------------------- | ----------------------------------------------- |
-| `dialog_handle`         | `accept`, `text?`                                   | Accept or dismiss the active dialog             |
-| `network_har_start`     | –                                                   | Begin recording network requests                |
-| `network_har_stop`      | `fileName?`                                         | Stop recording and optionally save HAR          |
-| `network_list_requests` | `urlIncludes?`, `method?`, `status?`, `maxResults?` | Filter requests captured by the active recorder |
+| Name                    | Params                                              | What                                               |
+| ----------------------- | --------------------------------------------------- | -------------------------------------------------- |
+| `dialog_handle`         | `accept`, `text?`                                   | Accept or dismiss the active dialog                |
+| `network_har_start`     | –                                                   | Begin recording network requests                   |
+| `network_har_stop`      | `fileName?`                                         | Stop recording and optionally save HAR             |
+| `network_list_requests` | `urlIncludes?`, `method?`, `status?`, `maxResults?` | Filter requests captured by the active recorder    |
 | `console_start`         | –                                                   | Begin buffering page console + uncaught exceptions |
 | `console_read`          | `level?`, `maxResults?`, `clear?`                   | Read buffered console entries (optional filter)    |
 | `console_stop`          | –                                                   | Stop console capture and report captured count     |
-| `profiler_start`        | `categories?`                                       | Start a Chrome trace                            |
-| `profiler_stop`         | `fileName?`                                         | Stop trace and optionally save JSON             |
+| `profiler_start`        | `categories?`                                       | Start a Chrome trace                               |
+| `profiler_stop`         | `fileName?`                                         | Stop trace and optionally save JSON                |
 
 ## Terminal
 

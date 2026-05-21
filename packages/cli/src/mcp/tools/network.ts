@@ -5,6 +5,54 @@ import { executeAction } from "@peteqian/browser-agent-sdk/internal";
 import { jsonResult } from "../helpers";
 import { getSession } from "../sessions";
 
+export function registerConsoleTools(server: McpServer): void {
+  const registerTool = server.registerTool.bind(server) as ToolRegistrar;
+  registerTool(
+    "console_start",
+    {
+      description: "Begin buffering page console messages and uncaught exceptions.",
+      inputSchema: { sessionId: z.string() },
+    },
+    async ({ sessionId }) => {
+      const { page } = getSession(sessionId);
+      return jsonResult(await executeAction(page, { name: "console_start", params: {} }));
+    },
+  );
+  registerTool(
+    "console_read",
+    {
+      description:
+        "Return buffered console entries. Optional level filter; clear=true empties after read.",
+      inputSchema: {
+        sessionId: z.string(),
+        level: z.enum(["log", "info", "warning", "warn", "error", "debug", "exception"]).optional(),
+        maxResults: z.number().int().positive().max(500).optional(),
+        clear: z.boolean().optional(),
+      },
+    },
+    async ({ sessionId, level, maxResults, clear }) => {
+      const { page } = getSession(sessionId);
+      return jsonResult(
+        await executeAction(page, {
+          name: "console_read",
+          params: { level, maxResults, clear },
+        }),
+      );
+    },
+  );
+  registerTool(
+    "console_stop",
+    {
+      description: "Stop console capture and report the count of captured entries.",
+      inputSchema: { sessionId: z.string() },
+    },
+    async ({ sessionId }) => {
+      const { page } = getSession(sessionId);
+      return jsonResult(await executeAction(page, { name: "console_stop", params: {} }));
+    },
+  );
+}
+
 export function registerNetworkTools(server: McpServer): void {
   const registerTool = server.registerTool.bind(server) as ToolRegistrar;
   registerTool(
