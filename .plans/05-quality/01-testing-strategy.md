@@ -1,6 +1,6 @@
 # Testing Strategy
 
-Status: ACTIVE. Smoke verification exists; focused automated tests remain next quality work.
+Status: ACTIVE. Browser smoke verification and MCP startup smoke coverage exist; focused automated tests remain next quality work.
 
 ## Goal
 
@@ -12,7 +12,7 @@ Add confidence around contracts and local browser behavior without requiring hos
 - Unit tests for DOM serialization budgets.
 - Contract tests for public exported types where practical.
 - Integration smoke tests for local Chrome launch and navigation.
-- MCP startup smoke test.
+- [x] MCP startup smoke test.
 
 ## Watchdog Coverage
 

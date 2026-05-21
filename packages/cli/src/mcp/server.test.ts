@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import type { BrowserSession, Page } from "@peteqian/browser-agent-sdk";
 import type { BrowserStateSummary } from "@peteqian/browser-agent-sdk";
 import type { Action } from "@peteqian/browser-agent-sdk/internal";
@@ -11,7 +13,7 @@ import {
   recordSessionEvent,
   registerSession,
 } from "./sessions";
-import { recordArtifact, sweepIdleSessions, shutdownAllSessions } from "./server";
+import { createServer, recordArtifact, sweepIdleSessions, shutdownAllSessions } from "./server";
 import type { SessionArtifact } from "./server";
 
 // Internal-state probes: this test exercises sweep semantics by reaching
@@ -19,6 +21,32 @@ import type { SessionArtifact } from "./server";
 // the surface minimal — server.test should not depend on a live MCP
 // transport. Instead we drive sweepIdleSessions directly and assert
 // behavior on a fake session object that satisfies the record shape.
+
+describe("MCP server startup", () => {
+  test("connects to an MCP client and lists core tools", async () => {
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = createServer();
+    const client = new Client({ name: "browser-agent-test", version: "0.0.0" });
+
+    await server.connect(serverTransport);
+    await client.connect(clientTransport);
+
+    try {
+      const tools = await client.listTools();
+      const names = tools.tools.map((tool) => tool.name);
+
+      expect(names).toContain("launch_session");
+      expect(names).toContain("run_agent");
+      expect(names).toContain("daemon_status");
+      expect(names).toContain("extract_content");
+      expect(names).toContain("list_artifacts");
+    } finally {
+      await client.close();
+      await server.close();
+      await shutdownAllSessions();
+    }
+  });
+});
 
 describe("indexFromRef", () => {
   test("accepts @eN refs and numeric indices", () => {
