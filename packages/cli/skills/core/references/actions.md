@@ -78,6 +78,17 @@ Locator shape: any of `role+name`, `text`, `testid`, `label`,
 - **`wait`** — Sleep `ms` milliseconds (max 10_000). `{ "ms": 500 }`
 - **`wait_for_text`** — Block until `text` appears (default 30s timeout).
   `{ "text": "Results", "timeoutMs": 10000 }`
+- **`wait_for_condition`** — Poll a JS expression until truthy.
+  `{ "expression": "window.__appReady === true", "timeoutMs": 10000 }`
+- **`set_viewport`** — Override device metrics for responsive testing.
+  `{ "width": 390, "height": 844, "deviceScaleFactor": 3, "mobile": true }`
+- **`console_start`** / **`console_read`** / **`console_stop`** —
+  Buffer page console messages + uncaught exceptions. Read with optional
+  level filter (`log`, `info`, `warning`, `error`, `debug`, `exception`).
+  `{ "level": "error", "maxResults": 50, "clear": true }`
+- **`network_list_requests`** — After `network_har_start`, list filtered
+  requests by url substring / method / status.
+  `{ "urlIncludes": "api/", "method": "POST", "status": "2xx" }`
 - **`focus_area`** — Hint a region for subsequent snapshots, e.g. `"search
 form"`. Pass `clear: true` to drop focus. `{ "query": "results list" }`
 - **`done`** — Terminate the agent loop with a verdict.
