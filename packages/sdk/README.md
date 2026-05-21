@@ -125,6 +125,7 @@ The model emits actions from this catalog (full schemas in `src/actions/types.ts
 `navigate` · `click` · `click_by` · `dblclick` · `hover` · `focus` · `focus_area` · `type` · `type_by` · `fill` · `scroll` · `wait` · `send_keys` · `press` · `keyboard_type` · `select_option` · `select_by` · `upload_file` · `wait_for_text` · `go_back` · `go_forward` · `refresh` · `new_tab` · `switch_tab` · `close_tab` · `close_browser` · `search_page` · `find_elements` · `find_by_role` · `find_by_text` · `find_by_testid` · `get_dropdown_options` · `find_text` · `screenshot` · `save_as_pdf` · `extract_content` · `eval` · `dialog_handle` · `network_har_start` · `network_har_stop` · `profiler_start` · `profiler_stop` · `done`
 
 Add your own via `createDefaultActionRegistry()` + custom `ActionDefinition`.
+See [`examples/custom-action.ts`](./examples/custom-action.ts).
 
 ## `AgentResult`
 
@@ -160,7 +161,7 @@ bun --cwd packages/sdk run build
 bun --cwd packages/sdk run test
 ```
 
-Examples in `examples/` — `bun --cwd packages/sdk run example:goto`, `example:agent`, `example:openai`, `example:typed-output`, `example:extraction`, etc. MCP example lives in `packages/cli/examples/`.
+Examples in `examples/` — `bun --cwd packages/sdk run example:goto`, `example:agent`, `example:openai`, `example:typed-output`, `example:custom-action`, `example:extraction`, etc. MCP example lives in `packages/cli/examples/`.
 
 ## For AI agents
 

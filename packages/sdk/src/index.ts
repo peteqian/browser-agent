@@ -39,6 +39,7 @@ export {
 } from "./actions/registry";
 export type { ActionContext, ActionDefinition } from "./actions/registry";
 export type { RegisteredAction } from "./actions/registry";
+export type { ActionResult } from "./actions/execute";
 
 export { AgentController, runAgent } from "./agent/loop";
 export { createCodexCliDecide } from "./agent/codexCliDecide";

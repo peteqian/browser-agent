@@ -9,6 +9,8 @@ import type { ExtractionLLMFn } from "../agent/contracts";
 import type { FocusState } from "../agent/focus-state";
 import type { ElementInfo } from "../dom/types";
 
+type AnyActionDefinition = ActionDefinition<string, any>;
+
 export interface RegisteredAction {
   name: string;
   params: unknown;
@@ -44,13 +46,13 @@ export interface ActionDefinition<TName extends string = string, TParams = unkno
 }
 
 export class ActionRegistry {
-  private definitions = new Map<string, ActionDefinition>();
+  private definitions = new Map<string, AnyActionDefinition>();
 
-  register(definition: ActionDefinition): void {
+  register<TName extends string, TParams>(definition: ActionDefinition<TName, TParams>): void {
     if (this.definitions.has(definition.name)) {
       throw new Error(`Action already registered: ${definition.name}`);
     }
-    this.definitions.set(definition.name, definition);
+    this.definitions.set(definition.name, definition as AnyActionDefinition);
   }
 
   parse(name: string, input: unknown): RegisteredAction | null {
@@ -90,7 +92,9 @@ export class ActionRegistry {
   }
 }
 
-export function createActionRegistry(definitions: ActionDefinition[] = []): ActionRegistry {
+export function createActionRegistry(
+  definitions: readonly AnyActionDefinition[] = [],
+): ActionRegistry {
   const registry = new ActionRegistry();
   for (const definition of definitions) {
     registry.register(definition);

@@ -168,3 +168,7 @@ console.log(`${PACKAGE_NAME} ${VERSION}`);
 ## Internals
 
 `@peteqian/browser-agent-sdk/internal` exposes raw CDP, DOM serialization, action schemas, and the prompt builder. These have no stability guarantee and may change without a minor version bump.
+
+## Examples
+
+- [`examples/custom-action.ts`](../../examples/custom-action.ts) shows how to add a typed action with `ActionDefinition` and `ActionResult`.
