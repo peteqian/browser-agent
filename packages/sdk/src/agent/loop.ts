@@ -76,6 +76,7 @@ async function runAgentInner<TData = unknown>(
   const focusState = createFocusState();
   let consecutiveFailures = 0;
   let loopNudgesUsed = 0;
+  let consecutiveEmptyDecisions = 0;
   let pendingLoopNotice: string | null = null;
   let latestExtraction: string | null = null;
   let currentMemory: string | undefined = options.memory;
@@ -250,6 +251,21 @@ async function runAgentInner<TData = unknown>(
       });
 
       page = stepOutcome.page;
+      const decidedActionCount = (decision.actions ?? []).length;
+      if (decidedActionCount === 0) {
+        consecutiveEmptyDecisions += 1;
+        if (consecutiveEmptyDecisions >= 2) {
+          return {
+            success: false,
+            reason: "failed",
+            summary: `Model returned no actions for ${consecutiveEmptyDecisions} consecutive turns. Stopping to avoid spinning.`,
+            data: null,
+            steps: step,
+          };
+        }
+      } else {
+        consecutiveEmptyDecisions = 0;
+      }
       if (stepOutcome.latestExtraction) {
         // Cap the surfaced extraction so the next prompt does not blow up
         // for sites that return tens of kilobytes of page text.
