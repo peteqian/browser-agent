@@ -55,6 +55,33 @@ The only output is one JSON object. Nothing before it, nothing after it.`;
 }
 
 /**
+ * Lean per-turn body for a PERSISTENT thread/conversation. The system prompt,
+ * task, action catalog, and JSON-shape rules were sent on the first turn and
+ * are carried by the thread, so here we send only what changed: the new
+ * observation and current tab state. This is the per-step token win that keeps
+ * a warm thread fast instead of re-ingesting the full prompt every step.
+ *
+ * The action catalog is included only when it differs from what was last sent
+ * (state-scoped custom actions can appear/disappear between turns).
+ */
+export function buildContinuationPrompt(
+  input: AgentInput,
+  opts: { includeCatalog: boolean } = { includeCatalog: false },
+): string {
+  const catalogBlock = opts.includeCatalog
+    ? `\nUpdated actions:\n${input.actionCatalog ?? "(default actions)"}\n`
+    : "";
+  return `Step: ${input.step}
+Active tab: ${input.activeTab}
+Open tabs: ${input.tabs.join(", ")}
+${catalogBlock}
+Observation:
+${input.observation}
+
+Return exactly one JSON object for your next action (same shape and rules as before).`;
+}
+
+/**
  * Parses freeform-text model output into an AgentOutput. Tolerates markdown
  * code fences and surrounding prose by extracting the first balanced JSON
  * object from the text.
