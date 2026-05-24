@@ -707,8 +707,13 @@ export async function captureCdpSnapshot(
       const backendNodeId = backendIds[nodeIdx];
       if (typeof backendNodeId !== "number") continue;
       const axNode = ax.byBackendNodeId.get(backendNodeId);
-      const axRole = usefulAxRole(axStringValue(axNode?.role?.value));
-      const axName = axStringValue(axNode?.name?.value) ?? null;
+      // An AX-ignored node (e.g. aria-hidden) must not be promoted on the
+      // strength of its role/name — the second AX loop skips ignored nodes
+      // outright, so keep the two paths consistent. DOM/clickable signals may
+      // still make it observable.
+      const axIgnored = axNode?.ignored === true;
+      const axRole = axIgnored ? null : usefulAxRole(axStringValue(axNode?.role?.value));
+      const axName = axIgnored ? null : (axStringValue(axNode?.name?.value) ?? null);
       if (!isObservableCandidate({ tag, attrs, isClickable, axRole, axName })) continue;
 
       const inlineText = stringAt(strings, layoutText[i]);

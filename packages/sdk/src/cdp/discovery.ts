@@ -326,8 +326,12 @@ export function discoverBrowserExecutable(
   }
 
   if (channel === "chrome-for-testing") {
-    const chromeForTesting = detectChromeForTestingBinary();
-    if (chromeForTesting) return chromeForTesting;
+    // Honor the explicit request: prefer the CfT binary, then a Playwright
+    // Chromium (also a reproducible testing build). Do NOT fall through to
+    // branded system Chrome — silently swapping in the user's everyday browser
+    // defeats the reproducibility reason for choosing chrome-for-testing.
+    // null lets the caller auto-install CfT.
+    return detectChromeForTestingBinary() ?? detectPlaywrightChromiumBinary();
   }
 
   for (const candidate of chooseCandidates(channel)) {

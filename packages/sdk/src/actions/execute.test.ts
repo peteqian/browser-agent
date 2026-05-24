@@ -569,6 +569,49 @@ describe("executeAction extract_content error mapping", () => {
     });
   });
 
+  test("forwards pagination params (startFromChar/maxChars/alreadyCollected) to extractContent", async () => {
+    const captured: {
+      params?: { startFromChar?: number; maxChars?: number; alreadyCollected?: string[] };
+    } = {};
+    const page = {
+      extractContent: async (params: {
+        startFromChar?: number;
+        maxChars?: number;
+        alreadyCollected?: string[];
+      }) => {
+        captured.params = params;
+        return {
+          url: "u",
+          query: "q",
+          content: "c",
+          stats: {
+            totalChars: 1,
+            startFromChar: 0,
+            returnedChars: 1,
+            truncated: false,
+            nextStartChar: null,
+            linksCount: 0,
+            imagesCount: 0,
+          },
+        };
+      },
+    } as unknown as Page;
+
+    await executeAction(page, {
+      name: "extract_content",
+      params: {
+        query: "q",
+        startFromChar: 2000,
+        maxChars: 5000,
+        alreadyCollected: ["https://x/1", "https://x/2"],
+      },
+    });
+
+    expect(captured.params?.startFromChar).toBe(2000);
+    expect(captured.params?.maxChars).toBe(5000);
+    expect(captured.params?.alreadyCollected).toEqual(["https://x/1", "https://x/2"]);
+  });
+
   test("routes markdown through extractionLLM when schemaJson is supplied", async () => {
     const page = {
       extractContent: async () => ({

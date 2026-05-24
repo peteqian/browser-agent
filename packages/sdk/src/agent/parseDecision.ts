@@ -1,3 +1,4 @@
+import { MAX_ACTIONS_PER_DECISION } from "../llm/decisionSchema";
 import type { AgentInput, AgentOutput } from "./contracts";
 
 /**
@@ -34,7 +35,7 @@ Return exactly one JSON object (no markdown, no surrounding prose) with either t
 or this batched shape:
 {"actions":[{"name":"<action_name>","params":{...}}],"done":false}
 
-\`name\` MUST be one of the action names from the Actions list above. \`params\` MUST match that action's schema. Do not invent action names. Batch at most 4 actions and only when every action uses the current observation; put navigation/click/submit actions last. If no listed action fits, call \`done\` with success=false explaining why.
+\`name\` MUST be one of the action names from the Actions list above. \`params\` MUST match that action's schema. Do not invent action names. Batch at most ${MAX_ACTIONS_PER_DECISION} actions and only when every action uses the current observation; put navigation/click/submit actions last. If no listed action fits, call \`done\` with success=false explaining why.
 
 Optional top-level fields: "thought" (one-line reasoning), "nextGoal" (next step you intend), "memory" (compact note carried forward).
 
@@ -74,7 +75,7 @@ export function parseDecision(raw: string): AgentOutput {
   }
 
   if (Array.isArray(parsed.actions)) {
-    const actions = parsed.actions.slice(0, 4).map((item) => {
+    const actions = parsed.actions.slice(0, MAX_ACTIONS_PER_DECISION).map((item) => {
       if (!item || typeof item !== "object") {
         throw new Error("Decision action is not an object");
       }
@@ -84,12 +85,28 @@ export function parseDecision(raw: string): AgentOutput {
       }
       return { name: action.name, params: action.params ?? {} };
     });
-    const done = typeof parsed.done === "boolean" ? parsed.done : actions[0]?.name === "done";
+    const doneAction = actions.find((a) => a.name === "done");
+    const done = typeof parsed.done === "boolean" ? parsed.done : Boolean(doneAction);
+    // A done action carries its summary/success in params (see prompt's done
+    // example). Fall back to those when the model omits the top-level fields.
+    const doneParams = (doneAction?.params ?? {}) as Record<string, unknown>;
+    const summary =
+      typeof parsed.summary === "string"
+        ? parsed.summary
+        : typeof doneParams.summary === "string"
+          ? doneParams.summary
+          : undefined;
+    const success =
+      typeof parsed.success === "boolean"
+        ? parsed.success
+        : typeof doneParams.success === "boolean"
+          ? doneParams.success
+          : undefined;
     return {
       actions,
       done,
-      summary: typeof parsed.summary === "string" ? parsed.summary : undefined,
-      success: typeof parsed.success === "boolean" ? parsed.success : undefined,
+      summary,
+      success,
       thought: typeof parsed.thought === "string" ? parsed.thought : undefined,
       nextGoal: typeof parsed.nextGoal === "string" ? parsed.nextGoal : undefined,
       memory: typeof parsed.memory === "string" ? parsed.memory : undefined,

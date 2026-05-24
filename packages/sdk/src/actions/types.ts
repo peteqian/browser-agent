@@ -239,6 +239,16 @@ export const extractContentAction = z.object({
   extractLinks: z.boolean().optional(),
   extractImages: z.boolean().optional(),
   /**
+   * Pagination/continuation controls. Not advertised to the agent in the
+   * action catalog (see registry description) — the agent is steered to
+   * refine its query instead — but retained on the schema so the truncation
+   * hint, loop-detection nudge, and daemon/MCP callers can drive chunked
+   * extraction and cross-page link dedupe.
+   */
+  startFromChar: z.number().int().nonnegative().optional(),
+  maxChars: z.number().int().positive().max(200_000).optional(),
+  alreadyCollected: z.array(z.string()).max(5_000).optional(),
+  /**
    * Optional JSON Schema (as a string) describing the desired structured
    * output. When `AgentOptions.extractionLLM` is configured, the executor
    * routes the extracted markdown plus this schema through the hook and

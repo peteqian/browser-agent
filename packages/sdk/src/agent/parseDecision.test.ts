@@ -98,6 +98,24 @@ describe("parseDecision", () => {
     expect(decision.success).toBeUndefined();
   });
 
+  test("batched done derives summary/success from the done action's params", () => {
+    const decision = parseDecision(
+      '{"actions":[{"name":"done","params":{"success":true,"summary":"all set"}}]}',
+    );
+    expect(decision.done).toBe(true);
+    expect(decision.success).toBe(true);
+    expect(decision.summary).toBe("all set");
+  });
+
+  test("top-level summary/success still win over done params in a batch", () => {
+    const decision = parseDecision(
+      '{"actions":[{"name":"done","params":{"success":false,"summary":"params"}}],"done":true,"success":true,"summary":"top"}',
+    );
+    expect(decision.done).toBe(true);
+    expect(decision.success).toBe(true);
+    expect(decision.summary).toBe("top");
+  });
+
   test("missing name throws", () => {
     expect(() => parseDecision('{"params":{}}')).toThrow(/missing action name/);
   });

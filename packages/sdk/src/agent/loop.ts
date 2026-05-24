@@ -38,6 +38,15 @@ export {
 export type { DecisionPromptParts } from "./decision-prompt";
 
 /**
+ * Absolute internal safety ceiling. There is intentionally no user-facing
+ * step budget (callers asked for that), but a model making non-repeating,
+ * non-failing "progress" forever (infinite scroll, endless pagination) trips
+ * none of the other guards. This bound caps unbounded LLM/CDP spend. It is set
+ * far above any realistic task length so it never interferes with real work.
+ */
+const RUNAWAY_STEP_CEILING = 250;
+
+/**
  * Runs the core browser-agent loop until completion, abort, repeated failure,
  * or loop detection.
  *
@@ -115,6 +124,15 @@ async function runLoopInner<TData = unknown>(
     }
 
     for (let step = 1; ; step++) {
+      if (step > RUNAWAY_STEP_CEILING) {
+        return {
+          success: false,
+          reason: "failed",
+          summary: `Stopped after ${RUNAWAY_STEP_CEILING} steps (internal runaway ceiling). The model kept acting without completing or repeating a detectable loop.`,
+          data: null,
+          steps: step - 1,
+        };
+      }
       const beforeStepInterrupt = await checkInterrupt(options, step - 1);
       if (beforeStepInterrupt) return beforeStepInterrupt;
 
