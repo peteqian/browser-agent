@@ -78,6 +78,8 @@ export type {
 export { Browser } from "./browser/browser";
 export type { BrowserOptions } from "./browser/browser";
 export { Agent, runTask } from "./agent/agent";
+/** @deprecated Renamed to `runTask`. Kept as an alias for existing consumers. */
+export { runTask as runAgent } from "./agent/agent";
 export type { AgentProviderOptions, SimpleAgentOptions } from "./agent/agent";
 
 export {
