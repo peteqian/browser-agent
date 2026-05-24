@@ -38,6 +38,7 @@ export interface CliOptions {
   actionTimeoutMs?: number;
   maxFailures?: number;
   transport?: TransportId | "auto";
+  decisionMode?: "tool" | "json";
   env?: EnvId | "auto";
   outputFile?: string;
   probe: boolean;
@@ -138,6 +139,7 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
       "base-url": { type: "string" },
       effort: { type: "string" },
       transport: { type: "string" },
+      "decision-mode": { type: "string" },
       env: { type: "string" },
       "decision-timeout": { type: "string" },
       "step-timeout": { type: "string" },
@@ -238,6 +240,10 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
     actionTimeoutMs,
     maxFailures,
     transport,
+    decisionMode:
+      values["decision-mode"] === "tool" || values["decision-mode"] === "json"
+        ? values["decision-mode"]
+        : undefined,
     env,
     outputFile: (values["output-file"] as string | undefined) ?? config.outputFile,
     probe: Boolean(values.probe),

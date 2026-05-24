@@ -16,6 +16,17 @@ import type { z } from "zod/v4";
  * breaking the integration contract.
  */
 
+/**
+ * A single action exposed to native tool-calling transports as a callable
+ * tool. `parameters` is the JSON Schema of the action's params (derived from
+ * its zod schema). Text/JSON adapters ignore this and use `actionCatalog`.
+ */
+export interface ToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 /** Snapshot of what the AI sees before choosing the next action. */
 export interface AgentInput {
   task: string;
@@ -26,6 +37,13 @@ export interface AgentInput {
   activeTab: string;
   history: Array<{ action: string; result: string }>;
   actionCatalog?: string;
+  /**
+   * Action tool definitions for native tool-calling transports. Populated by
+   * the loop from the registry for the current browser state. Text/JSON
+   * adapters ignore it; tool-calling adapters turn each entry into a provider
+   * tool. Changes between steps when state-scoped actions appear/disappear.
+   */
+  tools?: ToolDef[];
   /**
    * Persistent run memory carried across decisions. The loop initializes
    * this from the Agent memory option and updates it whenever an `AgentOutput`

@@ -45,6 +45,7 @@ export async function runTaskCommand(argv: string[]): Promise<number> {
     effort: opts.effort,
     env: opts.env,
     transport: opts.transport,
+    decisionMode: opts.decisionMode,
     onCodexRaw: opts.verbose ? (raw, step) => writeVerbose("model.raw", { step, raw }) : undefined,
   });
 

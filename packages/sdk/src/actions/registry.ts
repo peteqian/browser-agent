@@ -1,6 +1,7 @@
-import type { z } from "zod/v4";
+import { z } from "zod/v4";
 
 import { executeAction, type ActionResult } from "./execute";
+import type { ToolDef } from "../agent/contracts";
 import { actionSchemas, type Action, type ActionName } from "./types";
 import type { BrowserSession, Page } from "../browser/session";
 import type { BrowserStateSummary } from "../browser/state";
@@ -118,6 +119,32 @@ export class ActionRegistry {
   describeForPrompt(state?: BrowserStateSummary): string {
     const defs = state ? this.listFor(state) : this.list();
     return defs.map((definition) => `- ${definition.name}: ${definition.description}`).join("\n");
+  }
+
+  /**
+   * Tool definitions for native tool-calling transports. Each action becomes a
+   * callable tool whose `parameters` is the JSON Schema of its zod params.
+   * JSON Schemas are cached per definition (schemas are static).
+   */
+  toolDefsFor(state?: BrowserStateSummary): ToolDef[] {
+    const defs = state ? this.listFor(state) : this.list();
+    return defs.map((definition) => ({
+      name: definition.name,
+      description: definition.description,
+      parameters: this.jsonSchemaFor(definition),
+    }));
+  }
+
+  private schemaCache = new WeakMap<AnyActionDefinition, Record<string, unknown>>();
+
+  private jsonSchemaFor(definition: AnyActionDefinition): Record<string, unknown> {
+    const cached = this.schemaCache.get(definition);
+    if (cached) return cached;
+    const json = z.toJSONSchema(definition.schema, { io: "input" }) as Record<string, unknown>;
+    // Tool-call APIs want a plain object schema; drop the $schema dialect tag.
+    delete json.$schema;
+    this.schemaCache.set(definition, json);
+    return json;
   }
 }
 

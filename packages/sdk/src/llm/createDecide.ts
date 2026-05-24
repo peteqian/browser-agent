@@ -17,6 +17,12 @@ export interface CreateDecideOptions {
   env?: EnvId | "auto";
   /** Force a specific transport. Default: auto fallback chain. */
   transport?: TransportId | "auto";
+  /**
+   * Decision encoding for API transports. "tool" = native tool-calling
+   * (one action/turn, lean persistent conversation); "json" = structured
+   * output. Default "json". Only affects the openai/codex `sdk-api` path.
+   */
+  decisionMode?: "tool" | "json";
   /** Callback fired once resolution succeeds. Use for telemetry/logging. */
   onResolve?: (resolution: TransportResolution) => void;
   /** Optional logger. Default: JSONL-to-stderr. Pass `noopLogger` to silence. */
@@ -53,6 +59,7 @@ export function createDecide(options: CreateDecideOptions): ResolvedDecide {
     onCodexRaw: options.onCodexRaw,
     env: options.env,
     transport: options.transport,
+    decisionMode: options.decisionMode,
     onResolve: options.onResolve,
     logger: options.logger,
   });

@@ -41,6 +41,9 @@ Provider:
 
 Transport:
   --transport <t>            ${TRANSPORTS.join(" | ")}  (default: auto)
+  --decision-mode <m>        tool | json  (default: json). "tool" uses native
+                             tool-calling on the openai/codex sdk-api path:
+                             one action per turn, lean persistent conversation.
   --env <e>                  ${ENVS.join(" | ")}  (default: auto)
 
 Timeouts (ms):

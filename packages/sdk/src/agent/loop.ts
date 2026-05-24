@@ -208,6 +208,7 @@ async function runLoopInner<TData = unknown>(
         activeTab: runner.page.targetId,
         history: compactHistory(actionHistory, cfg.historyHead, cfg.historyTail),
         actionCatalog: actionRegistry.describeForPrompt(browserState),
+        tools: actionRegistry.toolDefsFor(browserState),
         memory: currentMemory,
       };
 
