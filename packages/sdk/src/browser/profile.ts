@@ -86,7 +86,8 @@ export class BrowserProfile {
   constructor(init: BrowserProfileInit = {}) {
     this.cdpUrl = init.cdpUrl;
     this.executablePath = init.executablePath;
-    this.channel = init.channel ?? (init.engine === "lightpanda" ? "lightpanda" : "chromium");
+    this.channel =
+      init.channel ?? (init.engine === "lightpanda" ? "lightpanda" : "chrome-for-testing");
     this.headless = init.headless ?? true;
     this.userDataDir = init.userDataDir;
     this.proxyServer = init.proxyServer;

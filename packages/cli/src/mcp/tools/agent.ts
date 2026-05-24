@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import { createDecide, runAgent } from "@peteqian/browser-agent-sdk";
+import { createDecide, runTask } from "@peteqian/browser-agent-sdk";
 import { buildProgressForwarder, jsonResult } from "../helpers";
 import { resolveBrowserPaths } from "../../profiles";
 
@@ -15,7 +15,6 @@ export function registerAgentTool(server: McpServer): void {
       inputSchema: {
         task: z.string(),
         startUrl: z.string().optional(),
-        maxSteps: z.number().int().min(1).max(200).optional(),
         model: z.string().optional(),
         effort: z.string().optional(),
         headless: z.boolean().optional().default(true),
@@ -32,7 +31,6 @@ export function registerAgentTool(server: McpServer): void {
       {
         task,
         startUrl,
-        maxSteps,
         model,
         effort,
         headless,
@@ -56,21 +54,18 @@ export function registerAgentTool(server: McpServer): void {
       const progressToken = extra._meta?.progressToken;
       const paths = resolveBrowserPaths({ profile, userDataDir, storageStatePath });
       const onEvent =
-        progressToken !== undefined
-          ? buildProgressForwarder(extra, progressToken, maxSteps ?? 40)
-          : undefined;
+        progressToken !== undefined ? buildProgressForwarder(extra, progressToken) : undefined;
       return jsonResult(
-        await runAgent({
+        await runTask({
           task,
           startUrl,
-          maxSteps,
           launch: {
             headless,
             autoConsent,
             userDataDir: paths.userDataDir,
             storageStatePath: paths.storageStatePath,
           },
-          decide,
+          getNextAction: decide,
           transportResolution: resolution,
           signal: extra.signal,
           onEvent,

@@ -1,5 +1,6 @@
-import { BrowserSession, type Page } from "../browser/session";
+import { BrowserSession } from "../browser/session";
 import type { PageSnapshot } from "../dom/types";
+import { SessionRunner } from "../runtime/session-runner";
 import type { AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
 import { emitEvent } from "./emit";
 import { compactHistory } from "./history";
@@ -37,13 +38,13 @@ export {
 export type { DecisionPromptParts } from "./decision-prompt";
 
 /**
- * Runs the core browser-agent loop until completion, abort, or step-budget
- * exhaustion.
+ * Runs the core browser-agent loop until completion, abort, repeated failure,
+ * or loop detection.
  *
  * The loop owns the session lifecycle when no caller-provided page/session is
  * given; otherwise it leaves cleanup to the caller.
  */
-export async function runAgent<TData = unknown>(
+export async function runLoop<TData = unknown>(
   options: AgentOptions<TData>,
 ): Promise<AgentResult<TData>> {
   if (options.transportResolution) {
@@ -52,12 +53,12 @@ export async function runAgent<TData = unknown>(
       resolution: options.transportResolution,
     });
   }
-  const result = await runAgentInner<TData>(options);
+  const result = await runLoopInner<TData>(options);
   await emitEvent(options, { type: "terminal", result });
   return result;
 }
 
-async function runAgentInner<TData = unknown>(
+async function runLoopInner<TData = unknown>(
   options: AgentOptions<TData>,
 ): Promise<AgentResult<TData>> {
   const cfg = resolveConfig(options);
@@ -78,7 +79,7 @@ async function runAgentInner<TData = unknown>(
   let loopNudgesUsed = 0;
   let consecutiveEmptyDecisions = 0;
   let pendingLoopNotice: string | null = null;
-  let latestExtraction: string | null = null;
+  const recentExtractions: Array<{ step: number; text: string }> = [];
   let currentMemory: string | undefined = options.memory;
   let prevSnapshot: PageSnapshot | null = null;
   const fullSnapshots = options.fullSnapshots === true;
@@ -88,14 +89,20 @@ async function runAgentInner<TData = unknown>(
     if (!initialPage) {
       throw new Error("No page available — provide options.page or options.session.");
     }
-    let page: Page = initialPage;
+    const runner = new SessionRunner({
+      session,
+      page: initialPage,
+      actionRegistry,
+      allowedDomains: options.allowedDomains,
+      domBudgets: options.domBudgets,
+    });
 
     unsubscribeBrowserEvents = session?.eventBus?.on((event) =>
       emitEvent(options, { type: "browser_event", event }),
     );
 
     if (options.startUrl) {
-      const health = await page.navigateWithHealthCheck(options.startUrl);
+      const health = await runner.page.navigateWithHealthCheck(options.startUrl);
       if (!health.ok) {
         return {
           success: false,
@@ -107,7 +114,7 @@ async function runAgentInner<TData = unknown>(
       }
     }
 
-    for (let step = 1; step <= cfg.maxSteps; step++) {
+    for (let step = 1; ; step++) {
       const beforeStepInterrupt = await checkInterrupt(options, step - 1);
       if (beforeStepInterrupt) return beforeStepInterrupt;
 
@@ -117,8 +124,7 @@ async function runAgentInner<TData = unknown>(
       try {
         context = await withRejectingTimeout(
           buildStepContext(
-            page,
-            session,
+            runner,
             cfg.vision,
             options.domBudgets,
             focusState,
@@ -154,7 +160,7 @@ async function runAgentInner<TData = unknown>(
       if (browserState.screenshot) {
         await session?.eventBus?.emit({
           type: "screenshot",
-          targetId: page.targetId,
+          targetId: runner.page.targetId,
           screenshot: browserState.screenshot,
         });
         await emitEvent(options, {
@@ -164,44 +170,24 @@ async function runAgentInner<TData = unknown>(
         });
       }
 
-      // Soft step-budget: once we cross the advisory, every observation
-      // gets a hard "wrap up NOW" notice. After advisory + 4 we hard-stop.
-      const overBudgetBy = step - cfg.stepBudgetAdvisory;
-      const budgetNotice =
-        overBudgetBy > 0
-          ? `STEP BUDGET EXCEEDED: you are ${overBudgetBy} step(s) past the typical ${cfg.stepBudgetAdvisory}-step budget for a task like this. Your NEXT action MUST be \`done\` with whatever you have — set success=true if you have the answer or success=false with a summary of what you got.`
-          : null;
-      if (Number.isFinite(cfg.maxSteps) === false && overBudgetBy >= 5) {
-        return {
-          success: false,
-          reason: "failed",
-          summary: `Stopped after ${step} steps (${overBudgetBy} past the ${cfg.stepBudgetAdvisory}-step advisory budget). The model would not converge. Set options.stepBudgetAdvisory higher if the task genuinely needs more steps.`,
-          data: null,
-          steps: step,
-        };
-      }
-      const composedNotice = [pendingLoopNotice, budgetNotice].filter(Boolean).join("\n\n") || null;
+      const composedNotice = pendingLoopNotice;
+      const surfacedExtraction =
+        recentExtractions.length === 0
+          ? null
+          : recentExtractions.map((e) => `[from step ${e.step}]\n${e.text}`).join("\n\n---\n\n");
       const effectiveObservation = applyObservationPrefix(observation, {
-        isLastStep: Number.isFinite(cfg.maxSteps) && step === cfg.maxSteps,
-        step,
-        maxSteps: cfg.maxSteps,
         loopNotice: composedNotice,
-        latestExtraction,
+        latestExtraction: surfacedExtraction,
       });
       pendingLoopNotice = null;
-      // Consume the extraction once — keep it visible only for the
-      // turn after the call; the agent should incorporate it then or
-      // re-extract if it needs a fresh snapshot.
-      latestExtraction = null;
 
       const decideInput: AgentInput = {
         task: options.task,
         step,
-        maxSteps: cfg.maxSteps,
         browserState,
         observation: effectiveObservation,
         tabs,
-        activeTab: page.targetId,
+        activeTab: runner.page.targetId,
         history: compactHistory(actionHistory, cfg.historyHead, cfg.historyTail),
         actionCatalog: actionRegistry.describeForPrompt(browserState),
         memory: currentMemory,
@@ -258,8 +244,7 @@ async function runAgentInner<TData = unknown>(
         actionRegistry,
         decision,
         decideInput,
-        page,
-        session,
+        runner,
         step,
         browserState,
         actionTimeoutMs: cfg.actionTimeoutMs,
@@ -267,7 +252,6 @@ async function runAgentInner<TData = unknown>(
         focusState,
       });
 
-      page = stepOutcome.page;
       const decidedActionCount = (decision.actions ?? []).length;
       if (decidedActionCount === 0) {
         consecutiveEmptyDecisions += 1;
@@ -284,15 +268,15 @@ async function runAgentInner<TData = unknown>(
         consecutiveEmptyDecisions = 0;
       }
       if (stepOutcome.latestExtraction) {
-        // Cap the surfaced extraction so the next prompt does not blow up
-        // for sites that return tens of kilobytes of page text.
         const cap = 8_000;
-        latestExtraction =
+        const trimmed =
           stepOutcome.latestExtraction.length > cap
             ? `${stepOutcome.latestExtraction.slice(0, cap)}\n…[truncated ${
                 stepOutcome.latestExtraction.length - cap
               } chars]`
             : stepOutcome.latestExtraction;
+        recentExtractions.push({ step, text: trimmed });
+        if (recentExtractions.length > 2) recentExtractions.shift();
       }
       if (stepOutcome.terminalResult) return stepOutcome.terminalResult;
 
@@ -397,11 +381,10 @@ async function runAgentInner<TData = unknown>(
             options,
             task: options.task,
             step,
-            maxSteps: cfg.maxSteps,
             browserState,
             observation,
             tabs,
-            activeTab: page.targetId,
+            activeTab: runner.page.targetId,
             history: compactHistory(actionHistory, cfg.historyHead, cfg.historyTail),
             decisionTimeoutMs: cfg.decisionTimeoutMs,
             actionRegistry,
@@ -436,15 +419,6 @@ async function runAgentInner<TData = unknown>(
         };
       }
     }
-
-    const stepsRun = Number.isFinite(cfg.maxSteps) ? (cfg.maxSteps as number) : 0;
-    return {
-      success: false,
-      reason: "max_steps",
-      summary: `Exceeded max steps (${stepsRun}).`,
-      data: null,
-      steps: stepsRun,
-    };
   } finally {
     unsubscribeBrowserEvents?.();
     if (ownsSession && session) await session.close();
@@ -452,7 +426,6 @@ async function runAgentInner<TData = unknown>(
 }
 
 interface ResolvedConfig {
-  maxSteps: number;
   stepTimeoutMs: number;
   actionTimeoutMs: number;
   decisionTimeoutMs: number;
@@ -465,22 +438,11 @@ interface ResolvedConfig {
   planning: boolean;
   historyHead: number;
   historyTail: number;
-  stepBudgetAdvisory: number;
 }
 
 function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
   const loopDetectionMode = options.loopDetectionMode ?? "nudge";
-  const requestedMaxSteps = options.maxSteps;
-  // Treat `0` as "uncapped" so callers can opt out of the step ceiling
-  // explicitly. `undefined` still falls back to the default (40).
-  const maxSteps = requestedMaxSteps === 0 ? Number.POSITIVE_INFINITY : (requestedMaxSteps ?? 40);
-  // Advisory budget: past this step every observation gets a STOP NOW notice;
-  // past advisory + 4 the loop hard-stops. 12 is a generous typical-task cap
-  // that leaves a small buffer for chatty models without going runaway.
-  const stepBudgetAdvisory = options.stepBudgetAdvisory ?? 12;
   return {
-    maxSteps,
-    stepBudgetAdvisory,
     stepTimeoutMs: coerceStepTimeoutMs(options.stepTimeoutMs),
     actionTimeoutMs: coerceActionTimeoutMs(options.actionTimeoutMs),
     decisionTimeoutMs: coerceDecisionTimeoutMs(options.decisionTimeoutMs),
@@ -499,19 +461,11 @@ function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
 function applyObservationPrefix(
   observation: string,
   opts: {
-    isLastStep: boolean;
-    step: number;
-    maxSteps: number;
     loopNotice: string | null;
     latestExtraction: string | null;
   },
 ): string {
   const prefixes: string[] = [];
-  if (opts.isLastStep) {
-    prefixes.push(
-      `FINAL STEP (${opts.step}/${opts.maxSteps}): No further actions will be executed after this turn. Respond with the \`done\` action — set success=true if the task is complete or success=false with a summary of remaining work otherwise.`,
-    );
-  }
   if (opts.loopNotice) prefixes.push(opts.loopNotice);
   if (opts.latestExtraction) {
     prefixes.push(

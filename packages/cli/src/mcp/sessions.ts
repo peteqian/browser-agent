@@ -1,4 +1,5 @@
 import { BrowserSession, type BrowserStateSummary, type Page } from "@peteqian/browser-agent-sdk";
+import type { SessionRunner } from "@peteqian/browser-agent-sdk/internal";
 
 export type ArtifactKind = "screenshot" | "pdf";
 
@@ -26,6 +27,7 @@ export type SessionEventListener = (event: { sessionId?: string; event: SessionE
 export interface SessionRecord {
   session: BrowserSession;
   page: Page;
+  runner?: SessionRunner;
   createdAt?: number;
   lastAccessedAt: number;
   artifacts: SessionArtifact[];
@@ -151,6 +153,8 @@ export async function shutdownAllSessions(): Promise<void> {
 
 export function setCurrentPage(record: SessionRecord, targetId: string): void {
   record.page = record.session.getPage(targetId);
+  record.runner?.setPage(record.page);
+  record.latestState = undefined;
 }
 
 /**

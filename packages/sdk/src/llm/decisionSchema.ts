@@ -1,5 +1,7 @@
 import type { AgentOutput } from "../agent/contracts";
 
+export const MAX_ACTIONS_PER_DECISION = 4;
+
 /**
  * JSON Schema describing the AgentOutput shape for structured-output APIs
  * (OpenAI `response_format: json_schema`, Anthropic `output_config`).
@@ -28,11 +30,9 @@ export const decisionJsonSchema = {
     },
     actions: {
       type: "array",
-      // Cap at 2 to encourage one-action-per-turn discipline. A 2nd action is
-      // allowed only when the model is confident the next observation is
-      // irrelevant for it (e.g. type into one field then immediately into
-      // the next on an already-open form). Default is 1.
-      maxItems: 2,
+      // Allow short same-observation batches. The runner stops the batch after
+      // navigation-like actions so later actions never run against stale DOM.
+      maxItems: MAX_ACTIONS_PER_DECISION,
       items: {
         type: "object",
         properties: {
@@ -78,9 +78,7 @@ export function validateDecision(raw: unknown): AgentOutput {
     return { name: action.name, params: action.params ?? {} };
   });
 
-  // Trim to the 2-action cap. Anything beyond is dropped silently so the
-  // model can't sneak past the discipline. Logged via the schema doc above.
-  if (actions.length > 2) actions.length = 2;
+  if (actions.length > MAX_ACTIONS_PER_DECISION) actions.length = MAX_ACTIONS_PER_DECISION;
 
   if (typeof d.done !== "boolean") {
     throw new Error("Decision.done must be a boolean");

@@ -14,7 +14,7 @@ export interface ClaudeSdkOptions {
 
 /**
  * Claude Agent SDK adapter. Disables all built-in tools so the model returns
- * a single JSON action per call, matching the existing CLI/Codex adapters.
+ * browser-agent JSON decisions instead of calling provider-native tools.
  *
  * Aborts via the SDK's `abortController` option. The signal forwarded by the
  * loop is bridged to a per-call AbortController.

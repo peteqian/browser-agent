@@ -6,7 +6,7 @@
  * runs that would have succeeded with a 2-second delay.
  *
  * Default policy: 3 attempts, exponential backoff with jitter, only on
- * transient errors. Users can override via `RetryOptions` on AgentOptions.
+ * transient errors. Users can override via `RetryOptions` on Agent.
  */
 
 export interface RetryOptions {

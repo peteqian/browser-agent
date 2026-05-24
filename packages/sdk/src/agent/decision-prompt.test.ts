@@ -12,7 +12,6 @@ function makeInput(overrides: Partial<AgentInput> = {}): AgentInput {
   return {
     task: "Find the price",
     step: 3,
-    maxSteps: 40,
     observation: "<html>example</html>",
     tabs: ["t1"],
     activeTab: "t1",
@@ -34,7 +33,7 @@ describe("buildDecisionPromptParts", () => {
   test("suffix contains per-step task, step, observation, history, memory", () => {
     const { suffix } = buildDecisionPromptParts(makeInput());
     expect(suffix).toContain("Find the price");
-    expect(suffix).toContain("Step: 3/40");
+    expect(suffix).toContain("Step: 3");
     expect(suffix).toContain("<html>example</html>");
     expect(suffix).toContain("user has logged in");
     expect(suffix).toContain("1. navigate => ok");

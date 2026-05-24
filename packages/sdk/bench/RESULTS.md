@@ -64,7 +64,7 @@ Two underlying defects in our agent. Both fixed in this commit before the run:
 
 After the fix, the post-fix smoke run jumped from **0/3 → 3/3**, and the full run lands at **7/10 (70%)**. The three remaining failures are real task-level issues, not framework defects:
 
-- **multi-001**: Agent did the right browsing — navigated to `/front` — but its final `done` message said "in this final step I was not provided the visible text/title". `max_steps=20` hit. Possible improvement: bigger `max_steps`, or DOM snapshot didn't include the top-row text on the final observation.
+- **multi-001**: Agent did the right browsing — navigated to `/front` — but its terminal message said it could not see the visible text/title. Possible improvement: DOM snapshot coverage for the top-row text on the final observation.
 - **multi-002**: Agent search step misbehaved on `wikipedia.org` → landed on a red-link page → reported article as non-existent. Real article exists. Hallucination + execution failure.
 - **stealth-001**: Cloudflare challenge on `nowsecure.nl` not passed within budget. Real signal — our CDP launch flags don't currently defeat Cloudflare's interstitial. This is the kind of task `browser-use` ships a specific Stealth Bench for.
 
@@ -106,7 +106,6 @@ Marginal spend: ~$2-4 + ~15-25 min.
 ## Methodology
 
 - Same `confirmed_task` string verbatim to any agent under test.
-- Same `max_steps` per task (defined in `tasks.json`; default 25; individual tasks set 8-25).
 - Cold browser per task (default in our harness; matches browser-use).
 - No agent-specific prompt tuning.
 - Same judge for the A/B (when we run it).

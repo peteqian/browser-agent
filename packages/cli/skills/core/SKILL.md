@@ -112,7 +112,8 @@ Full list with shape: `references/actions.md`.
 - **`wait_for_text`** is preferred over fixed-duration `wait` for
   determinism. Use `wait` only for animations or rate-limited UIs.
 - **One `done` per task.** Emit `done({ success, summary, data? })` to end
-  the loop. Without it the task runs to `maxSteps` and reports failure.
+  the loop. Without it the agent continues until cancellation, loop detection,
+  or the consecutive-failure guard stops it.
 
 ## Multi-step / persistent sessions
 

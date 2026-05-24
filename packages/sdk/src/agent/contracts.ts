@@ -20,7 +20,6 @@ import type { z } from "zod";
 export interface AgentInput {
   task: string;
   step: number;
-  maxSteps: number;
   browserState?: BrowserStateSummary;
   observation: string;
   tabs: string[];
@@ -29,7 +28,7 @@ export interface AgentInput {
   actionCatalog?: string;
   /**
    * Persistent run memory carried across decisions. The loop initializes
-   * this from `AgentOptions.memory` and updates it whenever an `AgentOutput`
+   * this from the Agent memory option and updates it whenever an `AgentOutput`
    * returns a new `memory` field. Adapters should surface it in the
    * prompt so the model can rely on it across steps.
    */
@@ -42,7 +41,7 @@ export interface AgentOutputAction {
   params: unknown;
 }
 
-/** Structured AI output consumed by `runAgent`. */
+/** Structured AI output consumed by the Agent loop. */
 export interface AgentOutput {
   thought?: string;
   memory?: string;
@@ -78,7 +77,7 @@ export interface StepInfo {
 
 /**
  * Discriminated union of events emitted during an agent run. Subscribe via
- * `AgentOptions.onEvent` to drive UIs, telemetry, or audit trails.
+ * the Agent `onEvent` option to drive UIs, telemetry, or audit trails.
  *
  * Event order per step: one `decision` (after the model returns), one
  * `action` per executed action, then `terminal` once when the loop exits.
@@ -161,7 +160,6 @@ export type OnEventCallback<TData = unknown> = (event: AgentEvent<TData>) => voi
 export type TerminalReason =
   | "completed"
   | "failed"
-  | "max_steps"
   | "max_failures"
   | "loop_detected"
   | "aborted"
@@ -173,14 +171,14 @@ export type TerminalReason =
   | "judge_failed";
 
 /**
- * Final-validation hook. When `AgentOptions.judge` is set, the loop
+ * Final-validation hook. When the Agent `judge` option is set, the loop
  * invokes it after the model emits a successful `done` action and uses
  * the verdict to either confirm success or fail the run with
  * `reason: "judge_failed"`. Receives the final `AgentInput` along
  * with the model's terminal summary and (when present) typed data.
  */
 /**
- * Hook for structured extraction. When `AgentOptions.extractionLLM` is set
+ * Hook for structured extraction. When the Agent `extractionLLM` option is set
  * and the model's `extract_content` action carries a `schemaJson`, the
  * executor passes the extracted markdown plus the schema to this hook and
  * surfaces the result as `data.structured` alongside the existing markdown
@@ -268,8 +266,6 @@ export interface AgentOptions<TData = unknown> {
    * "schema_violation"` with `data: null`.
    */
   outputSchema?: z.ZodType<TData>;
-  /** Hard cap on loop iterations. Default: 40. */
-  maxSteps?: number;
   /** Timeout for per-step page-context preparation (DOM serialize, pending requests). Default: 180000. */
   stepTimeoutMs?: number;
   /** Timeout for executing a single action. Default: 30000. */
@@ -406,12 +402,4 @@ export interface AgentOptions<TData = unknown> {
    * touching the network. When undefined or empty, no restriction.
    */
   allowedDomains?: readonly string[];
-  /**
-   * Soft budget in steps. Past this number, every observation carries a
-   * "STEP BUDGET EXCEEDED, call done now" notice. Past advisory + 4 the
-   * loop hard-stops with reason="failed". Default: 10. Set higher for
-   * genuinely large tasks; set very high (e.g. 1000) to effectively
-   * disable.
-   */
-  stepBudgetAdvisory?: number;
 }

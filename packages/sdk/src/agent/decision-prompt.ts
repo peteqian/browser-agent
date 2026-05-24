@@ -59,12 +59,8 @@ function buildDecisionSuffix(input: AgentInput): string {
 
   const memoryBlock = input.memory ? `\nCurrent memory:\n${input.memory}\n` : "";
 
-  const stepLine = Number.isFinite(input.maxSteps)
-    ? `Step: ${input.step}/${input.maxSteps}`
-    : `Step: ${input.step} (no hard step cap; finish when the task is done)`;
-
   return `Task: ${input.task}
-${stepLine}
+Step: ${input.step}
 Active tab: ${input.activeTab}
 Open tabs: ${input.tabs.join(", ")}
 ${memoryBlock}

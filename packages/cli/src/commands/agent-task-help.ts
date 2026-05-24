@@ -8,7 +8,7 @@ export function printHelp(): void {
 Usage:
   browser-agent "<task>" [flags]
   browser-agent browser status              # check browser executable
-  browser-agent browser install             # install managed Chromium
+  browser-agent browser install             # install Chrome for Testing
   browser-agent install [--help]              # configure MCP clients
   browser-agent dashboard [--port 3217]       # run local HTTP dashboard
   browser-agent profile <subcommand> [--help] # manage persistent profiles
@@ -20,8 +20,6 @@ Usage:
 
 Flags:
   --url <url>                Start URL to navigate to before the first step.
-  --max-steps <n>            Hard cap on loop iterations. 0 (default) = uncapped;
-                             the loop ends when the model calls done or maxFailures hits.
   --no-headless              Show the browser window.
   --headless                 Run headless (default).
   --engine <e>               ${ENGINES.join(" | ")}  (default: chrome)
@@ -76,7 +74,7 @@ Env vars:
 
 Examples:
   browser-agent "Go to example.com and report the H1"
-  browser-agent "Find top 5 frontend jobs on seek.com.au" --url https://seek.com.au --max-steps 30
+  browser-agent "Find top 5 frontend jobs on seek.com.au" --url https://seek.com.au
   browser-agent "Summarize page" --provider openai --model gpt-4.1-mini
   echo "open google.com" | browser-agent --stdin
   browser-agent --probe --provider claude

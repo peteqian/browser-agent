@@ -32,6 +32,7 @@ import {
 } from "@peteqian/browser-agent-sdk/internal";
 
 const BROWSER_CHANNELS: readonly BrowserChannel[] = [
+  "chrome-for-testing",
   "chromium",
   "chrome",
   "chrome-beta",

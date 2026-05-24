@@ -56,6 +56,7 @@ export function registerDaemonTools(server: McpServer): void {
         executablePath: z.string().min(1).optional(),
         channel: z
           .enum([
+            "chrome-for-testing",
             "chromium",
             "chrome",
             "chrome-beta",

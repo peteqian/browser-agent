@@ -3,7 +3,7 @@ import { writeFileSync } from "node:fs";
 import {
   createDecide,
   resolveTransport,
-  runAgent,
+  runTask,
   type AgentEvent,
   type StepInfo,
 } from "@peteqian/browser-agent-sdk";
@@ -20,7 +20,7 @@ function writeJsonl(event: AgentEvent): void {
   process.stdout.write(`${JSON.stringify(event)}\n`);
 }
 
-export async function runAgentTaskCommand(argv: string[]): Promise<number> {
+export async function runTaskCommand(argv: string[]): Promise<number> {
   const opts = await buildOptions(argv);
 
   if (opts.probe) {
@@ -94,7 +94,6 @@ export async function runAgentTaskCommand(argv: string[]): Promise<number> {
   const agentOptions = {
     task: opts.task,
     startUrl: opts.url,
-    maxSteps: opts.maxSteps,
     decisionTimeoutMs: opts.decisionTimeoutMs,
     stepTimeoutMs: opts.stepTimeoutMs,
     actionTimeoutMs: opts.actionTimeoutMs,
@@ -107,7 +106,7 @@ export async function runAgentTaskCommand(argv: string[]): Promise<number> {
       initScripts: opts.initScripts,
       ...(opts.engine === "lightpanda" ? { channel: "lightpanda" as const } : {}),
     },
-    decide,
+    getNextAction: decide,
     transportResolution: resolution,
     vision: "auto" as const,
     fullSnapshots: opts.fullSnapshots,
@@ -129,7 +128,7 @@ export async function runAgentTaskCommand(argv: string[]): Promise<number> {
 
   let result;
   try {
-    result = await runAgent(agentOptions);
+    result = await runTask(agentOptions);
   } finally {
     process.off("SIGINT", handleInt);
     process.off("SIGTERM", handleTerm);

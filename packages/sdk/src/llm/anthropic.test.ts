@@ -48,7 +48,6 @@ function makeInput(): AgentInput {
   return {
     task: "Test cache pinning",
     step: 1,
-    maxSteps: 5,
     observation: "obs",
     tabs: ["t1"],
     activeTab: "t1",

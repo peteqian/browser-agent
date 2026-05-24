@@ -7,7 +7,6 @@ function makeInput(overrides: Partial<AgentInput> = {}): AgentInput {
   return {
     task: "find pricing",
     step: 1,
-    maxSteps: 40,
     activeTab: "https://example.com/",
     tabs: ["https://example.com/"],
     history: [],
@@ -79,6 +78,18 @@ describe("parseDecision", () => {
     expect(decision.thought).toBe("page loaded");
     expect(decision.nextGoal).toBe("extract H1");
     expect(decision.memory).toBe("n=1");
+  });
+
+  test("parses batched action output", () => {
+    const decision = parseDecision(
+      '{"actions":[{"name":"focus","params":{"index":0}},{"name":"type","params":{"index":0,"text":"hello"}}],"done":false}',
+    );
+
+    expect(decision.actions).toEqual([
+      { name: "focus", params: { index: 0 } },
+      { name: "type", params: { index: 0, text: "hello" } },
+    ]);
+    expect(decision.done).toBe(false);
   });
 
   test("non-done action leaves summary undefined", () => {

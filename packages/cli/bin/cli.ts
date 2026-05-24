@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { runAgentTaskCommand } from "../src/commands/agent-task-cmd";
+import { runTaskCommand } from "../src/commands/agent-task-cmd";
 import { runBrowserCommand } from "../src/commands/browser-cmd";
 import { runDashboardCommand } from "../src/commands/dashboard-cmd";
 import { runInstallCommand } from "../src/commands/install-cmd";
@@ -20,7 +20,7 @@ async function main(): Promise<number> {
   const argv = process.argv.slice(2);
   const handler = argv[0] ? SUBCOMMANDS[argv[0]] : undefined;
   if (handler) return handler(argv.slice(1));
-  return runAgentTaskCommand(argv);
+  return runTaskCommand(argv);
 }
 
 main()

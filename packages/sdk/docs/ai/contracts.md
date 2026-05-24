@@ -19,11 +19,11 @@ Exported from the main entry (`@peteqian/browser-agent-sdk`):
 - `AgentInput`, `AgentOutput`, `AgentOutputAction`, `GetNextActionFn`
 - `StepInfo`, `AgentEvent`, `OnEventCallback`
 - `AgentResult`, `TerminalReason`
-- `AgentOptions`, `AgentControl`, `PlanItem`
+- `AgentControl`, `PlanItem`
 - `ProviderId`, `CreateDecideOptions`, `LLMAdapterOptions`, `TokenUsage`, `DecisionTelemetry`
 - `JudgeFn`, `ExtractionLLMFn`
 - `EnvId`, `TransportId`, `TransportResolution`
-- `Agent`, `Browser` (facade classes), `BrowserOptions`, `SimpleAgentOptions`, `AgentProviderOptions`
+- `runTask`, `Agent`, `Browser`, `BrowserOptions`, `SimpleAgentOptions`, `AgentProviderOptions`
 
 ## Internal types (no stability guarantee)
 

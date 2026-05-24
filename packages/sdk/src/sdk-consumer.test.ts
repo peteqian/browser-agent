@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
-import { BrowserSession, runAgent, type GetNextActionFn, type Page, type StepInfo } from "./index";
+import { BrowserSession, runTask, type GetNextActionFn, type Page, type StepInfo } from "./index";
 
 const testSessions = new Set<{ close: () => Promise<void>; closed: boolean }>();
 
@@ -62,7 +62,7 @@ describe("public SDK consumer", () => {
       };
     };
 
-    const result = await runAgent({
+    const result = await runTask({
       task: "Use the SDK and close the browser",
       page: createSdkPage(),
       session: createSdkSession({
@@ -70,7 +70,7 @@ describe("public SDK consumer", () => {
           closed = true;
         },
       }),
-      decide,
+      getNextAction: decide,
       onStep: (step) => steps.push(step),
     });
 

@@ -29,8 +29,8 @@ CI runs all five on every push to `main` / `dev` and on every PR.
 ## Examples
 
 - `bun run example:goto` basic navigation.
-- `bun run example:agent` agent loop.
-- `bun run example:simple-agent` `Agent` + `Browser` facade.
+- `bun run example:agent` one-shot task runner.
+- `bun run example:simple-agent` one-shot task runner with a reusable `Browser`.
 - `bun run example:typed-output` zod-validated terminal payload.
 - `bun run example:custom-action` typed custom action registry.
 - `bun run example:remote-cdp` attach to an existing Chrome DevTools endpoint.

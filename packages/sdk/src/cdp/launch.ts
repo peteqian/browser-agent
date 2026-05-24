@@ -5,11 +5,7 @@ import { join } from "node:path";
 import { createServer } from "node:net";
 
 import { BrowserProfile, type BrowserPermissionGrant } from "../browser/profile";
-import {
-  discoverBrowserExecutable,
-  installChromiumWithPlaywright,
-  type BrowserChannel,
-} from "./discovery";
+import { discoverBrowserExecutable, installBrowser, type BrowserChannel } from "./discovery";
 import { buildChromeArgs, buildLightpandaArgs } from "./chrome-args";
 
 export interface LaunchOptions {
@@ -181,12 +177,12 @@ async function resolveExecutable(
     );
   }
 
-  await installChromiumWithPlaywright();
+  await installBrowser(channel);
   const installed = discoverBrowserExecutable(channel);
   if (installed) return installed;
 
   throw new Error(
-    "Installed Chromium via Playwright, but browser executable is still not discoverable",
+    `Installed browser for channel=${channel}, but executable is still not discoverable`,
   );
 }
 
@@ -264,7 +260,7 @@ async function launchAttempt(
 
 export async function launchBrowser(options: LaunchOptions = {}): Promise<LaunchedBrowser> {
   const maxRetries = options.maxRetries ?? 3;
-  const channel = options.channel ?? "chromium";
+  const channel = options.channel ?? "chrome-for-testing";
   const autoInstallBrowser = options.autoInstallBrowser ?? true;
   const executablePath = await resolveExecutable(
     options.executablePath,

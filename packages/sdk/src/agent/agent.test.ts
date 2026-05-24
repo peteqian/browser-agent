@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { Browser } from "../browser/browser";
-import { Agent } from "./agent";
+import { Agent, runTask } from "./agent";
 
 describe("Agent", () => {
   it("can be created with the simple options", () => {
@@ -29,5 +29,25 @@ describe("Agent", () => {
     });
 
     expect(agent).toBeInstanceOf(Agent);
+  });
+
+  it("runs a one-shot task", async () => {
+    const result = await runTask({
+      task: "Report done.",
+      fullSnapshots: true,
+      getNextAction: async () => ({
+        done: true,
+        success: true,
+        summary: "ok",
+        actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+      }),
+    });
+
+    expect(result).toMatchObject({
+      success: true,
+      reason: "completed",
+      summary: "ok",
+      steps: 1,
+    });
   });
 });

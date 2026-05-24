@@ -9,6 +9,7 @@ export { launchBrowser } from "./cdp/launch";
 export type { LaunchOptions, LaunchedBrowser } from "./cdp/launch";
 export {
   discoverBrowserExecutable,
+  installBrowser,
   ensureBrowserExecutable,
   getBrowserInstallStatus,
 } from "./cdp/discovery";
@@ -40,6 +41,22 @@ export type {
 export type { ElementInfo, ElementBBox, PageSnapshot } from "./dom/types";
 export { captureBrowserState } from "./browser/state";
 export type { BrowserStateSummary, ScreenshotState } from "./browser/state";
+export { observePage, refreshPageState } from "./runtime/observer";
+export type { ObservePageOptions, RefreshPageStateOptions } from "./runtime/observer";
+export { executeRuntimeAction, runRuntimeActions, shouldReobserve } from "./runtime/executor";
+export type {
+  ExecuteRuntimeActionOptions,
+  RunRuntimeActionsOptions,
+  RuntimeAction,
+  RuntimeActionResult,
+  RuntimeActionsResult,
+} from "./runtime/executor";
+export { SessionRunner } from "./runtime/session-runner";
+export type {
+  RunActionOptions,
+  RunActionsOptions,
+  SessionRunnerOptions,
+} from "./runtime/session-runner";
 
 export { executeAction } from "./actions/execute";
 export type { ActionResult } from "./actions/execute";

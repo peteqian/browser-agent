@@ -120,7 +120,7 @@ describe("runSessionAction", () => {
     const body = JSON.parse(result.content[0].text);
     calls.push({ name: "click", params: { index: 7 } });
     expect(body.ok).toBe(true);
-    expect(record.latestState).toBeDefined();
+    expect(record.latestState).toBeUndefined();
     expect(calls).toHaveLength(1);
     expect(record.events?.[0]?.name).toBe("click");
     expect(record.events?.[0]?.ok).toBe(true);
@@ -155,13 +155,17 @@ describe("runSessionAction", () => {
   });
 
   test("runSessionActions stops after the first failed action", async () => {
-    const clicked: number[] = [];
+    const calls: Array<{ kind: string; backendNodeId: number }> = [];
     const page = {
       targetId: "page-1",
       currentUrl: async () => "https://example.com/",
       clickByBackendNodeId: async (backendNodeId: number) => {
-        clicked.push(backendNodeId);
-        return backendNodeId === 123 ? { ok: true } : { ok: false, reason: "blocked" };
+        calls.push({ kind: "click", backendNodeId });
+        return backendNodeId === 456 ? { ok: false, reason: "blocked" } : { ok: true };
+      },
+      typeByBackendNodeId: async (backendNodeId: number) => {
+        calls.push({ kind: "type", backendNodeId });
+        return { ok: true };
       },
       waitForStablePage: async () => {},
       getPendingNetworkRequests: async () => [],
@@ -194,7 +198,7 @@ describe("runSessionAction", () => {
     const result = await runSessionActions(
       record,
       [
-        { name: "click", params: { index: 1 } },
+        { name: "type", params: { index: 1, text: "hello" } },
         { name: "click", params: { index: 2 } },
         { name: "click", params: { index: 3 } },
       ],
@@ -203,8 +207,11 @@ describe("runSessionAction", () => {
     const body = JSON.parse(result.content[0].text);
     expect(body.ok).toBe(false);
     expect(body.results).toHaveLength(2);
-    expect(clicked).toEqual([123, 456]);
-    expect(record.events?.map((event) => event.name)).toEqual(["click", "click"]);
+    expect(calls).toEqual([
+      { kind: "type", backendNodeId: 123 },
+      { kind: "click", backendNodeId: 456 },
+    ]);
+    expect(record.events?.map((event) => event.name)).toEqual(["type", "click"]);
     expect(record.events?.map((event) => event.ok)).toEqual([true, false]);
   });
 });

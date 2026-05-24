@@ -44,17 +44,17 @@ Requirements: **Node ≥ 18** or **Bun ≥ 1.3** + any Chrome-based browser.
 ## Quickstart
 
 ```ts
-import { Agent, Browser } from "@peteqian/browser-agent-sdk";
+import { Browser, runTask } from "@peteqian/browser-agent-sdk";
 
 const browser = new Browser();
-const agent = new Agent({
-  task: "Go to example.com and report the H1 text.",
-  browser,
-  startUrl: "https://example.com",
-});
 
 try {
-  console.log((await agent.run()).summary);
+  const result = await runTask({
+    task: "Go to example.com and report the H1 text.",
+    browser,
+    startUrl: "https://example.com",
+  });
+  console.log(result.summary);
 } finally {
   await browser.close();
 }
@@ -62,10 +62,24 @@ try {
 
 That's it. Default provider auto-resolves to whatever's signed in locally (Codex → Claude → OpenAI/Anthropic by API key).
 
+Chrome launches in CDP debug mode by default. For authenticated one-shot tasks,
+use a named profile and keep the task as the only thing the agent has to solve:
+
+```ts
+const result = await runTask({
+  task: "Check my Gmail inbox and summarize unread messages.",
+  profile: "gmail",
+  headless: false,
+});
+```
+
+The profile is stored under `~/.browser-agent/profiles/gmail/` and reuses
+cookies/localStorage on later runs.
+
 ### Pin a provider
 
 ```ts
-const agent = new Agent({
+await runTask({
   task: "Find the top Hacker News story.",
   browser,
   startUrl: "https://news.ycombinator.com",
@@ -77,18 +91,24 @@ const agent = new Agent({
 
 ```ts
 import { z } from "zod";
-import { Agent, Browser } from "@peteqian/browser-agent-sdk";
+import { Browser, runTask } from "@peteqian/browser-agent-sdk";
 
 const Result = z.object({ heading: z.string() });
 
-const result = await new Agent({
-  task: "Report the page heading via done(data=...).",
-  browser: new Browser(),
-  startUrl: "https://example.com",
-  outputSchema: Result,
-}).run();
+const browser = new Browser();
 
-if (result.success) console.log(result.data?.heading);
+try {
+  const result = await runTask({
+    task: "Report the page heading via done(data=...).",
+    browser,
+    startUrl: "https://example.com",
+    outputSchema: Result,
+  });
+
+  if (result.success) console.log(result.data?.heading);
+} finally {
+  await browser.close();
+}
 ```
 
 ### Drive the browser directly
@@ -130,7 +150,7 @@ See [`examples/custom-action.ts`](./examples/custom-action.ts).
 ## `AgentResult`
 
 - `success` — `true` only when `reason === "completed"`.
-- `reason` — branch on this in production: `completed`, `failed`, `max_steps`, `max_failures`, `loop_detected`, `aborted`, `stopped`, `step_timeout`, `decision_timeout`, `schema_violation`, `decide_error`.
+- `reason` — branch on this in production: `completed`, `failed`, `max_failures`, `loop_detected`, `aborted`, `stopped`, `step_timeout`, `decision_timeout`, `schema_violation`, `decide_error`.
 - `summary` — human-readable, not for control flow.
 - `data` — `TData | null`, validated against `outputSchema`.
 - `steps` — iterations executed.
@@ -165,8 +185,8 @@ bun --cwd packages/sdk run typecheck:examples
 Examples:
 
 - [`examples/goto.ts`](./examples/goto.ts) — drive a page directly with `BrowserSession`.
-- [`examples/simple-agent.ts`](./examples/simple-agent.ts) — use the `Agent` + `Browser` facade.
-- [`examples/agent.ts`](./examples/agent.ts) — run the lower-level `runAgent` loop.
+- [`examples/simple-agent.ts`](./examples/simple-agent.ts) — use `runTask` with a reusable `Browser`.
+- [`examples/agent.ts`](./examples/agent.ts) — run one task with the default SDK wrapper.
 - [`examples/typed-output.ts`](./examples/typed-output.ts) — validate terminal `done(data=...)` with Zod.
 - [`examples/custom-action.ts`](./examples/custom-action.ts) — register a typed custom action.
 - [`examples/remote-cdp.ts`](./examples/remote-cdp.ts) — attach to an existing DevTools endpoint.

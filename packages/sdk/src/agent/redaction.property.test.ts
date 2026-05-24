@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { BrowserSession, Page } from "../browser/session";
 import type { AgentEvent, AgentInput, StepInfo } from "./contracts";
-import { runAgent } from "./loop";
+import { runLoop } from "./loop";
 
 /**
  * Property-style redaction test: across many randomized secret values, prove
@@ -112,11 +112,10 @@ describe("redaction property: sensitive values never leak past the action execut
       const events: AgentEvent[] = [];
       const decisions: AgentInput[] = [];
 
-      const result = await runAgent({
+      const result = await runLoop({
         task: `log in with <secret>${key}</secret>`,
         page: createFakePage(received),
         session: createFakeSession(),
-        maxSteps: 3,
         sensitiveData: { [key]: value },
         onStep: (step) => {
           steps.push(step);

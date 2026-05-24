@@ -3,7 +3,7 @@ import type { z } from "zod";
 import type { LaunchOptions } from "../cdp/launch";
 import type { Browser } from "../browser/browser";
 import { createDecide, type CreateDecideOptions, type ProviderId } from "../llm/createDecide";
-import { runAgent } from "./loop";
+import { runLoop } from "./loop";
 import type {
   AgentControl,
   GetNextActionFn,
@@ -13,15 +13,25 @@ import type {
   JudgeFn,
   OnEventCallback,
   StepInfo,
+  TransportResolution,
 } from "./contracts";
 import type { ActionDefinition, ActionRegistry } from "../actions/registry";
 import type { BrowserSession, Page } from "../browser/session";
+import { resolveBrowserPaths } from "../browser/profile-paths";
 import type { DomBudgetOptions } from "../dom/cdp-snapshot";
 import type { RetryOptions } from "./retry";
 
 export type AgentProviderOptions = Pick<
   CreateDecideOptions,
-  "provider" | "model" | "apiKey" | "baseURL" | "effort" | "env" | "transport" | "logger"
+  | "provider"
+  | "model"
+  | "apiKey"
+  | "baseURL"
+  | "effort"
+  | "env"
+  | "transport"
+  | "logger"
+  | "onCodexRaw"
 >;
 
 export type AgentLlm = "auto" | ProviderId | AgentProviderOptions | GetNextActionFn;
@@ -34,10 +44,17 @@ export interface SimpleAgentOptions<TData = unknown> extends Partial<AgentProvid
   browserSession?: BrowserSession;
   browser_session?: BrowserSession;
   startUrl?: string;
+  /**
+   * Named persistent profile stored under ~/.browser-agent/profiles/<name>.
+   * Use this for one-shot authenticated tasks without creating a Browser first.
+   */
+  profile?: string;
   initialActions?: unknown[];
   initial_actions?: unknown[];
-  maxSteps?: number;
   headless?: boolean;
+  userDataDir?: string;
+  storageStatePath?: string;
+  saveStorageStateOnClose?: boolean;
   launch?: LaunchOptions;
   useVision?: boolean | "auto";
   use_vision?: boolean | "auto";
@@ -45,6 +62,8 @@ export interface SimpleAgentOptions<TData = unknown> extends Partial<AgentProvid
   enablePlanning?: boolean;
   enable_planning?: boolean;
   planning?: boolean;
+  fullSnapshots?: boolean;
+  full_snapshots?: boolean;
   tools?: ActionRegistry | ActionDefinition[];
   controller?: ActionRegistry | ActionDefinition[];
   actions?: ActionRegistry | ActionDefinition[];
@@ -86,14 +105,11 @@ export interface SimpleAgentOptions<TData = unknown> extends Partial<AgentProvid
   newTabDetectMs?: number;
   extractionLLM?: ExtractionLLMFn;
   allowedDomains?: readonly string[];
+  transportResolution?: TransportResolution;
 }
 
 /**
- * Small convenience wrapper for the common case: create a model adapter,
- * launch a browser, run the task, and return the final result.
- *
- * Use `runAgent()` directly when you need to provide your own `decide`
- * function or manage transport resolution yourself.
+ * Public task runner. Create an Agent with one task, then call run().
  */
 export class Agent<TData = unknown> {
   private readonly options: SimpleAgentOptions<TData>;
@@ -106,9 +122,18 @@ export class Agent<TData = unknown> {
     const options = normalizeOptions({ ...this.options, ...overrides });
     const { decide, resolution } = resolveLlm(options);
 
+    const paths = resolveBrowserPaths({
+      profile: options.profile,
+      userDataDir: options.userDataDir ?? options.launch?.userDataDir,
+      storageStatePath: options.storageStatePath ?? options.launch?.storageStatePath,
+    });
     const launch = {
       ...options.launch,
       headless: options.headless ?? options.launch?.headless ?? true,
+      userDataDir: paths.userDataDir,
+      storageStatePath: paths.storageStatePath,
+      saveStorageStateOnClose:
+        options.saveStorageStateOnClose ?? options.launch?.saveStorageStateOnClose,
     };
     const session =
       options.session ??
@@ -124,8 +149,17 @@ export class Agent<TData = unknown> {
       transportResolution: resolution ?? options.transportResolution,
     };
 
-    return runAgent<TData>(agentOptions);
+    return runLoop<TData>(agentOptions);
   }
+}
+
+/**
+ * One-shot task runner for the common case.
+ */
+export async function runTask<TData = unknown>(
+  options: SimpleAgentOptions<TData>,
+): Promise<AgentResult<TData>> {
+  return new Agent<TData>(options).run();
 }
 
 function normalizeOptions<TData>(
@@ -137,6 +171,7 @@ function normalizeOptions<TData>(
     outputSchema: options.outputSchema ?? options.outputModelSchema ?? options.output_model_schema,
     vision: options.vision ?? options.useVision ?? options.use_vision,
     planning: options.planning ?? options.enablePlanning ?? options.enable_planning,
+    fullSnapshots: options.fullSnapshots ?? options.full_snapshots,
     maxFailures: options.maxFailures ?? options.max_failures,
     finalResponseAfterFailure:
       options.finalResponseAfterFailure ?? options.final_response_after_failure,

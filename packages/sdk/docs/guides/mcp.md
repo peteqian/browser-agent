@@ -40,7 +40,6 @@ Two layers:
   "task": "Find top 5 frontend jobs on seek.com.au",
   "startUrl": "https://seek.com.au",
   "provider": "codex",
-  "maxSteps": 30,
   "headless": true
 }
 ```
@@ -56,7 +55,7 @@ If the MCP client passes a `progressToken` in `_meta` (Claude Desktop and Cursor
 - `action` — `"<action_name>: ok"` / `"<action_name>: failed"`
 - `terminal` — `"done: <summary>"` / `"failed: <reason>"`
 
-Progress is monotonic (uses step number + half-steps for action vs decision). Total = `maxSteps`.
+Progress is monotonic (uses step number + half-steps for action vs decision).
 
 If the client does not send a progressToken, no progress events fire (avoids needless overhead).
 

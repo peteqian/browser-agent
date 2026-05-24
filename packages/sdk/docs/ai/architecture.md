@@ -22,7 +22,7 @@ CLI / SDK / MCP
 Agent (high-level) ──── Browser (high-level)
    │                        │
    ▼                        ▼
-runAgent loop ─── BrowserSession ─── CDPClient (WS)
+Agent loop ─── BrowserSession ─── CDPClient (WS)
    │
    ▼
 DecideFn / GetNextActionFn  ◄──  LLM adapter (OpenAI / Anthropic / Codex / Claude)

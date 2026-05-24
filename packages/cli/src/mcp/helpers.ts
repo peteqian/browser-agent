@@ -1,10 +1,7 @@
+import { type AgentEvent, type OnEventCallback } from "@peteqian/browser-agent-sdk";
 import {
-  captureBrowserState,
-  type AgentEvent,
-  type OnEventCallback,
-} from "@peteqian/browser-agent-sdk";
-import {
-  executeAction,
+  createDefaultActionRegistry,
+  SessionRunner,
   type Action,
   type ActionResult,
 } from "@peteqian/browser-agent-sdk/internal";
@@ -14,6 +11,9 @@ import {
   type ArtifactKind,
   type SessionRecord,
 } from "./sessions";
+
+const actionRegistry = createDefaultActionRegistry();
+const domBudgets = { maxDisplayElements: 100, maxTotalChars: 12_000 };
 
 export function textResult(text: string) {
   return { content: [{ type: "text" as const, text }] };
@@ -50,50 +50,14 @@ export async function refreshSessionState(
   record: SessionRecord,
   options: { previousUrl?: string } = {},
 ) {
-  let state = await captureActionState(record);
-  let previousSnapshot = state;
-  let waitedAfterUrlChange = false;
-  for (
-    let attempt = 0;
-    shouldRetryState(state, previousSnapshot, options, waitedAfterUrlChange) && attempt < 8;
-    attempt += 1
-  ) {
-    await record.page.waitForTimeout(500);
-    if (options.previousUrl && state.url !== options.previousUrl) waitedAfterUrlChange = true;
-    previousSnapshot = state;
-    state = await captureActionState(record);
-  }
-  record.latestState = state;
+  const runner = sessionRunner(record);
+  const state = await runner.refresh({ previousUrl: options.previousUrl });
+  syncRecord(record, runner);
   return state;
 }
 
-function captureActionState(record: SessionRecord) {
-  return captureBrowserState(record.page, record.session, {
-    domBudgets: { maxDisplayElements: 100, maxTotalChars: 12_000 },
-  });
-}
-
-function shouldRetryState(
-  state: Awaited<ReturnType<typeof captureActionState>>,
-  previousSnapshot: Awaited<ReturnType<typeof captureActionState>>,
-  options: { previousUrl?: string },
-  waitedAfterUrlChange: boolean,
-): boolean {
-  if (state.elements.length === 0)
-    return state.readyState === "loading" || state.title.length === 0;
-  if (state.readyState === "loading") return true;
-  if (!options.previousUrl || state.url === options.previousUrl) return false;
-  if (!waitedAfterUrlChange) return true;
-  return state.url !== previousSnapshot.url;
-}
-
 async function currentUrl(record: SessionRecord): Promise<string | undefined> {
-  if (record.latestState?.url) return record.latestState.url;
-  try {
-    return await record.page.currentUrl();
-  } catch {
-    return undefined;
-  }
+  return sessionRunner(record).currentUrl();
 }
 
 export async function runSessionAction(
@@ -103,7 +67,9 @@ export async function runSessionAction(
 ) {
   const previousUrl = await currentUrl(record);
   const startedAt = Date.now();
-  const result = await executeSessionAction(record, action);
+  const runner = sessionRunner(record);
+  const result = await runner.runAction(action);
+  syncRecord(record, runner);
   recordActionArtifact(record, action.name, result);
   recordSessionEvent(
     record,
@@ -126,26 +92,28 @@ export async function runSessionActions(
   options: { observe?: boolean; sessionId?: string } = {},
 ) {
   const previousUrl = await currentUrl(record);
+  const runner = sessionRunner(record);
   const results: ActionResult[] = [];
-  for (const action of actions) {
-    const startedAt = Date.now();
-    const result = await executeSessionAction(record, action);
-    results.push(result);
-    recordActionArtifact(record, action.name, result);
-    recordSessionEvent(
-      record,
-      {
-        kind: "action",
-        name: action.name,
-        ok: result.ok,
-        message: result.message,
-        durationMs: Date.now() - startedAt,
-        url: await currentUrl(record),
-      },
-      options.sessionId,
-    );
-    if (!result.ok) break;
-  }
+  await runner.runActions(actions, {
+    stopOnFailure: true,
+    onAction: async ({ action, result, page, durationMs }) => {
+      results.push(result);
+      recordActionArtifact(record, action.name, result);
+      recordSessionEvent(
+        record,
+        {
+          kind: "action",
+          name: action.name,
+          ok: result.ok,
+          message: result.message,
+          durationMs,
+          url: await readPageUrl(page),
+        },
+        options.sessionId,
+      );
+    },
+  });
+  syncRecord(record, runner);
   return actionResult(
     record,
     { ok: results.every((result) => result.ok), results },
@@ -154,6 +122,33 @@ export async function runSessionActions(
       previousUrl,
     },
   );
+}
+
+function sessionRunner(record: SessionRecord): SessionRunner {
+  if (!record.runner) {
+    record.runner = new SessionRunner({
+      session: record.session,
+      page: record.page,
+      actionRegistry,
+      latestState: record.latestState,
+      allowedDomains: record.allowedDomains,
+      domBudgets,
+    });
+  }
+  return record.runner;
+}
+
+function syncRecord(record: SessionRecord, runner: SessionRunner): void {
+  record.page = runner.page;
+  record.latestState = runner.latestState;
+}
+
+async function readPageUrl(page: SessionRecord["page"]): Promise<string | undefined> {
+  try {
+    return await page.currentUrl();
+  } catch {
+    return undefined;
+  }
 }
 
 function recordActionArtifact(
@@ -170,31 +165,6 @@ function artifactKindForAction(actionName: string): ArtifactKind | undefined {
   if (actionName === "screenshot") return "screenshot";
   if (actionName === "save_as_pdf") return "pdf";
   return undefined;
-}
-
-async function executeSessionAction(record: SessionRecord, action: Action): Promise<ActionResult> {
-  const result = await executeAction(
-    record.page,
-    action,
-    record.session,
-    undefined,
-    record.latestState?.selectorMap,
-    undefined,
-    undefined,
-    undefined,
-    {
-      snapshotElements: record.latestState?.elements,
-      allowedDomains: record.allowedDomains,
-    },
-  );
-  applyActiveTarget(record, result);
-  return result;
-}
-
-function applyActiveTarget(record: SessionRecord, result: ActionResult): void {
-  if (!result.activeTargetId) return;
-  record.page = record.session.getPage(result.activeTargetId);
-  record.latestState = undefined;
 }
 
 export function indexFromRef(input: { index?: number; ref?: string }): number | undefined {
@@ -227,7 +197,6 @@ export interface ProgressCapableExtra {
 export function buildProgressForwarder(
   extra: ProgressCapableExtra,
   progressToken: string | number,
-  total: number,
 ): OnEventCallback {
   let progress = 0;
 
@@ -243,7 +212,6 @@ export function buildProgressForwarder(
       progress += 0.5;
       message = `${event.action.name}: ${event.result.ok ? "ok" : "failed"}`;
     } else if (event.type === "terminal") {
-      progress = total;
       message = event.result.success
         ? `done: ${event.result.summary ?? ""}`
         : `failed: ${event.result.reason}`;
@@ -255,7 +223,6 @@ export function buildProgressForwarder(
         params: {
           progressToken,
           progress,
-          total,
           ...(message ? { message } : {}),
         },
       });

@@ -28,10 +28,13 @@ ${historyBlock}
 Observation:
 ${input.observation}
 
-Return exactly one JSON object (no markdown, no surrounding prose) with this shape:
+Return exactly one JSON object (no markdown, no surrounding prose) with either this single-action shape:
 {"name":"<action_name>","params":{...}}
 
-\`name\` MUST be one of the action names from the Actions list above. \`params\` MUST match that action's schema. Do not invent action names. If no listed action fits, call \`done\` with success=false explaining why.
+or this batched shape:
+{"actions":[{"name":"<action_name>","params":{...}}],"done":false}
+
+\`name\` MUST be one of the action names from the Actions list above. \`params\` MUST match that action's schema. Do not invent action names. Batch at most 4 actions and only when every action uses the current observation; put navigation/click/submit actions last. If no listed action fits, call \`done\` with success=false explaining why.
 
 Optional top-level fields: "thought" (one-line reasoning), "nextGoal" (next step you intend), "memory" (compact note carried forward).
 
@@ -66,7 +69,34 @@ export function parseDecision(raw: string): AgentOutput {
       parsed = JSON.parse(extracted) as Record<string, unknown>;
     }
   }
-  if (!parsed || typeof parsed.name !== "string") {
+  if (!parsed) {
+    throw new Error("Decision response missing action name");
+  }
+
+  if (Array.isArray(parsed.actions)) {
+    const actions = parsed.actions.slice(0, 4).map((item) => {
+      if (!item || typeof item !== "object") {
+        throw new Error("Decision action is not an object");
+      }
+      const action = item as Record<string, unknown>;
+      if (typeof action.name !== "string") {
+        throw new Error("Decision action missing name");
+      }
+      return { name: action.name, params: action.params ?? {} };
+    });
+    const done = typeof parsed.done === "boolean" ? parsed.done : actions[0]?.name === "done";
+    return {
+      actions,
+      done,
+      summary: typeof parsed.summary === "string" ? parsed.summary : undefined,
+      success: typeof parsed.success === "boolean" ? parsed.success : undefined,
+      thought: typeof parsed.thought === "string" ? parsed.thought : undefined,
+      nextGoal: typeof parsed.nextGoal === "string" ? parsed.nextGoal : undefined,
+      memory: typeof parsed.memory === "string" ? parsed.memory : undefined,
+    };
+  }
+
+  if (typeof parsed.name !== "string") {
     throw new Error("Decision response missing action name");
   }
 

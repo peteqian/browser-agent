@@ -7,7 +7,7 @@
  * Run:
  *   bun run examples/claude-sdk.ts "your task here"
  */
-import { createClaudeSdkDecide, runAgent } from "../src/index";
+import { createClaudeSdkDecide, runTask } from "../src/index";
 
 const task =
   process.argv[2] ??
@@ -18,12 +18,11 @@ const decide = createClaudeSdkDecide({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-const result = await runAgent({
+const result = await runTask({
   task,
   startUrl: "about:blank",
-  maxSteps: 15,
   launch: { headless: true },
-  decide,
+  getNextAction: decide,
   onEvent: (event) => {
     if (event.type === "decision") {
       const action = event.decision.actions[0];

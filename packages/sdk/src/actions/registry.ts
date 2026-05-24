@@ -194,7 +194,7 @@ const ACTION_DESCRIPTIONS = {
   screenshot: "Capture a PNG screenshot.",
   save_as_pdf: "Save the current page as PDF.",
   extract_content:
-    "PREFERRED for reading page text/values. Returns clean markdown for the region matching `query` (e.g. 'top hotel name and price'). Use this instead of eval+CSS for any text/number/list extraction. Optional `extractLinks`, `extractImages`, `maxChars`, `alreadyCollected`.",
+    "PREFERRED for reading page text/values. Returns clean markdown for the region matching `query` (e.g. 'top hotel name and price'). Use this instead of eval+CSS for any text/number/list extraction. Optional `extractLinks`, `extractImages`.",
   focus_area:
     "Narrow future observations to a page region matching a natural-language query (e.g. 'search form'). Pass clear=true to drop focus.",
   click_by:

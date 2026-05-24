@@ -25,7 +25,6 @@ export type EngineId = (typeof ENGINES)[number];
 export interface CliOptions {
   task: string;
   url?: string;
-  maxSteps?: number;
   headless: boolean;
   model?: string;
   verbose: boolean;
@@ -54,7 +53,6 @@ export interface CliOptions {
 
 interface ConfigFile {
   url?: string;
-  maxSteps?: number;
   headless?: boolean;
   model?: string;
   provider?: ProviderId;
@@ -132,7 +130,6 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
     strict: true,
     options: {
       url: { type: "string" },
-      "max-steps": { type: "string" },
       headless: { type: "boolean" },
       "no-headless": { type: "boolean" },
       provider: { type: "string" },
@@ -212,12 +209,6 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
     process.exit(1);
   }
 
-  // `--max-steps` accepts 0 to mean "uncapped". Default: 0 (uncapped). Set a
-  // concrete cap with `--max-steps N` if you want one.
-  const maxSteps =
-    values["max-steps"] !== undefined
-      ? parseInt(values["max-steps"] as string, "--max-steps")
-      : (config.maxSteps ?? 0);
   const decisionTimeoutMs = values["decision-timeout"]
     ? parseInt(values["decision-timeout"] as string, "--decision-timeout")
     : config.decisionTimeoutMs;
@@ -234,7 +225,6 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
   return {
     task,
     url: (values.url as string | undefined) ?? config.url,
-    maxSteps,
     headless,
     model: (values.model as string | undefined) ?? config.model,
     verbose: Boolean(values.verbose),

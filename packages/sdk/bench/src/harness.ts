@@ -1,4 +1,4 @@
-import { Agent, Browser } from "../../src/index";
+import { Browser, runTask } from "../../src/index";
 import type { BenchTask } from "./types";
 
 export interface HarnessRunResult {
@@ -20,11 +20,10 @@ export async function runPeteqianAgent(
   const trajectory: string[] = [];
 
   try {
-    const agent = new Agent({
+    const result = await runTask({
       task: task.confirmed_task,
       browser,
       startUrl: "about:blank",
-      maxSteps: task.max_steps ?? 25,
       headless: options.headless ?? true,
       ...(options.provider
         ? { llm: { provider: options.provider as never, model: options.model } }
@@ -48,7 +47,6 @@ export async function runPeteqianAgent(
       },
     });
 
-    const result = await agent.run();
     return {
       reason: result.reason,
       summary: result.summary ?? "",

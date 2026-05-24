@@ -44,7 +44,7 @@ Matches the 5-category split of BU Bench V1, scaled down:
 | `form`       | 2     | fill + submit a non-destructive form                            |
 | `stealth`    | 2     | reach content past common anti-bot barriers (public sites only) |
 
-Tasks live in [`tasks/tasks.json`](./tasks/tasks.json). Each entry has `task_id`, `confirmed_task`, `category`, optional `answer`, and `max_steps`.
+Tasks live in [`tasks/tasks.json`](./tasks/tasks.json). Each entry has `task_id`, `confirmed_task`, `category`, and optional `answer`.
 
 ## Layout
 
@@ -79,11 +79,10 @@ For browser-use side-by-side, see [`runners/browser-use.md`](./runners/browser-u
 ## Methodology — fair comparison rules
 
 1. **Same tasks.** Both agents see the identical `confirmed_task` string.
-2. **Same `max_steps`.** Default 25; override per-task.
-3. **Same judge model.** `claude-sonnet-4-5` (or specify `--judge-model`).
-4. **Cold browser per task.** No session reuse across tasks.
-5. **No prompt-tuning per agent.** Whatever each agent ships with by default.
-6. **Cite versions.** Every published result records `agent`, `agent_version`, `model`, `judge_model`, `commit_sha`, `run_started_at`.
+2. **Same judge model.** `claude-sonnet-4-5` (or specify `--judge-model`).
+3. **Cold browser per task.** No session reuse across tasks.
+4. **No prompt-tuning per agent.** Whatever each agent ships with by default.
+5. **Cite versions.** Every published result records `agent`, `agent_version`, `model`, `judge_model`, `commit_sha`, `run_started_at`.
 
 ## Costs
 

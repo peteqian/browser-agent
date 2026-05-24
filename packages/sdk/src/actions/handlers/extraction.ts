@@ -196,9 +196,6 @@ export async function handleExtractContent(
       query: action.params.query,
       extractLinks: action.params.extractLinks,
       extractImages: action.params.extractImages,
-      startFromChar: action.params.startFromChar,
-      maxChars: action.params.maxChars,
-      alreadyCollected: action.params.alreadyCollected,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -216,10 +213,11 @@ export async function handleExtractContent(
     memo.hits += 1;
     if (memo.hits >= 2) {
       return fail(
-        `extract_content returned identical content for this URL on a back-to-back call. ` +
-          `The page has not changed. Commit the data you already received to \`memory\` and emit \`done\` now.`,
+        `extract_content returned identical content for this URL. ` +
+          `You already have this data in prior history — do not re-extract here. ` +
+          `Move to your next planned step (click, navigate, change sort) or emit done.`,
         {
-          longTermMemory: "Duplicate extract_content detected; stop and emit done",
+          longTermMemory: "Duplicate extract_content; advance to next step",
           data: { duplicateExtraction: true, query: result.query, digest },
         },
       );

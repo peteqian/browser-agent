@@ -11,6 +11,11 @@ import {
 } from "./discovery";
 
 describe("BrowserChannel", () => {
+  it("accepts chrome-for-testing channel", () => {
+    const ch: BrowserChannel = "chrome-for-testing";
+    expect(ch).toBe("chrome-for-testing");
+  });
+
   it("accepts lightpanda channel", () => {
     const ch: BrowserChannel = "lightpanda";
     expect(ch).toBe("lightpanda");
@@ -74,8 +79,8 @@ describe("browser install status", () => {
   it("reports the resolved browser executable", () => {
     process.env.BROWSER_AGENT_CHROME = stubPath;
 
-    expect(getBrowserInstallStatus("chromium")).toEqual({
-      channel: "chromium",
+    expect(getBrowserInstallStatus("chrome-for-testing")).toEqual({
+      channel: "chrome-for-testing",
       executablePath: stubPath,
       found: true,
       installable: true,
@@ -85,8 +90,8 @@ describe("browser install status", () => {
   it("does not run install when an executable is already available", async () => {
     process.env.BROWSER_AGENT_CHROME = stubPath;
 
-    await expect(ensureBrowserExecutable("chromium")).resolves.toEqual({
-      channel: "chromium",
+    await expect(ensureBrowserExecutable("chrome-for-testing")).resolves.toEqual({
+      channel: "chrome-for-testing",
       executablePath: stubPath,
       found: true,
       installable: true,

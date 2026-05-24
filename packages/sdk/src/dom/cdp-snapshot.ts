@@ -77,13 +77,35 @@ const INTERACTIVE_ROLES = new Set([
   "link",
   "checkbox",
   "radio",
+  "listbox",
   "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
   "tab",
   "option",
+  "slider",
+  "spinbutton",
   "switch",
   "textbox",
   "combobox",
   "searchbox",
+  "treeitem",
+  "iframe",
+]);
+
+const CONTENT_ROLES = new Set([
+  "heading",
+  "cell",
+  "gridcell",
+  "columnheader",
+  "rowheader",
+  "listitem",
+  "article",
+  "region",
+  "main",
+  "navigation",
+  "search",
+  "form",
 ]);
 
 const COMPUTED_STYLE_PROPS = [
@@ -316,13 +338,21 @@ function selectorHint(tag: string, attrs: Record<string, string>): string {
   return hint;
 }
 
-function isInteractive(tag: string, attrs: Record<string, string>, isClickable: boolean): boolean {
+function isObservableCandidate(input: {
+  tag: string;
+  attrs: Record<string, string>;
+  isClickable: boolean;
+  axRole: string | null;
+  axName: string | null;
+}): boolean {
+  const { tag, attrs, isClickable, axRole, axName } = input;
   if (INTERACTIVE_TAGS.has(tag)) return true;
   if (isClickable) return true;
   if (typeof attrs.onclick === "string") return true;
   if (typeof attrs.tabindex === "string") return true;
-  const role = attrs.role;
+  const role = (axRole ?? attrs.role ?? "").toLowerCase();
   if (role && INTERACTIVE_ROLES.has(role)) return true;
+  if (role && CONTENT_ROLES.has(role) && axName) return true;
   return false;
 }
 
@@ -416,18 +446,37 @@ function isHiddenByStyle(
   return false;
 }
 
-async function fetchAxTree(page: Page): Promise<Map<number, AXNode>> {
+interface AxTree {
+  nodes: AXNode[];
+  byBackendNodeId: Map<number, AXNode>;
+}
+
+function axNodeScore(node: AXNode): number {
+  if (node.ignored === true) return 0;
+  const role = usefulAxRole(axStringValue(node.role?.value));
+  const name = axStringValue(node.name?.value);
+  if (!role) return 1;
+  if (INTERACTIVE_ROLES.has(role.toLowerCase())) return name ? 5 : 4;
+  if (CONTENT_ROLES.has(role.toLowerCase())) return name ? 4 : 2;
+  return name ? 3 : 2;
+}
+
+async function fetchAxTree(page: Page): Promise<AxTree> {
   try {
     const response = await page.sendCDP<{ nodes?: AXNode[] }>("Accessibility.getFullAXTree", {});
     const map = new Map<number, AXNode>();
-    for (const node of response.nodes ?? []) {
+    const nodes = response.nodes ?? [];
+    for (const node of nodes) {
       if (typeof node.backendDOMNodeId === "number") {
-        map.set(node.backendDOMNodeId, node);
+        const prev = map.get(node.backendDOMNodeId);
+        if (!prev || axNodeScore(node) > axNodeScore(prev)) {
+          map.set(node.backendDOMNodeId, node);
+        }
       }
     }
-    return map;
+    return { nodes, byBackendNodeId: map };
   } catch {
-    return new Map();
+    return { nodes: [], byBackendNodeId: new Map() };
   }
 }
 
@@ -508,6 +557,45 @@ async function readActionableHitTest(
   return map;
 }
 
+interface AxDomInfo {
+  tag: string;
+  text: string;
+  attrs: Record<string, string>;
+  bounds: { x: number; y: number; w: number; h: number };
+}
+
+async function readAxDomInfo(page: Page, backendNodeId: number): Promise<AxDomInfo | null> {
+  if (typeof page.callOnBackendNode !== "function") return null;
+  const result = await page
+    .callOnBackendNode<AxDomInfo | null>(
+      backendNodeId,
+      `function() {
+        if (!(this instanceof Element)) return null;
+        const rect = this.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        const style = window.getComputedStyle(this);
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          style.visibility === "collapse" ||
+          Number(style.opacity || "1") <= 0
+        ) {
+          return null;
+        }
+        const attrs = {};
+        for (const attr of this.attributes) attrs[attr.name] = attr.value;
+        return {
+          tag: this.tagName.toLowerCase(),
+          text: (this.innerText || this.textContent || "").replace(/\\s+/g, " ").trim(),
+          attrs,
+          bounds: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
+        };
+      }`,
+    )
+    .catch(() => null);
+  return result?.ok ? result.value : null;
+}
+
 interface DocumentAggregate {
   doc: DocumentSnapshot;
   documentIndex: number;
@@ -568,6 +656,7 @@ export async function captureCdpSnapshot(
   };
 
   const candidates: Candidate[] = [];
+  const candidateBackendIds = new Set<number>();
 
   for (const agg of docsByIndex.values()) {
     const { doc } = agg;
@@ -615,10 +704,12 @@ export async function captureCdpSnapshot(
 
       const attrs = parseAttributes(attrsAll[nodeIdx], strings);
       const isClickable = clickableSet.has(nodeIdx);
-      if (!isInteractive(tag, attrs, isClickable)) continue;
-
       const backendNodeId = backendIds[nodeIdx];
       if (typeof backendNodeId !== "number") continue;
+      const axNode = ax.byBackendNodeId.get(backendNodeId);
+      const axRole = usefulAxRole(axStringValue(axNode?.role?.value));
+      const axName = axStringValue(axNode?.name?.value) ?? null;
+      if (!isObservableCandidate({ tag, attrs, isClickable, axRole, axName })) continue;
 
       const inlineText = stringAt(strings, layoutText[i]);
       const rawText =
@@ -639,18 +730,49 @@ export async function captureCdpSnapshot(
         framePath,
         frameId: docFrameId,
         paintOrder: paintOrders[i] ?? 0,
-        ax: ax.get(backendNodeId),
+        ax: axNode,
       });
+      candidateBackendIds.add(backendNodeId);
     }
 
     if (candidates.length >= budgets.maxElements) break;
   }
 
+  for (const axNode of ax.nodes) {
+    if (candidates.length >= budgets.maxElements) break;
+    const backendNodeId = axNode.backendDOMNodeId;
+    if (typeof backendNodeId !== "number") continue;
+    if (candidateBackendIds.has(backendNodeId)) continue;
+    if (axNode.ignored === true) continue;
+
+    const axRole = usefulAxRole(axStringValue(axNode.role?.value));
+    const axName = axStringValue(axNode.name?.value) ?? null;
+    if (!isObservableCandidate({ tag: "", attrs: {}, isClickable: false, axRole, axName })) {
+      continue;
+    }
+
+    const domInfo = await readAxDomInfo(page, backendNodeId);
+    if (!domInfo) continue;
+
+    candidates.push({
+      backendNodeId,
+      tag: domInfo.tag,
+      text: clean(domInfo.text, budgets.maxTextChars),
+      attrs: domInfo.attrs,
+      bounds: domInfo.bounds,
+      framePath: "main",
+      frameId: undefined,
+      paintOrder: candidates.length,
+      ax: axNode,
+    });
+    candidateBackendIds.add(backendNodeId);
+  }
+
   candidates.sort(
     (a, b) =>
-      candidateRank(a) - candidateRank(b) ||
       a.bounds.y - b.bounds.y ||
       a.bounds.x - b.bounds.x ||
+      candidateRank(a) - candidateRank(b) ||
       a.paintOrder - b.paintOrder,
   );
 
@@ -686,8 +808,13 @@ export async function captureCdpSnapshot(
   for (let i = 0; i < candidates.length && i < budgets.maxElements; i += 1) {
     const c = candidates[i];
     if (!c) continue;
-    if (actionableByBackendId.get(c.backendNodeId) === false) continue;
     const axRole = usefulAxRole(axStringValue(c.ax?.role?.value));
+    const axNameForHitTest = axStringValue(c.ax?.name?.value);
+    const semanticAxNode =
+      axRole &&
+      axNameForHitTest &&
+      (INTERACTIVE_ROLES.has(axRole.toLowerCase()) || CONTENT_ROLES.has(axRole.toLowerCase()));
+    if (actionableByBackendId.get(c.backendNodeId) === false && !semanticAxNode) continue;
     const live = shouldReadLiveLabel(c) ? await readLiveElementLabel(page, c.backendNodeId) : null;
     const liveText = live?.text ? clean(live.text, budgets.maxTextChars) : "";
     const liveValue = live?.value ? clean(live.value, budgets.maxTextChars) : "";

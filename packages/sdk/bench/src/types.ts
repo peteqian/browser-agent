@@ -3,7 +3,6 @@ export interface BenchTask {
   category: "custom" | "qa" | "multi-step" | "form" | "stealth";
   confirmed_task: string;
   answer?: string;
-  max_steps?: number;
 }
 
 export interface JudgementResult {

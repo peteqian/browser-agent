@@ -22,7 +22,6 @@ export async function tryFinalFailureRecovery<TData>(input: {
   options: AgentOptions<TData>;
   task: string;
   step: number;
-  maxSteps: number;
   browserState: BrowserStateSummary;
   observation: string;
   tabs: string[];
@@ -35,7 +34,6 @@ export async function tryFinalFailureRecovery<TData>(input: {
     const recoveryInput = {
       task: input.task,
       step: input.step,
-      maxSteps: input.maxSteps,
       browserState: input.browserState,
       observation:
         `${input.observation}\n\nFINAL RECOVERY: The agent reached its consecutive failure limit. ` +

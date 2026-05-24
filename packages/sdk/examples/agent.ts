@@ -1,14 +1,13 @@
-import { createCodexCliDecide, runAgent } from "../src/index";
+import { createCodexCliDecide, runTask } from "../src/index";
 
 const task =
   process.argv[2] ?? "Go to https://example.com and report the H1 text via done(data=...).";
 
-const result = await runAgent({
+const result = await runTask({
   task,
   startUrl: "about:blank",
-  maxSteps: 15,
   launch: { headless: true },
-  decide: createCodexCliDecide({ model: "gpt-5.3-codex" }),
+  getNextAction: createCodexCliDecide({ model: "gpt-5.3-codex" }),
   onStep: (step) => {
     const summary = step.action.name === "done" ? "" : ` -> ${step.result.message}`;
     console.log(

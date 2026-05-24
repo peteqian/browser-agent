@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import {
   createDefaultActionRegistry,
-  runAgent,
+  runTask,
   type ActionDefinition,
   type ActionResult,
 } from "../src/index";
@@ -25,13 +25,12 @@ const readTitle: ActionDefinition<"read_title", Record<string, never>> = {
 const actions = createDefaultActionRegistry();
 actions.register(readTitle);
 
-const result = await runAgent({
+const result = await runTask({
   task: "Open example.com, use read_title, then finish with a short summary.",
   startUrl: "https://example.com",
-  maxSteps: 4,
   launch: { headless: true },
   actions,
-  decide: async (input) => {
+  getNextAction: async (input) => {
     if (!input.history.some((entry) => entry.action === "read_title")) {
       return {
         done: false,

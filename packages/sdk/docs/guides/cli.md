@@ -19,7 +19,6 @@ browser-agent --help
 | Flag                           | What                                                     |
 | ------------------------------ | -------------------------------------------------------- |
 | `--url <url>`                  | Start URL (skips a navigate step).                       |
-| `--max-steps <n>`              | Loop iteration cap. Default 40.                          |
 | `--headless` / `--no-headless` | Hide / show the browser window. Default headless.        |
 | `--stdin`                      | Read task from stdin. Combinable with positional task.   |
 | `--config <path>`              | Load defaults from JSON file. CLI flags override config. |
@@ -100,7 +99,6 @@ browser-agent "..." --provider openai --base-url http://localhost:1234/v1 --api-
 ```json
 {
   "provider": "claude",
-  "maxSteps": 30,
   "decisionTimeoutMs": 60000,
   "headless": true,
   "transport": "auto",

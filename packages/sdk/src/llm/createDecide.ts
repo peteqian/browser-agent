@@ -33,8 +33,9 @@ const DEFAULT_MODEL: Record<ProviderId, string> = {
 
 /**
  * Build a `GetNextActionFn` for the given provider, plus the transport resolution
- * that produced it. Pass `resolution` to `runAgent` via `transportResolution`
- * so consumers receive the `transport_resolved` event.
+ * that produced it. Pass `decide` to `Agent` as `getNextAction` and
+ * `resolution` as `transportResolution` so consumers receive the
+ * `transport_resolved` event.
  *
  * Resolves the best transport for the runtime environment (sdk-agent in
  * local, sdk-api in cloud) and falls back to lower-priority transports when

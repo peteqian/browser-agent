@@ -45,7 +45,7 @@ export type { ActionContext, ActionDefinition } from "./actions/registry";
 export type { RegisteredAction } from "./actions/registry";
 export type { ActionResult } from "./actions/execute";
 
-export { AgentController, runAgent } from "./agent/loop";
+export { AgentController } from "./agent/loop";
 export { createCodexCliDecide } from "./agent/codexCliDecide";
 export type { CodexCliOptions } from "./agent/codexCliDecide";
 export { createCodexSdkDecide } from "./agent/codexSdkDecide";
@@ -60,7 +60,6 @@ export type {
   AgentControl,
   AgentEvent,
   AgentInput,
-  AgentOptions,
   AgentOutput,
   AgentOutputAction,
   AgentResult,
@@ -78,7 +77,7 @@ export type {
 
 export { Browser } from "./browser/browser";
 export type { BrowserOptions } from "./browser/browser";
-export { Agent } from "./agent/agent";
+export { Agent, runTask } from "./agent/agent";
 export type { AgentProviderOptions, SimpleAgentOptions } from "./agent/agent";
 
 export {

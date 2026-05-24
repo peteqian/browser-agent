@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 
 export type BrowserChannel =
+  | "chrome-for-testing"
   | "chromium"
   | "chrome"
   | "chrome-beta"
@@ -15,7 +16,7 @@ export type BrowserChannel =
   | "msedge-canary"
   | "lightpanda";
 
-const DEFAULT_CHANNEL: BrowserChannel = "chromium";
+const DEFAULT_CHANNEL: BrowserChannel = "chrome-for-testing";
 
 export interface BrowserInstallStatus {
   channel: BrowserChannel;
@@ -41,6 +42,58 @@ function expandHome(value: string): string {
 function maybePath(path: string): string | null {
   const expanded = expandHome(path);
   return existsSync(expanded) ? expanded : null;
+}
+
+function browserCacheDirs(): string[] {
+  const dirs = [
+    process.env.BROWSER_AGENT_BROWSERS_PATH,
+    "~/.browser-agent/browsers",
+    "~/.agent-browser/browsers",
+  ].filter((dir): dir is string => Boolean(dir));
+  return [...new Set(dirs.map(expandHome))];
+}
+
+function findExecutable(baseDir: string, executableName: string, maxDepth: number): string | null {
+  if (!existsSync(baseDir)) return null;
+
+  const pending: Array<{ path: string; depth: number }> = [{ path: baseDir, depth: 0 }];
+  const matches: string[] = [];
+
+  while (pending.length > 0) {
+    const current = pending.shift();
+    if (!current) continue;
+
+    let entries;
+    try {
+      entries = readdirSync(current.path, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const path = join(current.path, entry.name);
+      if (entry.isFile() && entry.name === executableName) {
+        matches.push(path);
+        continue;
+      }
+      if (entry.isDirectory() && current.depth < maxDepth) {
+        pending.push({ path, depth: current.depth + 1 });
+      }
+    }
+  }
+
+  return matches.toSorted((a, b) => b.localeCompare(a))[0] ?? null;
+}
+
+function detectChromeForTestingBinary(): string | null {
+  const executableName = process.platform === "win32" ? "chrome.exe" : "Google Chrome for Testing";
+
+  for (const dir of browserCacheDirs()) {
+    const found = findExecutable(dir, executableName, 8);
+    if (found) return found;
+  }
+
+  return null;
 }
 
 function detectPlaywrightChromiumBinary(): string | null {
@@ -97,6 +150,13 @@ function groupsForPlatform(): PatternGroup[] {
       const pw = playwrightPath ?? "~/Library/Caches/ms-playwright";
       return [
         {
+          group: "chrome-for-testing",
+          paths: [
+            "~/.browser-agent/browsers/chrome-*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+            "~/.agent-browser/browsers/chrome-*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
+          ],
+        },
+        {
           group: "chrome",
           paths: ["/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"],
         },
@@ -127,6 +187,13 @@ function groupsForPlatform(): PatternGroup[] {
       const pw = playwrightPath ?? "~/.cache/ms-playwright";
       return [
         {
+          group: "chrome-for-testing",
+          paths: [
+            "~/.browser-agent/browsers/chrome-*/chrome-linux*/chrome",
+            "~/.agent-browser/browsers/chrome-*/chrome-linux*/chrome",
+          ],
+        },
+        {
           group: "chrome",
           paths: [
             "/usr/bin/google-chrome-stable",
@@ -156,6 +223,13 @@ function groupsForPlatform(): PatternGroup[] {
       const programFilesX86 = process.env["PROGRAMFILES(X86)"] ?? "";
       const pw = playwrightPath ?? `${local}\\ms-playwright`;
       return [
+        {
+          group: "chrome-for-testing",
+          paths: [
+            `${local}\\browser-agent\\browsers\\chrome-*\\chrome-win\\chrome.exe`,
+            `${local}\\agent-browser\\browsers\\chrome-*\\chrome-win\\chrome.exe`,
+          ],
+        },
         {
           group: "chrome",
           paths: [
@@ -191,6 +265,7 @@ function groupsForPlatform(): PatternGroup[] {
 }
 
 const CHANNEL_TO_GROUP: Record<BrowserChannel, string> = {
+  "chrome-for-testing": "chrome-for-testing",
   chromium: "chromium",
   chrome: "chrome",
   "chrome-beta": "chrome-beta",
@@ -248,6 +323,11 @@ export function discoverBrowserExecutable(
   const envOverride = process.env.BROWSER_AGENT_CHROME;
   if (envOverride && existsSync(envOverride)) {
     return envOverride;
+  }
+
+  if (channel === "chrome-for-testing") {
+    const chromeForTesting = detectChromeForTestingBinary();
+    if (chromeForTesting) return chromeForTesting;
   }
 
   for (const candidate of chooseCandidates(channel)) {
@@ -317,6 +397,35 @@ function runCommand(command: string, args: string[], timeoutMs: number): Promise
   });
 }
 
+async function installChromeForTesting(): Promise<void> {
+  const path = join(homedir(), ".browser-agent", "browsers");
+  const attempts: Array<{ command: string; args: string[] }> = [
+    { command: "bunx", args: ["@puppeteer/browsers", "install", "chrome@stable", "--path", path] },
+    { command: "npx", args: ["@puppeteer/browsers", "install", "chrome@stable", "--path", path] },
+  ];
+
+  let lastError: Error | null = null;
+  for (const attempt of attempts) {
+    try {
+      await runCommand(attempt.command, attempt.args, 120_000);
+      return;
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+    }
+  }
+
+  throw lastError ?? new Error("Failed to install Chrome for Testing");
+}
+
+export async function installBrowser(channel: BrowserChannel = DEFAULT_CHANNEL): Promise<void> {
+  if (channel === "chrome-for-testing") {
+    await installChromeForTesting();
+    return;
+  }
+
+  await installChromiumWithPlaywright();
+}
+
 export async function installChromiumWithPlaywright(): Promise<void> {
   const attempts: Array<{ command: string; args: string[] }> = [
     { command: "bunx", args: ["playwright", "install", "chromium"] },
@@ -348,7 +457,7 @@ export async function ensureBrowserExecutable(
     return { ...before, installedNow: false };
   }
 
-  await installChromiumWithPlaywright();
+  await installBrowser(channel);
   const after = getBrowserInstallStatus(channel);
   return { ...after, installedNow: true };
 }

@@ -7,6 +7,7 @@ import {
 } from "@peteqian/browser-agent-sdk/internal";
 
 const BROWSER_CHANNELS: readonly BrowserChannel[] = [
+  "chrome-for-testing",
   "chromium",
   "chrome",
   "chrome-beta",
@@ -22,7 +23,7 @@ const BROWSER_CHANNELS: readonly BrowserChannel[] = [
 export { BROWSER_CHANNELS };
 
 function parseChannel(value: string | undefined): BrowserChannel {
-  if (!value) return "chromium";
+  if (!value) return "chrome-for-testing";
   if (!BROWSER_CHANNELS.includes(value as BrowserChannel)) {
     throw new Error(`--channel must be one of: ${BROWSER_CHANNELS.join(", ")}. Got: ${value}`);
   }
@@ -52,17 +53,17 @@ export async function runBrowserCommand(argv: string[]): Promise<number> {
     console.log(`browser-agent browser — inspect or install the browser runtime.
 
 Usage:
-  browser-agent browser status [--channel chromium]
-  browser-agent browser install [--channel chromium]
+  browser-agent browser status [--channel chrome-for-testing]
+  browser-agent browser install [--channel chrome-for-testing]
 
 Flags:
-  --channel <c>       ${BROWSER_CHANNELS.join(" | ")} (default: chromium)
+  --channel <c>       ${BROWSER_CHANNELS.join(" | ")} (default: chrome-for-testing)
   --json              Print machine-readable JSON
   --help, -h
 
 Notes:
-  install uses Playwright's managed Chromium download. It does not remove cookie
-  banners by itself; use persistent profiles and auto-consent for that.
+  install uses Chrome for Testing by default. It does not remove cookie banners
+  by itself; use persistent profiles and auto-consent for that.
 `);
     return 0;
   }

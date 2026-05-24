@@ -4,10 +4,10 @@ TypeScript browser-automation. Raw Chrome DevTools Protocol + an LLM decision lo
 
 This monorepo ships two npm packages:
 
-| Package                                         | Path            | Purpose                                                                                                            |
-| ----------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------------------------ |
-| [`@peteqian/browser-agent-sdk`](./packages/sdk) | `packages/sdk/` | Library core. `Page`, `BrowserSession`, `Agent`, `runAgent`, actions, DOM, LLM adapters. Import this in your code. |
-| [`@peteqian/browser-agent`](./packages/cli)     | `packages/cli/` | CLI binary `browser-agent`, MCP server `browser-agent-mcp`, and local HTTP dashboard.                              |
+| Package                                         | Path            | Purpose                                                                                           |
+| ----------------------------------------------- | --------------- | ------------------------------------------------------------------------------------------------- |
+| [`@peteqian/browser-agent-sdk`](./packages/sdk) | `packages/sdk/` | Library core. `runTask`, `Browser`, `Page`, actions, DOM, LLM adapters. Import this in your code. |
+| [`@peteqian/browser-agent`](./packages/cli)     | `packages/cli/` | CLI binary `browser-agent`, MCP server `browser-agent-mcp`, and local HTTP dashboard.             |
 
 Library consumers depend on `-sdk`. CLI / MCP users install the unsuffixed package.
 
@@ -32,12 +32,12 @@ bun --cwd packages/cli run dev:mcp
 
 ## Multi-step workflows
 
-Single-shot CLI invocations (`browser-agent "task..."`) launch a fresh browser per call. For multi-step agent loops that need a long-lived browser session across many tool calls — the same pattern as a background daemon — use the MCP server `browser-agent-mcp`. It holds the `BrowserSession` open between tool invocations so the agent can `launch_session` once and then issue many `navigate` / `click` / `type` / `extract` calls against the same tab.
+Single-task CLI invocations (`browser-agent "task..."`) launch a fresh browser per call. For workflows that need a long-lived browser session across many tool calls — the same pattern as a background daemon — use the MCP server `browser-agent-mcp`. It holds the `BrowserSession` open between tool invocations so the agent can `launch_session` once and then issue many `navigate` / `click` / `type` / `extract` calls against the same tab.
 
-| Use case                                 | Tool                      |
-| ---------------------------------------- | ------------------------- |
-| One-off scripted task                    | `browser-agent` CLI       |
-| Agent loop in Claude Code / Cursor / IDE | `browser-agent-mcp` (MCP) |
+| Use case                                         | Tool                      |
+| ------------------------------------------------ | ------------------------- |
+| One task from a prompt                           | `browser-agent` CLI       |
+| Persistent browser in Claude Code / Cursor / IDE | `browser-agent-mcp` (MCP) |
 
 Install the MCP server into your agent host:
 
@@ -49,11 +49,12 @@ Check or install the managed browser runtime:
 
 ```bash
 browser-agent browser status
-browser-agent browser install # installs Playwright-managed Chromium if needed
+browser-agent browser install # installs Chrome for Testing if needed
 ```
 
-Chrome for Testing style browser pinning helps reproducible installs, but it
-does not remove cookie banners by itself. Use persistent profiles plus
+Chrome for Testing is the default managed browser. It helps reproducible
+automation and keeps debug-mode Chrome separate from your regular browser, but
+it does not remove cookie banners by itself. Use persistent profiles plus
 `autoConsent` for repeat visits where consent and login state should survive.
 
 For local inspection while developing an automation, run the HTTP dashboard:

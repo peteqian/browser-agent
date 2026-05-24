@@ -18,7 +18,7 @@ playwright install chromium
 
 `tasks/tasks.json` already uses the same field names browser-use expects:
 
-- `task_id`, `confirmed_task`, `category`, `answer` (optional), `max_steps`
+- `task_id`, `confirmed_task`, `category`, `answer` (optional)
 
 Their `BU_Bench_V1` decrypted file uses the same shape, so their `run_eval.py` works as-is once you replace the decrypted task list.
 
@@ -38,7 +38,6 @@ async def run_one(task):
     agent = Agent(
         task=task["confirmed_task"],
         llm=ChatAnthropic(model="claude-sonnet-4-5"),
-        max_steps=task.get("max_steps", 25),
     )
     history = await agent.run()
     return {
@@ -47,7 +46,7 @@ async def run_one(task):
         "duration_ms": int((time.time() - started) * 1000),
         "steps": len(history.history) if hasattr(history, "history") else 0,
         "summary": history.final_result() if hasattr(history, "final_result") else str(history),
-        "reason": "completed" if history.is_done() else "max_steps",
+        "reason": "completed" if history.is_done() else "incomplete",
     }
 
 async def main():
@@ -76,7 +75,6 @@ bun run bench:judge -- --input bench/results/browser-use.raw.json \
 ## Important — fair comparison
 
 - **Same judge model.** Use `claude-sonnet-4-5` on both sides, or `gpt-4.1-mini` on both. Mixing biases results.
-- **Same `max_steps`** (already enforced because both runners read the same JSON).
 - **Cold browser per task.** browser-use defaults to a fresh launch; our harness does the same.
 - **No agent-specific prompt tuning.** Use stock prompts on both sides.
 - **Record versions.** browser-use 0.11.7 ≠ 0.12.6. Pin and cite.
