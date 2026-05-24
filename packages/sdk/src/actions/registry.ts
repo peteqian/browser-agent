@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import type { z } from "zod/v4";
 
 import { executeAction, type ActionResult } from "./execute";
 import { actionSchemas, type Action, type ActionName } from "./types";

@@ -1,4 +1,4 @@
-import type { z } from "zod";
+import type { z } from "zod/v4";
 
 import type { LaunchOptions } from "../cdp/launch";
 import type { Browser } from "../browser/browser";

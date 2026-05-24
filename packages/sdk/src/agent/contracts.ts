@@ -6,7 +6,7 @@ import type { BrowserEvent } from "../browser/events";
 import type { BrowserStateSummary } from "../browser/state";
 import type { DomBudgetOptions } from "../dom/cdp-snapshot";
 import type { RetryOptions } from "./retry";
-import type { z } from "zod";
+import type { z } from "zod/v4";
 
 /**
  * Public contract types shared with browser-agent consumers.
