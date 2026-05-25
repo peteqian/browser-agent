@@ -49,5 +49,7 @@ describe("Agent", () => {
       summary: "ok",
       steps: 1,
     });
-  });
+    // Launches a real browser; a cold CI runner may download Chrome-for-Testing
+    // first, which blows past the 5s default per-test timeout.
+  }, 120_000);
 });
