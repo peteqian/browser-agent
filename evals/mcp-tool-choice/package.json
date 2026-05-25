@@ -1,6 +1,6 @@
 {
   "name": "@peteqian/browser-agent-evals-mcp-tool-choice",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
   "description": "Evals harness grading whether an LLM picks the correct MCP tools for a given browser task.",
   "type": "module",
