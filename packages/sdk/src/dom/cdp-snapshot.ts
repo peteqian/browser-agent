@@ -23,9 +23,9 @@ export type RequiredDomBudgets = Required<DomBudgetOptions>;
 
 export const DEFAULT_DOM_BUDGETS: RequiredDomBudgets = {
   maxElements: 1200,
-  maxDisplayElements: 120,
-  maxFieldChars: 240,
-  maxTextChars: 300,
+  maxDisplayElements: 100,
+  maxFieldChars: 120,
+  maxTextChars: 120,
   attributeWhitelist: [
     "id",
     "name",
@@ -46,7 +46,7 @@ export const DEFAULT_DOM_BUDGETS: RequiredDomBudgets = {
     "data-action",
     "data-component",
   ],
-  maxTotalChars: 30_000,
+  maxTotalChars: 12_000,
 };
 
 export function withBudgetDefaults(input?: DomBudgetOptions): RequiredDomBudgets {
@@ -77,13 +77,35 @@ const INTERACTIVE_ROLES = new Set([
   "link",
   "checkbox",
   "radio",
+  "listbox",
   "menuitem",
+  "menuitemcheckbox",
+  "menuitemradio",
   "tab",
   "option",
+  "slider",
+  "spinbutton",
   "switch",
   "textbox",
   "combobox",
   "searchbox",
+  "treeitem",
+  "iframe",
+]);
+
+const CONTENT_ROLES = new Set([
+  "heading",
+  "cell",
+  "gridcell",
+  "columnheader",
+  "rowheader",
+  "listitem",
+  "article",
+  "region",
+  "main",
+  "navigation",
+  "search",
+  "form",
 ]);
 
 const COMPUTED_STYLE_PROPS = [
@@ -316,14 +338,82 @@ function selectorHint(tag: string, attrs: Record<string, string>): string {
   return hint;
 }
 
-function isInteractive(tag: string, attrs: Record<string, string>, isClickable: boolean): boolean {
+function isObservableCandidate(input: {
+  tag: string;
+  attrs: Record<string, string>;
+  isClickable: boolean;
+  axRole: string | null;
+  axName: string | null;
+}): boolean {
+  const { tag, attrs, isClickable, axRole, axName } = input;
   if (INTERACTIVE_TAGS.has(tag)) return true;
   if (isClickable) return true;
   if (typeof attrs.onclick === "string") return true;
   if (typeof attrs.tabindex === "string") return true;
-  const role = attrs.role;
+  const role = (axRole ?? attrs.role ?? "").toLowerCase();
   if (role && INTERACTIVE_ROLES.has(role)) return true;
+  if (role && CONTENT_ROLES.has(role) && axName) return true;
   return false;
+}
+
+function candidateRank(candidate: {
+  tag: string;
+  text: string;
+  attrs: Record<string, string>;
+  ax?: AXNode;
+}): number {
+  const role = usefulAxRole(axStringValue(candidate.ax?.role?.value)) ?? candidate.attrs.role ?? "";
+  const name = axStringValue(candidate.ax?.name?.value) ?? "";
+  const type = (candidate.attrs.type ?? "").toLowerCase();
+  const visibleLabel = [candidate.text, name, candidate.attrs["aria-label"] ?? ""].join(" ");
+  const hasName =
+    candidate.text.trim().length > 0 ||
+    name.length > 0 ||
+    Boolean(candidate.attrs["aria-label"]) ||
+    Boolean(candidate.attrs.placeholder) ||
+    Boolean(candidate.attrs.name);
+
+  if (isDateChoiceLabel(visibleLabel)) return 1;
+  if (candidate.tag === "input" && (type === "checkbox" || type === "radio")) {
+    return hasName ? 3 : 8;
+  }
+  if (candidate.tag === "input" || candidate.tag === "textarea" || candidate.tag === "select") {
+    return 0;
+  }
+  if (candidate.tag === "button" || role === "button") return hasName ? 1 : 6;
+  if (role === "combobox" || role === "textbox" || role === "searchbox") return 1;
+  if (candidate.tag === "a" || role === "link") return hasName ? 4 : 7;
+  if (role && role !== "generic") return hasName ? 5 : 8;
+  return hasName ? 5 : 9;
+}
+
+function isDateChoiceLabel(label: string): boolean {
+  return (
+    /\b(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)?[,]?\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}\b/i.test(
+      label,
+    ) ||
+    /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{4}\b/i.test(
+      label,
+    )
+  );
+}
+
+function isLowSignalElement(
+  tag: string,
+  axRole: string | null,
+  axName: string | null,
+  text: string,
+  placeholder: string | null,
+  ariaLabel: string | null,
+  href: string | null,
+  testId: string | null,
+): boolean {
+  if (tag === "input" || tag === "textarea" || tag === "select") return false;
+  if (tag === "button" || tag === "a") {
+    return !axName && !text.trim() && !placeholder && !ariaLabel && !href && !testId;
+  }
+  if (axRole && axRole !== "generic") return false;
+  return !axName && !text.trim() && !placeholder && !ariaLabel && !href && !testId;
 }
 
 function styleAt(
@@ -356,25 +446,154 @@ function isHiddenByStyle(
   return false;
 }
 
-async function fetchAxTree(page: Page): Promise<Map<number, AXNode>> {
+interface AxTree {
+  nodes: AXNode[];
+  byBackendNodeId: Map<number, AXNode>;
+}
+
+function axNodeScore(node: AXNode): number {
+  if (node.ignored === true) return 0;
+  const role = usefulAxRole(axStringValue(node.role?.value));
+  const name = axStringValue(node.name?.value);
+  if (!role) return 1;
+  if (INTERACTIVE_ROLES.has(role.toLowerCase())) return name ? 5 : 4;
+  if (CONTENT_ROLES.has(role.toLowerCase())) return name ? 4 : 2;
+  return name ? 3 : 2;
+}
+
+async function fetchAxTree(page: Page): Promise<AxTree> {
   try {
     const response = await page.sendCDP<{ nodes?: AXNode[] }>("Accessibility.getFullAXTree", {});
     const map = new Map<number, AXNode>();
-    for (const node of response.nodes ?? []) {
+    const nodes = response.nodes ?? [];
+    for (const node of nodes) {
       if (typeof node.backendDOMNodeId === "number") {
-        map.set(node.backendDOMNodeId, node);
+        const prev = map.get(node.backendDOMNodeId);
+        if (!prev || axNodeScore(node) > axNodeScore(prev)) {
+          map.set(node.backendDOMNodeId, node);
+        }
       }
     }
-    return map;
+    return { nodes, byBackendNodeId: map };
   } catch {
-    return new Map();
+    return { nodes: [], byBackendNodeId: new Map() };
   }
+}
+
+interface LiveElementLabel {
+  text: string;
+  value: string;
+  ariaLabel: string;
+  placeholder: string;
+}
+
+async function readLiveElementLabel(
+  page: Page,
+  backendNodeId: number,
+): Promise<LiveElementLabel | null> {
+  if (typeof page.callOnBackendNode !== "function") return null;
+  const result = await page.callOnBackendNode<LiveElementLabel>(
+    backendNodeId,
+    `function() {
+      const text = (this.innerText || this.textContent || "").replace(/\\s+/g, " ").trim();
+      const value = typeof this.value === "string" ? this.value.trim() : "";
+      return {
+        text,
+        value,
+        ariaLabel: this.getAttribute("aria-label") || "",
+        placeholder: this.getAttribute("placeholder") || "",
+      };
+    }`,
+  );
+  return result.ok ? result.value : null;
+}
+
+function shouldReadLiveLabel(candidate: {
+  tag: string;
+  text: string;
+  attrs: Record<string, string>;
+}): boolean {
+  if (candidate.tag === "button") return true;
+  if (candidate.tag === "input" || candidate.tag === "textarea" || candidate.tag === "select") {
+    return !candidate.text && !candidate.attrs.value && !candidate.attrs.placeholder;
+  }
+  return false;
 }
 
 function axStringValue(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function usefulAxRole(value: string | undefined): string | null {
+  if (!value || value === "none" || value === "generic") return null;
+  return value;
+}
+
+async function readActionableHitTest(
+  page: Page,
+  backendNodeIds: readonly number[],
+): Promise<Map<number, boolean>> {
+  if (backendNodeIds.length === 0) return new Map();
+  if (typeof page.callOnBackendNode !== "function") return new Map();
+  const map = new Map<number, boolean>();
+  for (const backendNodeId of Array.from(new Set(backendNodeIds))) {
+    const result = await page
+      .callOnBackendNode<boolean>(
+        backendNodeId,
+        `function() {
+          const r = this.getBoundingClientRect();
+          if (r.width <= 0 || r.height <= 0) return false;
+          const x = Math.min(Math.max(r.left + r.width / 2, 0), window.innerWidth - 1);
+          const y = Math.min(Math.max(r.top + r.height / 2, 0), window.innerHeight - 1);
+          const hit = document.elementFromPoint(x, y);
+          return !!hit && (hit === this || this.contains(hit) || hit.contains(this));
+        }`,
+      )
+      .catch(() => null);
+    map.set(backendNodeId, result?.ok ? result.value : true);
+  }
+  return map;
+}
+
+interface AxDomInfo {
+  tag: string;
+  text: string;
+  attrs: Record<string, string>;
+  bounds: { x: number; y: number; w: number; h: number };
+}
+
+async function readAxDomInfo(page: Page, backendNodeId: number): Promise<AxDomInfo | null> {
+  if (typeof page.callOnBackendNode !== "function") return null;
+  const result = await page
+    .callOnBackendNode<AxDomInfo | null>(
+      backendNodeId,
+      `function() {
+        if (!(this instanceof Element)) return null;
+        const rect = this.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        const style = window.getComputedStyle(this);
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          style.visibility === "collapse" ||
+          Number(style.opacity || "1") <= 0
+        ) {
+          return null;
+        }
+        const attrs = {};
+        for (const attr of this.attributes) attrs[attr.name] = attr.value;
+        return {
+          tag: this.tagName.toLowerCase(),
+          text: (this.innerText || this.textContent || "").replace(/\\s+/g, " ").trim(),
+          attrs,
+          bounds: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
+        };
+      }`,
+    )
+    .catch(() => null);
+  return result?.ok ? result.value : null;
 }
 
 interface DocumentAggregate {
@@ -437,6 +656,7 @@ export async function captureCdpSnapshot(
   };
 
   const candidates: Candidate[] = [];
+  const candidateBackendIds = new Set<number>();
 
   for (const agg of docsByIndex.values()) {
     const { doc } = agg;
@@ -484,10 +704,17 @@ export async function captureCdpSnapshot(
 
       const attrs = parseAttributes(attrsAll[nodeIdx], strings);
       const isClickable = clickableSet.has(nodeIdx);
-      if (!isInteractive(tag, attrs, isClickable)) continue;
-
       const backendNodeId = backendIds[nodeIdx];
       if (typeof backendNodeId !== "number") continue;
+      const axNode = ax.byBackendNodeId.get(backendNodeId);
+      // An AX-ignored node (e.g. aria-hidden) must not be promoted on the
+      // strength of its role/name — the second AX loop skips ignored nodes
+      // outright, so keep the two paths consistent. DOM/clickable signals may
+      // still make it observable.
+      const axIgnored = axNode?.ignored === true;
+      const axRole = axIgnored ? null : usefulAxRole(axStringValue(axNode?.role?.value));
+      const axName = axIgnored ? null : (axStringValue(axNode?.name?.value) ?? null);
+      if (!isObservableCandidate({ tag, attrs, isClickable, axRole, axName })) continue;
 
       const inlineText = stringAt(strings, layoutText[i]);
       const rawText =
@@ -508,14 +735,67 @@ export async function captureCdpSnapshot(
         framePath,
         frameId: docFrameId,
         paintOrder: paintOrders[i] ?? 0,
-        ax: ax.get(backendNodeId),
+        ax: axNode,
       });
+      candidateBackendIds.add(backendNodeId);
     }
 
     if (candidates.length >= budgets.maxElements) break;
   }
 
-  candidates.sort((a, b) => a.paintOrder - b.paintOrder);
+  // Collect AX nodes the DOM-snapshot pass missed, then read their DOM info in
+  // parallel — one awaited CDP round-trip per node in series scaled per-step
+  // latency with the AX tree size and tripped stepTimeoutMs on busy pages.
+  const remaining = budgets.maxElements - candidates.length;
+  if (remaining > 0) {
+    const eligible: Array<{ axNode: (typeof ax.nodes)[number]; backendNodeId: number }> = [];
+    for (const axNode of ax.nodes) {
+      if (eligible.length >= remaining) break;
+      const backendNodeId = axNode.backendDOMNodeId;
+      if (typeof backendNodeId !== "number") continue;
+      if (candidateBackendIds.has(backendNodeId)) continue;
+      if (axNode.ignored === true) continue;
+
+      const axRole = usefulAxRole(axStringValue(axNode.role?.value));
+      const axName = axStringValue(axNode.name?.value) ?? null;
+      if (!isObservableCandidate({ tag: "", attrs: {}, isClickable: false, axRole, axName })) {
+        continue;
+      }
+
+      candidateBackendIds.add(backendNodeId);
+      eligible.push({ axNode, backendNodeId });
+    }
+
+    const domInfos = await Promise.all(
+      eligible.map((entry) => readAxDomInfo(page, entry.backendNodeId)),
+    );
+
+    for (let i = 0; i < eligible.length; i += 1) {
+      const domInfo = domInfos[i];
+      if (!domInfo) continue;
+      const entry = eligible[i] as (typeof eligible)[number];
+
+      candidates.push({
+        backendNodeId: entry.backendNodeId,
+        tag: domInfo.tag,
+        text: clean(domInfo.text, budgets.maxTextChars),
+        attrs: domInfo.attrs,
+        bounds: domInfo.bounds,
+        framePath: "main",
+        frameId: undefined,
+        paintOrder: candidates.length,
+        ax: entry.axNode,
+      });
+    }
+  }
+
+  candidates.sort(
+    (a, b) =>
+      a.bounds.y - b.bounds.y ||
+      a.bounds.x - b.bounds.x ||
+      candidateRank(a) - candidateRank(b) ||
+      a.paintOrder - b.paintOrder,
+  );
 
   // Build a Map of `<label for="ID">` → label text so we can resolve a
   // semantic name onto the matching input/select. Wrapping labels (where
@@ -532,6 +812,12 @@ export async function captureCdpSnapshot(
     labelTextById.set(forId, text);
   }
 
+  const hitTestLimit = Math.min(candidates.length, budgets.maxDisplayElements * 3, 300);
+  const actionableByBackendId = await readActionableHitTest(
+    page,
+    candidates.slice(0, hitTestLimit).map((candidate) => candidate.backendNodeId),
+  );
+
   let url = "";
   let title = "";
   const firstDoc = documents[0];
@@ -543,15 +829,34 @@ export async function captureCdpSnapshot(
   for (let i = 0; i < candidates.length && i < budgets.maxElements; i += 1) {
     const c = candidates[i];
     if (!c) continue;
-    const axRole = axStringValue(c.ax?.role?.value) ?? null;
-    const axName = axStringValue(c.ax?.name?.value) ?? null;
+    const axRole = usefulAxRole(axStringValue(c.ax?.role?.value));
+    const axNameForHitTest = axStringValue(c.ax?.name?.value);
+    const semanticAxNode =
+      axRole &&
+      axNameForHitTest &&
+      (INTERACTIVE_ROLES.has(axRole.toLowerCase()) || CONTENT_ROLES.has(axRole.toLowerCase()));
+    if (actionableByBackendId.get(c.backendNodeId) === false && !semanticAxNode) continue;
+    const live = shouldReadLiveLabel(c) ? await readLiveElementLabel(page, c.backendNodeId) : null;
+    const liveText = live?.text ? clean(live.text, budgets.maxTextChars) : "";
+    const liveValue = live?.value ? clean(live.value, budgets.maxTextChars) : "";
+    const axName = axStringValue(c.ax?.name?.value) ?? (liveText || liveValue || null);
     const fieldLimit = budgets.maxFieldChars;
     const testId = extractTestId(c.attrs);
     const dataAttrs = extractDataAttrs(c.attrs, fieldLimit);
     const labelText = c.attrs.id ? (labelTextById.get(c.attrs.id) ?? null) : null;
-    const placeholder = c.attrs.placeholder ? clean(c.attrs.placeholder, fieldLimit) : null;
-    const ariaLabel = c.attrs["aria-label"] ? clean(c.attrs["aria-label"], fieldLimit) : null;
+    const placeholder = c.attrs.placeholder
+      ? clean(c.attrs.placeholder, fieldLimit)
+      : live?.placeholder
+        ? clean(live.placeholder, fieldLimit)
+        : null;
+    const ariaLabel = c.attrs["aria-label"]
+      ? clean(c.attrs["aria-label"], fieldLimit)
+      : live?.ariaLabel
+        ? clean(live.ariaLabel, fieldLimit)
+        : null;
     const href = c.attrs.href ?? null;
+    const text = liveText || c.text;
+    const value = liveValue || (c.attrs.value ? clean(c.attrs.value, budgets.maxTextChars) : null);
     const stableHandle = pickStableHandle({
       tag: c.tag,
       axRole,
@@ -559,9 +864,13 @@ export async function captureCdpSnapshot(
       testId,
       labelText,
       href,
-      text: c.text,
+      text,
       placeholder,
     });
+    if (isLowSignalElement(c.tag, axRole, axName, text, placeholder, ariaLabel, href, testId)) {
+      continue;
+    }
+    const index = elements.length;
     const stableId = computeStableId({
       framePath: c.framePath,
       tag: c.tag,
@@ -573,18 +882,18 @@ export async function captureCdpSnapshot(
       bboxY: c.bounds.y,
     });
     const element: ElementInfo = {
-      index: i,
+      index,
       backendNodeId: c.backendNodeId,
       framePath: c.framePath,
       tag: c.tag,
       role: axRole ?? c.attrs.role ?? null,
       name: c.attrs.name ?? null,
       ariaName: axName,
-      text: c.text,
+      text,
       href,
       type: c.attrs.type ?? null,
       placeholder,
-      value: c.attrs.value ? clean(c.attrs.value, budgets.maxTextChars) : null,
+      value,
       ariaLabel,
       selectorHint: selectorHint(c.tag, c.attrs),
       bbox: c.bounds,
@@ -599,7 +908,7 @@ export async function captureCdpSnapshot(
     elements.push(element);
     const entry: SelectorMapEntry = { backendNodeId: c.backendNodeId };
     if (c.frameId) entry.frameId = c.frameId;
-    selectorMap.byIndex.set(i, entry);
+    selectorMap.byIndex.set(element.index, entry);
   }
 
   const pendingRequestCount = 0;

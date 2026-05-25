@@ -111,6 +111,110 @@ describe("executeAction navigation watchdog metadata", () => {
   });
 });
 
+describe("executeAction allowedDomains policy", () => {
+  test("blocks navigate URL outside the allowlist without touching the page", async () => {
+    let navigated = false;
+    const page = {
+      targetId: "page-1",
+      navigateWithHealthCheck: async () => {
+        navigated = true;
+        return {
+          ok: true,
+          status: "loaded",
+          url: "https://evil.com/",
+          finalUrl: "https://evil.com/",
+          readyState: "complete",
+          durationMs: 1,
+        } as NavigationHealthResult;
+      },
+    } as unknown as Page;
+
+    const result = await executeAction(
+      page,
+      { name: "navigate", params: { url: "https://evil.com/path" } },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { allowedDomains: ["example.com"] },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("blocked by allowedDomains");
+    expect(navigated).toBe(false);
+    expect(result.data).toEqual({
+      blocked: { url: "https://evil.com/path", reason: "allowedDomains" },
+    });
+  });
+
+  test("allows navigate URL whose host matches a wildcard pattern", async () => {
+    const health: NavigationHealthResult = {
+      ok: true,
+      status: "loaded",
+      url: "https://api.example.com/",
+      finalUrl: "https://api.example.com/",
+      readyState: "complete",
+      durationMs: 5,
+    };
+
+    const result = await executeAction(
+      createPageWithNavigation(health),
+      { name: "navigate", params: { url: "https://api.example.com/" } },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { allowedDomains: ["*.example.com"] },
+    );
+
+    expect(result.ok).toBe(true);
+  });
+
+  test("blocks new_tab URL outside the allowlist without opening a tab", async () => {
+    let opened = false;
+    const session = {
+      newPage: async () => {
+        opened = true;
+        return createPageWithNavigation({
+          ok: true,
+          status: "loaded",
+          url: "https://evil.com/",
+          finalUrl: "https://evil.com/",
+          readyState: "complete",
+          durationMs: 1,
+        });
+      },
+    } as unknown as BrowserSession;
+
+    const result = await executeAction(
+      createPageWithNavigation({
+        ok: true,
+        status: "loaded",
+        url: "about:blank",
+        finalUrl: "about:blank",
+        readyState: "complete",
+        durationMs: 0,
+      }),
+      { name: "new_tab", params: { url: "https://evil.com/" } },
+      session,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      { allowedDomains: ["example.com"] },
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.message).toContain("blocked by allowedDomains");
+    expect(opened).toBe(false);
+  });
+});
+
 describe("executeAction type secrets and verification", () => {
   test("substitutes <secret> placeholder with sensitiveData value", async () => {
     const { page, calls } = createTypePage({ ok: true });
@@ -465,10 +569,16 @@ describe("executeAction extract_content error mapping", () => {
     });
   });
 
-  test("forwards alreadyCollected to extractContent for pagination dedupe", async () => {
-    const captured: { params?: { alreadyCollected?: string[] } } = {};
+  test("forwards pagination params (startFromChar/maxChars/alreadyCollected) to extractContent", async () => {
+    const captured: {
+      params?: { startFromChar?: number; maxChars?: number; alreadyCollected?: string[] };
+    } = {};
     const page = {
-      extractContent: async (params: { alreadyCollected?: string[] }) => {
+      extractContent: async (params: {
+        startFromChar?: number;
+        maxChars?: number;
+        alreadyCollected?: string[];
+      }) => {
         captured.params = params;
         return {
           url: "u",
@@ -489,9 +599,16 @@ describe("executeAction extract_content error mapping", () => {
 
     await executeAction(page, {
       name: "extract_content",
-      params: { query: "q", alreadyCollected: ["https://x/1", "https://x/2"] },
+      params: {
+        query: "q",
+        startFromChar: 2000,
+        maxChars: 5000,
+        alreadyCollected: ["https://x/1", "https://x/2"],
+      },
     });
 
+    expect(captured.params?.startFromChar).toBe(2000);
+    expect(captured.params?.maxChars).toBe(5000);
     expect(captured.params?.alreadyCollected).toEqual(["https://x/1", "https://x/2"]);
   });
 

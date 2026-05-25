@@ -5,6 +5,7 @@
 - `bun run fmt:check` — oxfmt verification (CI gate).
 - `bun run lint` — oxlint (CI gate).
 - `bun run typecheck` — `tsc -p tsconfig.build.json --noEmit` (CI gate).
+- `bun run typecheck:examples` — verify runnable examples against the source package.
 - `bun run test` — bun test runner (CI gate).
 - `bun run build` — tsup build (CI gate; required before publishing).
 
@@ -28,9 +29,11 @@ CI runs all five on every push to `main` / `dev` and on every PR.
 ## Examples
 
 - `bun run example:goto` basic navigation.
-- `bun run example:agent` agent loop.
-- `bun run example:simple-agent` `Agent` + `Browser` facade.
+- `bun run example:agent` one-shot task runner.
+- `bun run example:simple-agent` one-shot task runner with a reusable `Browser`.
 - `bun run example:typed-output` zod-validated terminal payload.
+- `bun run example:custom-action` typed custom action registry.
+- `bun run example:remote-cdp` attach to an existing Chrome DevTools endpoint.
 - `bun run example:openai` OpenAI provider.
 - `bun run example:claude-sdk` Claude Agent SDK provider.
 - `bun run example:codex-sdk` Codex SDK provider.
@@ -39,7 +42,7 @@ CI runs all five on every push to `main` / `dev` and on every PR.
 - `bun run example:downloads` download handling.
 - `bun run example:upload` file upload.
 - `bun run example:storage-state` cookies + localStorage persistence.
-- `bun run example:mcp` MCP client + server integration.
+- MCP example lives in the runtime package: `cd ../cli && bun run example:mcp`.
 
 ## Docs
 

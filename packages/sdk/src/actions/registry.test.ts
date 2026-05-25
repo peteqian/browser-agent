@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { z } from "zod";
+import { z } from "zod/v4";
 
 import { createActionRegistry, createDefaultActionRegistry } from "./registry";
 import type { Page } from "../browser/session";

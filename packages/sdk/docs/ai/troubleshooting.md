@@ -13,7 +13,9 @@
 
 ## Contract imports
 
-If contract imports fail in another package, verify the type is exported from `src/index.ts` and consumed from `@peteqian/browser-agent` — not redefined locally.
+If contract imports fail in another package, verify the type is exported from
+`src/index.ts` and consumed from `@peteqian/browser-agent-sdk` — not redefined
+locally.
 
 ## Typecheck OOM / stack overflow
 

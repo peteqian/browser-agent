@@ -17,6 +17,7 @@ import { wireCdpHandlers } from "./session-handlers";
 import { reconnectIfNeeded } from "./session-reconnect";
 import type {
   AttachedTargetEvent,
+  BrowserSessionConnectOptions,
   BrowserSessionOptions,
   BrowserSessionState,
   DownloadInfo,
@@ -26,6 +27,7 @@ export { Page } from "./page";
 export type {
   BrowserSessionState,
   BrowserSessionOptions,
+  BrowserSessionConnectOptions,
   PendingNetworkRequest,
   SearchPageParams,
   FindElementsParams,
@@ -63,6 +65,15 @@ export class BrowserSession {
 
   static async launch(options: LaunchOptions = {}): Promise<BrowserSession> {
     const session = new BrowserSession({ launch: options });
+    await session.start();
+    return session;
+  }
+
+  static async connect(
+    cdpUrl: string,
+    options: BrowserSessionConnectOptions = {},
+  ): Promise<BrowserSession> {
+    const session = new BrowserSession({ ...options, cdpUrl });
     await session.start();
     return session;
   }
@@ -218,6 +229,23 @@ export class BrowserSession {
     return this.ensureClient().on("Target.attachedToTarget", (params) =>
       handler(params as AttachedTargetEvent),
     );
+  }
+
+  /**
+   * Subscribe to a CDP event scoped to a specific target. The handler is
+   * invoked only when the event arrives on the session that maps to
+   * `targetId`. Returns an unsubscribe fn.
+   */
+  async onTargetEvent<TParams = unknown>(
+    targetId: string,
+    method: string,
+    handler: (params: TParams) => void,
+  ): Promise<() => void> {
+    const sessionId = await this.getOrAttachSessionId(targetId);
+    return this.ensureClient().on(method, (params, eventSessionId) => {
+      if (eventSessionId !== sessionId) return;
+      handler(params as TParams);
+    });
   }
 
   async waitIfCaptchaSolving(timeoutMs?: number): Promise<CaptchaWaitResult | null> {

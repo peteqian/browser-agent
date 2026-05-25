@@ -5,12 +5,8 @@ import { join } from "node:path";
 import { createServer } from "node:net";
 
 import { BrowserProfile, type BrowserPermissionGrant } from "../browser/profile";
-import {
-  discoverBrowserExecutable,
-  installChromiumWithPlaywright,
-  type BrowserChannel,
-} from "./discovery";
-import { buildChromeArgs } from "./chrome-args";
+import { discoverBrowserExecutable, installBrowser, type BrowserChannel } from "./discovery";
+import { buildChromeArgs, buildLightpandaArgs } from "./chrome-args";
 
 export interface LaunchOptions {
   executablePath?: string;
@@ -42,7 +38,8 @@ export interface LaunchedBrowser {
   webSocketDebuggerUrl: string;
   debuggerAddress: string;
   executablePath: string;
-  userDataDir: string;
+  /** Path on disk for the launched profile. `undefined` when the engine does not use one (e.g. Lightpanda). */
+  userDataDir?: string;
   ownsUserDataDir: boolean;
   close: () => Promise<void>;
   kill: () => Promise<void>;
@@ -170,18 +167,22 @@ async function resolveExecutable(
   const found = discoverBrowserExecutable(channel);
   if (found) return found;
 
+  if (channel === "lightpanda") {
+    throw new Error("Lightpanda binary not found. Install from https://lightpanda.io");
+  }
+
   if (!autoInstallBrowser) {
     throw new Error(
       `Could not find browser executable for channel=${channel}. Set executablePath or BROWSER_AGENT_CHROME.`,
     );
   }
 
-  await installChromiumWithPlaywright();
+  await installBrowser(channel);
   const installed = discoverBrowserExecutable(channel);
   if (installed) return installed;
 
   throw new Error(
-    "Installed Chromium via Playwright, but browser executable is still not discoverable",
+    `Installed browser for channel=${channel}, but executable is still not discoverable`,
   );
 }
 
@@ -193,6 +194,7 @@ async function launchAttempt(
       "headless" | "docker" | "disableSecurity" | "extraArgs" | "maxRetries" | "autoInstallBrowser"
     >
   > & {
+    channel: BrowserChannel;
     userDataDir?: string;
     proxyServer?: string;
     proxyBypass?: string;
@@ -204,24 +206,27 @@ async function launchAttempt(
     port?: number;
   },
 ): Promise<LaunchedBrowser> {
-  const ownsUserDataDir = !profile.userDataDir;
-  const userDataDir = profile.userDataDir ?? createTempProfileDir();
+  const isLightpanda = profile.channel === "lightpanda";
+  const ownsUserDataDir = !isLightpanda && !profile.userDataDir;
+  const userDataDir = isLightpanda ? undefined : (profile.userDataDir ?? createTempProfileDir());
   const port = profile.port ?? (await findFreePort());
   const debuggerAddress = `127.0.0.1:${port}`;
 
-  const args = buildChromeArgs({
-    remoteDebuggingPort: port,
-    userDataDir,
-    headless: profile.headless,
-    docker: profile.docker,
-    disableSecurity: profile.disableSecurity,
-    proxyServer: profile.proxyServer,
-    proxyBypass: profile.proxyBypass,
-    userAgent: profile.userAgent,
-    acceptLanguage: profile.acceptLanguage,
-    extensionPaths: profile.extensionPaths,
-    extra: profile.extraArgs,
-  });
+  const args = isLightpanda
+    ? buildLightpandaArgs(port)
+    : buildChromeArgs({
+        remoteDebuggingPort: port,
+        userDataDir: userDataDir as string,
+        headless: profile.headless,
+        docker: profile.docker,
+        disableSecurity: profile.disableSecurity,
+        proxyServer: profile.proxyServer,
+        proxyBypass: profile.proxyBypass,
+        userAgent: profile.userAgent,
+        acceptLanguage: profile.acceptLanguage,
+        extensionPaths: profile.extensionPaths,
+        extra: profile.extraArgs,
+      });
 
   const child = spawn(executablePath, args, {
     stdio: ["ignore", "pipe", "pipe"],
@@ -238,7 +243,7 @@ async function launchAttempt(
     ownsUserDataDir,
     close: async () => {
       await terminateChild(child);
-      if (ownsUserDataDir) {
+      if (ownsUserDataDir && userDataDir) {
         rmSync(userDataDir, { recursive: true, force: true });
       }
     },
@@ -246,7 +251,7 @@ async function launchAttempt(
       if (child.exitCode === null) {
         child.kill("SIGKILL");
       }
-      if (ownsUserDataDir) {
+      if (ownsUserDataDir && userDataDir) {
         rmSync(userDataDir, { recursive: true, force: true });
       }
     },
@@ -255,7 +260,7 @@ async function launchAttempt(
 
 export async function launchBrowser(options: LaunchOptions = {}): Promise<LaunchedBrowser> {
   const maxRetries = options.maxRetries ?? 3;
-  const channel = options.channel ?? "chromium";
+  const channel = options.channel ?? "chrome-for-testing";
   const autoInstallBrowser = options.autoInstallBrowser ?? true;
   const executablePath = await resolveExecutable(
     options.executablePath,
@@ -269,6 +274,7 @@ export async function launchBrowser(options: LaunchOptions = {}): Promise<Launch
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const launched = await launchAttempt(executablePath, {
+        channel,
         headless: attemptOptions.headless ?? true,
         docker: attemptOptions.docker ?? false,
         disableSecurity: attemptOptions.disableSecurity ?? false,

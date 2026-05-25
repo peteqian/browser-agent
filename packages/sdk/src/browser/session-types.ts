@@ -16,6 +16,8 @@ export interface BrowserSessionOptions {
   cdpUrl?: string;
 }
 
+export type BrowserSessionConnectOptions = Omit<BrowserSessionOptions, "cdpUrl" | "launch">;
+
 export interface AttachedTargetEvent {
   sessionId: string;
   targetInfo: { targetId: string; type: string; url: string; openerId?: string };

@@ -7,7 +7,7 @@
  * Run:
  *   bun run examples/events.ts "your task here"
  */
-import { createDecide, runAgent, type AgentEvent } from "../src/index";
+import { createDecide, runTask, type AgentEvent } from "../src/index";
 
 const task =
   process.argv[2] ??
@@ -65,12 +65,11 @@ function handle(event: AgentEvent): void {
   }
 }
 
-const result = await runAgent({
+const result = await runTask({
   task,
   startUrl: "about:blank",
-  maxSteps: 15,
   launch: { headless: true },
-  decide,
+  getNextAction: decide,
   transportResolution: resolution,
   onEvent: handle,
 });

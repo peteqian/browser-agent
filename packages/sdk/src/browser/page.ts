@@ -18,14 +18,19 @@ import {
   navigateWithHealthCheck,
   refresh,
   scrollToText,
+  waitForCondition,
   waitForStablePage,
   waitForText,
+  waitForUrl,
 } from "./page-navigation";
 import {
   clickAtCoordinates,
   clickByBackendNodeId,
   findNearestFileInputBackendNodeId,
+  focusByBackendNodeId,
   getDropdownOptionsByBackendNodeId,
+  keyboardType,
+  pressKey,
   scroll,
   scrollByPages,
   selectOptionByBackendNodeId,
@@ -41,7 +46,13 @@ import {
   readLocalStorage,
   searchPage,
 } from "./page-scripts";
-import { saveAsPdf, screenshot, screenshotToFile, type SaveAsPdfOptions } from "./page-output";
+import {
+  saveAsPdf,
+  screenshot,
+  screenshotToFile,
+  type SaveAsPdfOptions,
+  type ScreenshotOptions,
+} from "./page-output";
 import { setTimeout as delay } from "node:timers/promises";
 
 export class Page {
@@ -191,8 +202,8 @@ export class Page {
   // Delegating wrappers — public API surface.
   // ============================================================
 
-  goto(url: string, waitUntil?: "load" | "domcontentloaded"): Promise<void> {
-    return goto(this, url, waitUntil);
+  goto(url: string, waitUntil?: "load" | "domcontentloaded", timeoutMs?: number): Promise<void> {
+    return goto(this, url, waitUntil, timeoutMs);
   }
   goBack(): Promise<boolean> {
     return goBack(this);
@@ -212,6 +223,12 @@ export class Page {
   waitForText(text: string, timeoutMs?: number): Promise<boolean> {
     return waitForText(this, text, timeoutMs);
   }
+  waitForCondition(expression: string, timeoutMs?: number): Promise<unknown | null> {
+    return waitForCondition(this, expression, timeoutMs);
+  }
+  waitForUrl(pattern: string, timeoutMs?: number): Promise<string | null> {
+    return waitForUrl(this, pattern, timeoutMs);
+  }
   scrollToText(text: string): Promise<boolean> {
     return scrollToText(this, text);
   }
@@ -221,6 +238,9 @@ export class Page {
   }
   clickAtCoordinates(x: number, y: number): Promise<void> {
     return clickAtCoordinates(this, x, y);
+  }
+  focusByBackendNodeId(backendNodeId: number) {
+    return focusByBackendNodeId(this, backendNodeId);
   }
   typeByBackendNodeId(
     backendNodeId: number,
@@ -235,6 +255,12 @@ export class Page {
   }
   sendKeys(keys: string): Promise<void> {
     return sendKeys(this, keys);
+  }
+  pressKey(key: string): Promise<void> {
+    return pressKey(this, key);
+  }
+  keyboardType(text: string): Promise<void> {
+    return keyboardType(this, text);
   }
   findNearestFileInputBackendNodeId(backendNodeId: number) {
     return findNearestFileInputBackendNodeId(this, backendNodeId);
@@ -269,11 +295,11 @@ export class Page {
     return getPendingNetworkRequests(this, limit);
   }
 
-  screenshot(): Promise<string> {
-    return screenshot(this);
+  screenshot(options?: ScreenshotOptions): Promise<string> {
+    return screenshot(this, options);
   }
-  screenshotToFile(fileName?: string): Promise<string> {
-    return screenshotToFile(this, fileName);
+  screenshotToFile(fileName?: string, options?: ScreenshotOptions): Promise<string> {
+    return screenshotToFile(this, fileName, options);
   }
   saveAsPdf(options?: SaveAsPdfOptions): Promise<string> {
     return saveAsPdf(this, options);

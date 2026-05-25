@@ -7,7 +7,6 @@ function makeInput(overrides: Partial<AgentInput> = {}): AgentInput {
   return {
     task: "find pricing",
     step: 1,
-    maxSteps: 40,
     activeTab: "https://example.com/",
     tabs: ["https://example.com/"],
     history: [],
@@ -81,10 +80,40 @@ describe("parseDecision", () => {
     expect(decision.memory).toBe("n=1");
   });
 
+  test("parses batched action output", () => {
+    const decision = parseDecision(
+      '{"actions":[{"name":"focus","params":{"index":0}},{"name":"type","params":{"index":0,"text":"hello"}}],"done":false}',
+    );
+
+    expect(decision.actions).toEqual([
+      { name: "focus", params: { index: 0 } },
+      { name: "type", params: { index: 0, text: "hello" } },
+    ]);
+    expect(decision.done).toBe(false);
+  });
+
   test("non-done action leaves summary undefined", () => {
     const decision = parseDecision('{"name":"click","params":{"index":1}}');
     expect(decision.summary).toBeUndefined();
     expect(decision.success).toBeUndefined();
+  });
+
+  test("batched done derives summary/success from the done action's params", () => {
+    const decision = parseDecision(
+      '{"actions":[{"name":"done","params":{"success":true,"summary":"all set"}}]}',
+    );
+    expect(decision.done).toBe(true);
+    expect(decision.success).toBe(true);
+    expect(decision.summary).toBe("all set");
+  });
+
+  test("top-level summary/success still win over done params in a batch", () => {
+    const decision = parseDecision(
+      '{"actions":[{"name":"done","params":{"success":false,"summary":"params"}}],"done":true,"success":true,"summary":"top"}',
+    );
+    expect(decision.done).toBe(true);
+    expect(decision.success).toBe(true);
+    expect(decision.summary).toBe("top");
   });
 
   test("missing name throws", () => {
@@ -136,7 +165,7 @@ describe("buildFreeformDecisionPrompt", () => {
   test("includes JSON shape directive for freeform adapters", () => {
     const prompt = buildFreeformDecisionPrompt(makeInput());
     expect(prompt).toContain('{"name":"<action_name>","params":{...}}');
-    expect(prompt).toContain("Do not return any text outside JSON");
+    expect(prompt).toContain("only output is one JSON object");
   });
 
   test("documents done.params.summary requirement", () => {

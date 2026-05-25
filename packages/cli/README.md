@@ -1,6 +1,6 @@
 # @peteqian/browser-agent
 
-CLI and MCP server for [`@peteqian/browser-agent-sdk`](../browser-agent).
+CLI and MCP server for [`@peteqian/browser-agent-sdk`](../sdk).
 
 ## Install
 
@@ -13,10 +13,35 @@ npm install -g @peteqian/browser-agent
 ```bash
 browser-agent "Find the top result on Hacker News and print its title."
 browser-agent "..." --provider openai --model gpt-4.1-mini
+browser-agent browser status
+browser-agent browser install
+browser-agent profile list
+browser-agent dashboard
+browser-agent dashboard status
 browser-agent --probe --provider claude
 ```
 
 Run `browser-agent --help` for the full flag list.
+
+`browser-agent browser install` installs Playwright-managed Chromium when no
+browser executable is discoverable. Cookie and login persistence is handled by
+profiles (`--profile <name>`) and storage state, not by the browser binary
+choice alone.
+
+Named profiles live under `~/.browser-agent/profiles/<name>/`. Use
+`browser-agent profile list`, `browser-agent profile show <name>`, and
+`browser-agent profile clear <name>` to inspect or remove them.
+
+`browser-agent dashboard` starts a local HTTP dashboard at
+`http://127.0.0.1:3217`. It writes `~/.browser-agent/daemon.json` so later CLI
+or MCP processes can discover and health-check the running dashboard daemon.
+The dashboard owns long-lived browser sessions, shows snapshots/events/artifact
+paths, and can run raw SDK actions against the selected session.
+
+MCP clients can use the `daemon_*` tools to work with sessions owned by that
+dashboard process from a fresh MCP connection: launch/list/attach sessions,
+read snapshots/events/artifacts, run named extraction/screenshot/PDF tools, run
+generic actions, and close sessions.
 
 ## MCP server
 

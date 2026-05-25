@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased
+
+### Patch Changes
+
+- Add persistent profile management with `browser-agent profile list`, `show`,
+  and `clear`.
+- Add the local HTTP dashboard daemon (`browser-agent dashboard`) with
+  health-checkable daemon discovery, live session inspection, action execution,
+  event viewing, and artifact visibility.
+- Add MCP `daemon_*` tools so fresh MCP processes can launch, attach to,
+  inspect, extract from, screenshot, save PDFs from, list artifacts for, and
+  close dashboard-owned sessions.
+
 ## 0.1.1
 
 ### Patch Changes

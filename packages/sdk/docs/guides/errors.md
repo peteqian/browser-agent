@@ -7,7 +7,6 @@
 | Reason             | Meaning                                                                  | Common cause                                                                                   |
 | ------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
 | `done`             | Model emitted `done` action. `success` reflects the model's claim.       | Normal termination.                                                                            |
-| `max_steps`        | Loop hit `maxSteps` cap before `done`.                                   | Task too big, or model thrashing. Raise `--max-steps` or simplify task.                        |
 | `max_failures`     | Consecutive failures hit `maxFailures`.                                  | Bad selectors, broken page, missing auth on the target site. Inspect last few `action` events. |
 | `step_timeout`     | DOM serialization or page-context prep took longer than `stepTimeoutMs`. | Slow page, infinite redirects, heavy JS. Raise `--step-timeout`.                               |
 | `schema_violation` | Terminal `done` payload didn't match `outputSchema`.                     | Model returned unexpected data shape. `data` is `null`.                                        |
@@ -56,13 +55,13 @@ The next decision sees the timeout in history; the model can recover by trying a
 
 ## Loop detection
 
-The loop tracks an action+result fingerprint per step. If the same fingerprint appears `loopDetectionWindow` times in a row (default 4), the loop terminates with `loop_detected`. To disable, pass `loopDetectionEnabled: false`.
+The loop tracks an action+result fingerprint per step. If the same fingerprint appears `loopDetectionWindow` times in a row (default 4), the loop terminates with `loop_detected`. To disable, pass `loopDetectionMode: "off"`.
 
 ## Cancellation
 
 ```ts
 const controller = new AbortController();
-runAgent({ ..., signal: controller.signal });
+runTask({ ..., signal: controller.signal });
 
 // Later:
 controller.abort();
@@ -74,7 +73,7 @@ The loop terminates at the next safe point. The browser session is closed if the
 
 ```ts
 const control = new AgentController();
-runAgent({ ..., control });
+runTask({ ..., control });
 
 control.pause();         // freezes between steps
 control.resume();
@@ -83,10 +82,12 @@ control.stop("user");    // ends with reason: "aborted", summary: "user"
 
 ## Browser launch failures
 
-Chrome must be discoverable. The launcher tries `CHROME_PATH`, then platform-specific defaults, then errors out. If you see "Chrome not found":
+Chrome for Testing must be discoverable or installable. The launcher tries
+`BROWSER_AGENT_CHROME`, then the managed Chrome for Testing cache, then installs
+it when auto-install is enabled. If you see "Chrome not found":
 
-- Set `CHROME_PATH=/full/path/to/chrome`.
-- Or pass `launch: { executablePath: "..." }` in `AgentOptions`.
+- Set `BROWSER_AGENT_CHROME=/full/path/to/chrome`.
+- Or pass `launch: { executablePath: "..." }` to `runTask(...)`.
 
 ## Reading the verbose log
 

@@ -1,6 +1,6 @@
 # Event stream
 
-Every `runAgent()` invocation can be observed via the `onEvent` callback. Events fire in order; async callbacks are awaited before the loop continues.
+Every `runTask(...)` invocation can be observed via the `onEvent` callback. Events fire in order; async callbacks are awaited before the loop continues.
 
 ## Event types
 
@@ -39,12 +39,14 @@ transport_resolved   (once, only if transportResolution passed)
 ### Aggregate token usage
 
 ```ts
+import { runTask } from "@peteqian/browser-agent-sdk";
+
 let totalIn = 0;
 let totalOut = 0;
 
-await runAgent({
+await runTask({
   task: "...",
-  decide,
+  getNextAction,
   onEvent: (event) => {
     if (event.type === "decision" && event.decision.telemetry?.usage) {
       totalIn += event.decision.telemetry.usage.inputTokens;
@@ -60,12 +62,13 @@ console.log({ totalIn, totalOut });
 
 ```ts
 import type { Response } from "express";
+import { runTask } from "@peteqian/browser-agent-sdk";
 
 function streamRun(res: Response, task: string) {
   res.setHeader("content-type", "text/event-stream");
-  return runAgent({
+  return runTask({
     task,
-    decide,
+    getNextAction,
     onEvent: async (event) => {
       res.write(`data: ${JSON.stringify(event)}\n\n`);
     },
@@ -80,9 +83,9 @@ The loop awaits the callback — backpressure is honored.
 ```ts
 const transcript: string[] = [];
 
-await runAgent({
+await runTask({
   task,
-  decide,
+  getNextAction,
   onEvent: (event) => {
     if (event.type === "action") {
       transcript.push(`[${event.step}] ${event.action.name} → ${event.result.message}`);
@@ -100,7 +103,7 @@ await runAgent({
 ```ts
 type AgentResult<TData> = {
   success: boolean;
-  reason: TerminalReason; // "done" | "max_steps" | "max_failures" | "step_timeout" | "schema_violation" | "aborted" | "loop_detected"
+  reason: TerminalReason; // "completed" | "failed" | "max_failures" | "step_timeout" | "decision_timeout" | "schema_violation" | "aborted" | "stopped" | "loop_detected"
   summary: string | null;
   data: TData | null;
   steps: number;

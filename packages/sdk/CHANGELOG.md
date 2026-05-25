@@ -22,7 +22,7 @@ connection closed: initialize response` because the bin never linked.
 
 ### Breaking
 
-- **This package is now `@peteqian/browser-agent-sdk`.** The library core (Page, BrowserSession, Agent, runAgent, actions, internal subpath) ships under the `-sdk` name. The unsuffixed `@peteqian/browser-agent` is **not deprecated** — it is now a separate runtime package (CLI + MCP server, future HTTP API) that depends on this SDK. Library consumers move to `@peteqian/browser-agent-sdk`; CLI/MCP users still install `@peteqian/browser-agent`.
+- **This package is now `@peteqian/browser-agent-sdk`.** The library core (Page, BrowserSession, Agent, actions, internal subpath) ships under the `-sdk` name. The unsuffixed `@peteqian/browser-agent` is **not deprecated** — it is now a separate runtime package (CLI + MCP server, future HTTP API) that depends on this SDK. Library consumers move to `@peteqian/browser-agent-sdk`; CLI/MCP users still install `@peteqian/browser-agent`.
 - CLI binary `browser-agent` and MCP server `browser-agent-mcp` moved out of this package into `@peteqian/browser-agent`. The `bin/` entries and `src/mcp/` directory no longer live here.
 - `createMcpServer` / `runStdioServer` root re-exports removed. They now live in `@peteqian/browser-agent`.
 - Removed `@modelcontextprotocol/sdk` from dependencies — runtime-only concern.
@@ -44,7 +44,7 @@ connection closed: initialize response` because the bin never linked.
 - `DecisionTelemetry` and `TokenUsage` types. `Decision.telemetry` is filled by built-in OpenAI and Anthropic adapters (latency, model, token counts including cached). Codex CLI adapter leaves it undefined.
 - Cancellation: full `AbortSignal` propagation. `AgentController` for cooperative pause/resume/stop. Action signal threading is best-effort (page-method calls do not all accept signals).
 - Resilience layer: `stepTimeoutMs`, `decisionTimeoutMs`, `actionTimeoutMs`, `maxFailures`, `finalResponseAfterFailure`.
-- Loop detection: `loopDetectionMode` (`"nudge"` default, `"strict"`, `"off"`), `loopDetectionWindow`, `loopDetectionNudgeBudget`. Nudge mode injects a stagnation notice into the next observation and escalates to a hard stop only after the budget is exhausted. Each nudge emits a `loop_nudge` event with `nudgesUsed`/`budget`. Legacy `loopDetectionEnabled === false` maps to `"off"`.
+- Loop detection: `loopDetectionMode` (`"nudge"` default, `"strict"`, `"off"`), `loopDetectionWindow`, `loopDetectionNudgeBudget`. Nudge mode injects a stagnation notice into the next observation and escalates to a hard stop only after the budget is exhausted. Each nudge emits a `loop_nudge` event with `nudgesUsed`/`budget`.
 - Multi-action failure detection: a step where every action fails increments the consecutive-failure counter (previously only single-action steps did).
 - DOM snapshot: CDP `DOMSnapshot.captureSnapshot` plus `Accessibility.getFullAXTree` with a stable `SelectorMap` (index → backendNodeId). Stale lookups produce a deterministic `Element [N] no longer exists in the DOM` failure. Prompt budgets configurable via `AgentOptions.domBudgets`.
 - Safer action semantics:
@@ -55,7 +55,8 @@ connection closed: initialize response` because the bin never linked.
 - `extract_content`:
   - Classifies thrown extraction errors (`navigation_in_flight`, `timeout`, `unknown`) and returns a recoverable `ok:false` result with `data.extractionError = { reason, message }` for intelligent retry.
   - Accepts `alreadyCollected` (capped at 5000 entries); matching absolute link URLs are skipped so paginated extraction produces dedupe-clean output.
-- Final-step nudge: on the last allowed step, the decision loop prepends a `FINAL STEP (N/N)` directive to the observation instructing the model to emit `done` (success=true or false with a summary). Earlier steps unchanged.
+- Removed the older forced-final-turn nudge now that the loop no longer has a caller-configured iteration limit.
+- `runTask(options)` is now the first-class one-shot SDK wrapper. `Agent` remains available for class-based callers, while the lower-level loop runner is no longer exported from the package root.
 - Head+tail history compaction. `DecisionInput.history` now keeps the first `AgentOptions.historyHead` (default 2) plus the last `AgentOptions.historyTail` (default 8) entries with a synthetic `("...", "(N earlier steps omitted)")` marker between them, so initial-run context survives long sessions instead of falling off the back of a fixed last-N window. Wired into both the main loop and the final-failure recovery path. `compactHistory(history, head, tail)` is exported from the loop module for harnesses.
 - Persistent per-run memory: `AgentOptions.memory` seeds it; `DecisionInput.memory` exposes the current value; `Decision.memory` updates it. `buildDecisionUserPrompt` includes a `Current memory:` block so all SDK adapters surface it without changes.
 - Structured extraction hook: `AgentOptions.extractionLLM: ExtractionLLMFn` plus a new optional `schemaJson` param on `extract_content`. When both are present, the executor routes the extracted markdown through the hook and exposes the hook's returned data as `result.data.structured`. Hook errors surface as `result.data.structuredError` without failing the action. `schemaJson` is ignored if no hook is wired. Validation is owned by the hook — the loop does not parse the returned data.

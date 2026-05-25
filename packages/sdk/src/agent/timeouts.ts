@@ -1,10 +1,4 @@
-import type { ActionResult } from "../actions/execute";
-import type { ActionRegistry } from "../actions/registry";
-import type { BrowserSession, Page } from "../browser/session";
-import type { SelectorMap } from "../dom/cdp-snapshot";
-import type { ElementInfo } from "../dom/types";
-import type { AgentAction, AgentInput, AgentOutput, ExtractionLLMFn } from "./contracts";
-import type { FocusState } from "./focus-state";
+import type { AgentInput, AgentOutput } from "./contracts";
 
 export async function withRejectingTimeout<T>(
   promise: Promise<T>,
@@ -54,68 +48,6 @@ export async function withDecideTimeout(
 
   try {
     return await Promise.race([decide(input, controller.signal), timeoutPromise]);
-  } finally {
-    if (timeout) clearTimeout(timeout);
-    if (parentSignal) parentSignal.removeEventListener("abort", onParentAbort);
-  }
-}
-
-export interface ExecuteActionTimeoutExtras {
-  focusState?: FocusState;
-  snapshotElements?: readonly ElementInfo[];
-  currentStep?: number;
-  currentUrl?: string;
-}
-
-export async function executeActionWithTimeout(
-  page: Page,
-  action: AgentAction,
-  session: BrowserSession | undefined,
-  actionRegistry: ActionRegistry,
-  timeoutMs: number,
-  parentSignal: AbortSignal | undefined,
-  selectorMap: SelectorMap,
-  sensitiveData: Record<string, string> | undefined,
-  newTabDetectMs: number | undefined,
-  extractionLLM: ExtractionLLMFn | undefined,
-  extras?: ExecuteActionTimeoutExtras,
-): Promise<ActionResult> {
-  const controller = new AbortController();
-  const onParentAbort = () => controller.abort(parentSignal?.reason);
-  if (parentSignal) {
-    if (parentSignal.aborted) controller.abort(parentSignal.reason);
-    else parentSignal.addEventListener("abort", onParentAbort, { once: true });
-  }
-
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    return await Promise.race([
-      actionRegistry.execute(action, {
-        page,
-        session,
-        signal: controller.signal,
-        selectorMap,
-        sensitiveData,
-        newTabDetectMs,
-        extractionLLM,
-        focusState: extras?.focusState,
-        snapshotElements: extras?.snapshotElements,
-        currentStep: extras?.currentStep,
-        currentUrl: extras?.currentUrl,
-      }),
-      new Promise<ActionResult>((resolve) => {
-        timeout = setTimeout(() => {
-          controller.abort();
-          const message = `Action ${action.name} timed out after ${timeoutMs}ms`;
-          resolve({
-            ok: false,
-            message,
-            extractedContent: message,
-            longTermMemory: `Timed out while running ${action.name}`,
-          });
-        }, timeoutMs);
-      }),
-    ]);
   } finally {
     if (timeout) clearTimeout(timeout);
     if (parentSignal) parentSignal.removeEventListener("abort", onParentAbort);

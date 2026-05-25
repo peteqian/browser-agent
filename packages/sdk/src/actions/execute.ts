@@ -16,28 +16,48 @@ import {
 } from "./handlers/navigation";
 import {
   handleClick,
+  handleDblclick,
+  handleFill,
+  handleFocus,
+  handleHover,
+  handleKeyboardType,
   handleScroll,
   handleClickBy,
   handleSelectBy,
   handleSelectOption,
   handleSendKeys,
+  handlePress,
   handleType,
   handleTypeBy,
   handleUploadFile,
-  handleWait,
-  handleWaitForText,
 } from "./handlers/interaction";
 import {
-  handleDone,
+  handleWait,
+  handleWaitForCondition,
+  handleWaitForText,
+  handleWaitForUrl,
+} from "./handlers/waits";
+import {
   handleExtractContent,
   handleFindElements,
   handleFindText,
-  handleFocusArea,
   handleGetDropdownOptions,
-  handleSaveAsPdf,
-  handleScreenshot,
   handleSearchPage,
 } from "./handlers/extraction";
+import { handleSaveAsPdf, handleScreenshot } from "./handlers/capture";
+import { handleFocusArea } from "./handlers/focus-area";
+import { handleDone, handleEval } from "./handlers/meta";
+import { handleFindByRole, handleFindByText, handleFindByTestid } from "./handlers/find";
+import { handleDialogHandle } from "./handlers/dialog";
+import {
+  handleNetworkHarStart,
+  handleNetworkHarStop,
+  handleNetworkListRequests,
+} from "./handlers/network";
+import { handleConsoleRead, handleConsoleStart, handleConsoleStop } from "./handlers/console";
+import { handleSetViewport } from "./handlers/emulation";
+import { handleCookiesClear, handleCookiesGet, handleCookiesSet } from "./handlers/cookies";
+import { handleProfilerStart, handleProfilerStop } from "./handlers/profiler";
 import type { FocusState } from "../agent/focus-state";
 import type { ElementInfo } from "../dom/types";
 
@@ -48,6 +68,7 @@ export interface ExecuteActionExtras {
   snapshotElements?: readonly ElementInfo[];
   currentStep?: number;
   currentUrl?: string;
+  allowedDomains?: readonly string[];
 }
 
 export async function executeAction(
@@ -77,6 +98,7 @@ export async function executeAction(
     snapshotElements: extras?.snapshotElements,
     currentStep: extras?.currentStep,
     currentUrl: extras?.currentUrl,
+    allowedDomains: extras?.allowedDomains,
   };
 
   try {
@@ -85,20 +107,32 @@ export async function executeAction(
         return await handleNavigate(ctx, action);
       case "click":
         return await handleClick(ctx, action);
+      case "focus":
+        return await handleFocus(ctx, action);
       case "type":
         return await handleType(ctx, action);
+      case "fill":
+        return await handleFill(ctx, action);
       case "scroll":
         return await handleScroll(ctx, action);
       case "wait":
         return await handleWait(ctx, action);
       case "send_keys":
         return await handleSendKeys(ctx, action);
+      case "press":
+        return await handlePress(ctx, action);
+      case "keyboard_type":
+        return await handleKeyboardType(ctx, action);
       case "select_option":
         return await handleSelectOption(ctx, action);
       case "upload_file":
         return await handleUploadFile(ctx, action);
       case "wait_for_text":
         return await handleWaitForText(ctx, action);
+      case "wait_for_condition":
+        return await handleWaitForCondition(ctx, action);
+      case "wait_for_url":
+        return await handleWaitForUrl(ctx, action);
       case "go_back":
         return await handleGoBack(ctx);
       case "go_forward":
@@ -135,6 +169,44 @@ export async function executeAction(
         return await handleTypeBy(ctx, action);
       case "select_by":
         return await handleSelectBy(ctx, action);
+      case "hover":
+        return await handleHover(ctx, action);
+      case "dblclick":
+        return await handleDblclick(ctx, action);
+      case "eval":
+        return await handleEval(ctx, action);
+      case "find_by_role":
+        return handleFindByRole(ctx, action);
+      case "find_by_text":
+        return handleFindByText(ctx, action);
+      case "find_by_testid":
+        return handleFindByTestid(ctx, action);
+      case "dialog_handle":
+        return await handleDialogHandle(ctx, action);
+      case "network_har_start":
+        return await handleNetworkHarStart(ctx, action);
+      case "network_har_stop":
+        return await handleNetworkHarStop(ctx, action);
+      case "network_list_requests":
+        return await handleNetworkListRequests(ctx, action);
+      case "set_viewport":
+        return await handleSetViewport(ctx, action);
+      case "cookies_get":
+        return await handleCookiesGet(ctx, action);
+      case "cookies_set":
+        return await handleCookiesSet(ctx, action);
+      case "cookies_clear":
+        return await handleCookiesClear(ctx, action);
+      case "console_start":
+        return await handleConsoleStart(ctx, action);
+      case "console_read":
+        return handleConsoleRead(ctx, action);
+      case "console_stop":
+        return handleConsoleStop(ctx, action);
+      case "profiler_start":
+        return await handleProfilerStart(ctx, action);
+      case "profiler_stop":
+        return await handleProfilerStop(ctx, action);
       case "done":
         return handleDone(ctx, action);
       default: {

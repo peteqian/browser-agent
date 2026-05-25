@@ -1,8 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 
-import { createDecide, runAgent } from "@peteqian/browser-agent-sdk";
+import { createDecide, runTask } from "@peteqian/browser-agent-sdk";
 import { buildProgressForwarder, jsonResult } from "../helpers";
+import { resolveBrowserPaths } from "../../profiles";
 
 export function registerAgentTool(server: McpServer): void {
   const registerTool = server.registerTool.bind(server) as ToolRegistrar;
@@ -14,17 +15,33 @@ export function registerAgentTool(server: McpServer): void {
       inputSchema: {
         task: z.string(),
         startUrl: z.string().optional(),
-        maxSteps: z.number().int().min(1).max(200).optional(),
         model: z.string().optional(),
         effort: z.string().optional(),
         headless: z.boolean().optional().default(true),
+        autoConsent: z.boolean().optional().default(true),
+        profile: z.string().min(1).optional(),
+        userDataDir: z.string().min(1).optional(),
+        storageStatePath: z.string().min(1).optional(),
         provider: z.enum(["codex", "claude", "openai", "anthropic"]).optional().default("codex"),
         apiKey: z.string().optional(),
         baseUrl: z.string().optional(),
       },
     },
     async (
-      { task, startUrl, maxSteps, model, effort, headless, provider, apiKey, baseUrl },
+      {
+        task,
+        startUrl,
+        model,
+        effort,
+        headless,
+        autoConsent,
+        profile,
+        userDataDir,
+        storageStatePath,
+        provider,
+        apiKey,
+        baseUrl,
+      },
       extra,
     ) => {
       const { decide, resolution } = createDecide({
@@ -35,17 +52,20 @@ export function registerAgentTool(server: McpServer): void {
         effort,
       });
       const progressToken = extra._meta?.progressToken;
+      const paths = resolveBrowserPaths({ profile, userDataDir, storageStatePath });
       const onEvent =
-        progressToken !== undefined
-          ? buildProgressForwarder(extra, progressToken, maxSteps ?? 40)
-          : undefined;
+        progressToken !== undefined ? buildProgressForwarder(extra, progressToken) : undefined;
       return jsonResult(
-        await runAgent({
+        await runTask({
           task,
           startUrl,
-          maxSteps,
-          launch: { headless },
-          decide,
+          launch: {
+            headless,
+            autoConsent,
+            userDataDir: paths.userDataDir,
+            storageStatePath: paths.storageStatePath,
+          },
+          getNextAction: decide,
           transportResolution: resolution,
           signal: extra.signal,
           onEvent,

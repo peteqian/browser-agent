@@ -8,6 +8,7 @@ export async function goto(
   page: Page,
   url: string,
   waitUntil: "load" | "domcontentloaded" = "load",
+  timeoutMs = 30_000,
 ): Promise<void> {
   const navigation = await page.sendCDP<{ errorText?: string }>("Page.navigate", { url });
   if (navigation.errorText) {
@@ -15,7 +16,6 @@ export async function goto(
   }
 
   const startedAt = Date.now();
-  const timeoutMs = 30_000;
   while (Date.now() - startedAt < timeoutMs) {
     const readyState = await page.evaluate<string>("document.readyState").catch(() => "loading");
     if (waitUntil === "domcontentloaded") {
@@ -79,7 +79,8 @@ export async function navigateWithHealthCheck(
     finishNavigationHealth(page, { ...input, url, startedAt });
 
   try {
-    await goto(page, url);
+    await goto(page, url, "domcontentloaded", 8_000);
+    await page.waitForStablePage(700).catch(() => {});
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return finish({ ok: false, status: navigationFailureStatus(message), warning: message });
@@ -91,17 +92,18 @@ export async function navigateWithHealthCheck(
   let empty = await appearsEmptyPage(page).catch(() => false);
   if (!empty) return finish({ ok: true, status: "loaded" });
 
-  await delay(3_000);
+  await delay(700);
   empty = await appearsEmptyPage(page).catch(() => false);
   if (!empty) return finish({ ok: true, status: "loaded" });
 
   try {
-    await goto(page, url);
+    await goto(page, url, "domcontentloaded", 8_000);
+    await page.waitForStablePage(700).catch(() => {});
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return finish({ ok: false, status: navigationFailureStatus(message), warning: message });
   }
-  await delay(5_000);
+  await delay(1_000);
   empty = await appearsEmptyPage(page).catch(() => false);
   if (empty) {
     return finish({
@@ -153,6 +155,55 @@ export async function waitForText(page: Page, text: string, timeoutMs = 10_000):
     await delay(100);
   }
   return false;
+}
+
+/** Wraps in an IIFE so the expression can use statements; per-poll throws
+ *  are swallowed because a page errors mid-navigation should still get a
+ *  chance to settle. Returns the truthy value, or null on timeout. */
+export async function waitForCondition(
+  page: Page,
+  expression: string,
+  timeoutMs = 10_000,
+  pollIntervalMs = 100,
+): Promise<unknown | null> {
+  const wrapped = `(() => { try { return (${expression}); } catch { return undefined; } })()`;
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const value = await page.evaluate<unknown>(wrapped).catch(() => undefined);
+    if (value) return value;
+    await delay(pollIntervalMs);
+  }
+  return null;
+}
+
+/** `*` is wildcard; a pattern without `*` is a substring contains-check
+ *  so callers can pass `/dashboard` without escaping. */
+export function urlMatchesPattern(url: string, pattern: string): boolean {
+  if (!pattern.includes("*")) return url.includes(pattern);
+  const re = new RegExp(
+    "^" +
+      pattern
+        .split("*")
+        .map((s) => s.replace(/[.+?^${}()|[\]\\]/g, "\\$&"))
+        .join(".*") +
+      "$",
+  );
+  return re.test(url);
+}
+
+export async function waitForUrl(
+  page: Page,
+  pattern: string,
+  timeoutMs = 10_000,
+  pollIntervalMs = 100,
+): Promise<string | null> {
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < timeoutMs) {
+    const current = await page.currentUrl().catch(() => undefined);
+    if (current && urlMatchesPattern(current, pattern)) return current;
+    await delay(pollIntervalMs);
+  }
+  return null;
 }
 
 export async function scrollToText(page: Page, text: string): Promise<boolean> {

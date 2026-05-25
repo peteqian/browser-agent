@@ -7,7 +7,7 @@
  * Run:
  *   bun run examples/codex-sdk.ts "your task here"
  */
-import { createCodexSdkDecide, runAgent } from "../src/index";
+import { createCodexSdkDecide, runTask } from "../src/index";
 
 const task =
   process.argv[2] ??
@@ -23,12 +23,11 @@ const decide = createCodexSdkDecide({
   },
 });
 
-const result = await runAgent({
+const result = await runTask({
   task,
   startUrl: "about:blank",
-  maxSteps: 15,
   launch: { headless: true },
-  decide,
+  getNextAction: decide,
   onEvent: (event) => {
     if (event.type === "decision") {
       const action = event.decision.actions[0];

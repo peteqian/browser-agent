@@ -1,22 +1,31 @@
 # Getting started
 
-## Install
+## Install the SDK
 
 ```sh
-npm install @peteqian/browser-agent
+npm install @peteqian/browser-agent-sdk
 # or
-bun add @peteqian/browser-agent
+bun add @peteqian/browser-agent-sdk
 ```
 
-The package ships:
+The SDK package ships:
 
-- `browser-agent` — CLI binary
-- `browser-agent-mcp` — MCP stdio server
 - ESM exports for SDK use
+
+## Install the CLI and MCP runtime
+
+The CLI and MCP binaries ship in the sibling runtime package:
+
+```sh
+npm install -g @peteqian/browser-agent
+# or run without a global install:
+npx -y -p @peteqian/browser-agent browser-agent --help
+```
 
 You also need:
 
-- A Chrome / Chromium installation on `PATH` (the agent launches it directly).
+- Chrome for Testing installs automatically on first launch unless you pass a
+  custom browser executable or channel.
 - One LLM provider configured (codex / claude / openai / anthropic).
 
 ## Provider auth
@@ -38,7 +47,7 @@ Run `browser-agent --probe --provider <p>` to see what would resolve before doin
 browser-agent "Open example.com and report the H1"
 ```
 
-Defaults: `provider=codex`, `headless=true`, `maxSteps=40`.
+Defaults: `provider=codex`, `headless=true`.
 
 Watch progress live with `--no-headless` and `--verbose`:
 
@@ -65,14 +74,10 @@ Then in Claude Desktop / Cursor: ask the assistant to launch a session, navigate
 ## First run (SDK)
 
 ```ts
-import { createDecide, runAgent } from "@peteqian/browser-agent";
+import { runTask } from "@peteqian/browser-agent-sdk";
 
-const { decide, resolution } = createDecide({ provider: "codex" });
-
-const result = await runAgent({
+const result = await runTask({
   task: "Open example.com and report the H1",
-  decide,
-  transportResolution: resolution,
   onEvent: (event) => console.log(event.type),
 });
 

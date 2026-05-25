@@ -1,13 +1,15 @@
 import OpenAI from "openai";
 
-import { buildDecisionUserPrompt } from "../agent/loop";
-import { SYSTEM_PROMPT } from "../agent/prompts";
+import { buildDecisionPromptParts } from "../agent/decision-prompt";
 import type { AgentInput, AgentOutput } from "../agent/contracts";
 import type { LLMAdapterOptions } from "./types";
 import { buildTelemetry } from "./telemetry";
 import { decisionJsonSchema, validateDecision } from "./decisionSchema";
 
-function buildUserContent(input: AgentInput): Array<
+function buildUserContent(
+  input: AgentInput,
+  suffix: string,
+): Array<
   | {
       type: "input_text";
       text: string;
@@ -20,7 +22,7 @@ function buildUserContent(input: AgentInput): Array<
 > {
   const screenshot = input.browserState?.screenshot;
   return [
-    { type: "input_text" as const, text: buildDecisionUserPrompt(input) },
+    { type: "input_text" as const, text: suffix },
     ...(screenshot
       ? [
           {
@@ -61,14 +63,17 @@ export function createOpenAIDecide(
   return async (input: AgentInput, signal?: AbortSignal): Promise<AgentOutput> => {
     const startedAt = Date.now();
 
+    const { prefix, suffix } = buildDecisionPromptParts(input);
     const response = await client.responses.parse(
       {
         model,
         temperature,
         max_output_tokens: maxTokens,
         input: [
-          { role: "developer", content: [{ type: "input_text", text: SYSTEM_PROMPT }] },
-          { role: "user", content: buildUserContent(input) },
+          // Keep the (mostly static) prefix first so OpenAI's implicit prompt
+          // cache can hit on step 2+ runs.
+          { role: "developer", content: [{ type: "input_text", text: prefix }] },
+          { role: "user", content: buildUserContent(input, suffix) },
         ],
         text: {
           format: {

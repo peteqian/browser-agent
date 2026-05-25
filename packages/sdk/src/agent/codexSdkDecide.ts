@@ -1,8 +1,12 @@
-import { Codex, type ModelReasoningEffort } from "@openai/codex-sdk";
+import { Codex, type ModelReasoningEffort, type Thread } from "@openai/codex-sdk";
 
 import type { AgentInput, AgentOutput } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
-import { buildFreeformDecisionPrompt, parseDecision } from "./parseDecision";
+import {
+  buildContinuationPrompt,
+  buildFreeformDecisionPrompt,
+  parseDecision,
+} from "./parseDecision";
 import { buildTelemetry } from "../llm/telemetry";
 
 export interface CodexSdkOptions {
@@ -24,9 +28,11 @@ const VALID_EFFORTS: readonly ModelReasoningEffort[] = [
 ];
 
 /**
- * Codex SDK adapter. Each decision creates a fresh thread and runs a single
- * turn. Stateless across steps so it matches the existing CLI adapter; the
- * loop carries history through the prompt itself.
+ * Codex SDK adapter. Keeps ONE thread for the whole run: the system prompt,
+ * task, and action catalog go out on the first turn; subsequent turns send
+ * only the new observation (the thread carries the conversation). This avoids
+ * re-ingesting the full prompt every step — the dominant per-step latency
+ * source when a fresh thread was created each time.
  */
 export function createCodexSdkDecide(
   options: CodexSdkOptions,
@@ -38,18 +44,29 @@ export function createCodexSdkDecide(
   });
 
   const reasoningEffort = normalizeEffort(options.effort);
+  let thread: Thread | null = null;
+  let lastCatalog: string | undefined;
 
   return async (input, signal) => {
     const startedAt = Date.now();
-    const thread = codex.startThread({
-      model: options.model,
-      ...(reasoningEffort ? { modelReasoningEffort: reasoningEffort } : {}),
-      ...(options.cwd ? { workingDirectory: options.cwd } : {}),
-      skipGitRepoCheck: true,
-      sandboxMode: "read-only",
-    });
 
-    const prompt = `${SYSTEM_PROMPT}\n\n${buildFreeformDecisionPrompt(input)}`;
+    let prompt: string;
+    if (!thread) {
+      thread = codex.startThread({
+        model: options.model,
+        ...(reasoningEffort ? { modelReasoningEffort: reasoningEffort } : {}),
+        ...(options.cwd ? { workingDirectory: options.cwd } : {}),
+        skipGitRepoCheck: true,
+        sandboxMode: "read-only",
+      });
+      prompt = `${SYSTEM_PROMPT}\n\n${buildFreeformDecisionPrompt(input)}`;
+    } else {
+      // Re-send the catalog only when state-scoped actions changed.
+      const includeCatalog = input.actionCatalog !== lastCatalog;
+      prompt = buildContinuationPrompt(input, { includeCatalog });
+    }
+    lastCatalog = input.actionCatalog;
+
     const turn = await thread.run(prompt, { signal });
     const raw = turn.finalResponse;
     options.onRaw?.(raw, input.step);

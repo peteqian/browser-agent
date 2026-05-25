@@ -1,4 +1,5 @@
 import type { LaunchOptions } from "../cdp/launch";
+import { resolveBrowserPaths } from "./profile-paths";
 import { BrowserSession, type Page } from "./session";
 
 export interface BrowserOptions extends LaunchOptions {
@@ -7,6 +8,12 @@ export interface BrowserOptions extends LaunchOptions {
    * local browser.
    */
   cdpUrl?: string;
+  /**
+   * Named persistent profile stored under ~/.browser-agent/profiles/<name>.
+   * Reuses cookies/localStorage between runs while still launching Chrome in
+   * CDP debug mode.
+   */
+  profile?: string;
 }
 
 /**
@@ -44,8 +51,16 @@ export class Browser {
   }
 
   private async start(): Promise<BrowserSession> {
-    const { cdpUrl, ...launch } = this.options;
-    const session = new BrowserSession({ cdpUrl, launch });
+    const { cdpUrl, profile, userDataDir, storageStatePath, ...launchOptions } = this.options;
+    const paths = resolveBrowserPaths({ profile, userDataDir, storageStatePath });
+    const session = new BrowserSession({
+      cdpUrl,
+      launch: {
+        ...launchOptions,
+        userDataDir: paths.userDataDir,
+        storageStatePath: paths.storageStatePath,
+      },
+    });
     await session.start();
     return session;
   }

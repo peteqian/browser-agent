@@ -7,7 +7,12 @@ interface FakeCdpResponses {
   [method: string]: unknown;
 }
 
-function makePage(responses: FakeCdpResponses): Page {
+function makePage(
+  responses: FakeCdpResponses,
+  options: {
+    callOnBackendNode?: Page["callOnBackendNode"];
+  } = {},
+): Page {
   const page = {
     targetId: "page-1",
     sendCDP: async (method: string) => {
@@ -15,6 +20,7 @@ function makePage(responses: FakeCdpResponses): Page {
       return {};
     },
     evaluate: async () => ({ readyState: "complete", pendingRequestCount: 0 }),
+    ...options,
   };
   return page as unknown as Page;
 }
@@ -105,7 +111,12 @@ describe("captureCdpSnapshot", () => {
   test("filters non-interactive and hidden nodes; assigns sequential indexes", async () => {
     const snapshot = buildSnapshot([
       { tag: "div", backendNodeId: 10, bounds: [0, 0, 50, 50] }, // not interactive
-      { tag: "button", backendNodeId: 11, bounds: [0, 0, 50, 50] },
+      {
+        tag: "button",
+        backendNodeId: 11,
+        attributes: [["aria-label", "Visible"]],
+        bounds: [0, 0, 50, 50],
+      },
       { tag: "button", backendNodeId: 12, display: "none", bounds: [0, 0, 50, 50] },
       {
         tag: "button",
@@ -162,9 +173,9 @@ describe("captureCdpSnapshot", () => {
 
   test("sorts elements by paint order", async () => {
     const snapshot = buildSnapshot([
-      { tag: "button", backendNodeId: 1, paintOrder: 5 },
-      { tag: "button", backendNodeId: 2, paintOrder: 1 },
-      { tag: "button", backendNodeId: 3, paintOrder: 3 },
+      { tag: "button", backendNodeId: 1, attributes: [["aria-label", "One"]], paintOrder: 5 },
+      { tag: "button", backendNodeId: 2, attributes: [["aria-label", "Two"]], paintOrder: 1 },
+      { tag: "button", backendNodeId: 3, attributes: [["aria-label", "Three"]], paintOrder: 3 },
     ]);
     const page = makePage({
       "Accessibility.getFullAXTree": { nodes: [] },
@@ -181,6 +192,7 @@ describe("captureCdpSnapshot", () => {
     const nodes = Array.from({ length: 10 }, (_, i) => ({
       tag: "button",
       backendNodeId: 100 + i,
+      attributes: [["aria-label", `Button ${i}`]] as Array<[string, string]>,
       paintOrder: i,
     }));
     const snapshot = buildSnapshot(nodes);
@@ -199,7 +211,14 @@ describe("captureCdpSnapshot", () => {
 
   test("includes role from attribute fallback when AX tree is missing", async () => {
     const snapshot = buildSnapshot([
-      { tag: "div", backendNodeId: 9, attributes: [["role", "button"]] },
+      {
+        tag: "div",
+        backendNodeId: 9,
+        attributes: [
+          ["role", "button"],
+          ["aria-label", "Role button"],
+        ],
+      },
     ]);
     const page = makePage({
       "Accessibility.getFullAXTree": { nodes: [] },
@@ -208,6 +227,158 @@ describe("captureCdpSnapshot", () => {
     const { snapshot: out } = await captureCdpSnapshot(page, withBudgetDefaults());
     expect(out.elements).toHaveLength(1);
     expect(out.elements[0]?.role).toBe("button");
+  });
+
+  test("keeps AX-only comboboxes from app-rendered search forms", async () => {
+    const snapshot = buildSnapshot([
+      {
+        tag: "div",
+        backendNodeId: 21,
+        bounds: [10, 80, 280, 48],
+      },
+      {
+        tag: "div",
+        backendNodeId: 22,
+        bounds: [300, 80, 280, 48],
+      },
+      {
+        tag: "button",
+        backendNodeId: 23,
+        bounds: [590, 80, 120, 48],
+      },
+    ]);
+    const page = makePage({
+      "Accessibility.getFullAXTree": {
+        nodes: [
+          {
+            backendDOMNodeId: 21,
+            role: { value: "combobox" },
+            name: { value: "Work " },
+          },
+          {
+            backendDOMNodeId: 22,
+            role: { value: "combobox" },
+            name: { value: "Enter suburb, city, or region" },
+          },
+          {
+            backendDOMNodeId: 23,
+            role: { value: "button" },
+            name: { value: "Submit search" },
+          },
+        ],
+      },
+      "DOMSnapshot.captureSnapshot": snapshot,
+    });
+
+    const { snapshot: out } = await captureCdpSnapshot(page, withBudgetDefaults());
+
+    expect(out.elements.map((el) => [el.axRole, el.axName])).toEqual([
+      ["combobox", "Work"],
+      ["combobox", "Enter suburb, city, or region"],
+      ["button", "Submit search"],
+    ]);
+  });
+
+  test("keeps named AX content regions that orient form controls", async () => {
+    const snapshot = buildSnapshot([
+      {
+        tag: "section",
+        backendNodeId: 31,
+        bounds: [0, 60, 300, 70],
+      },
+      {
+        tag: "div",
+        backendNodeId: 32,
+        bounds: [10, 80, 280, 48],
+      },
+    ]);
+    const page = makePage({
+      "Accessibility.getFullAXTree": {
+        nodes: [
+          {
+            backendDOMNodeId: 31,
+            role: { value: "region" },
+            name: { value: "Enter keywords" },
+          },
+          {
+            backendDOMNodeId: 32,
+            role: { value: "combobox" },
+            name: { value: "Work " },
+          },
+        ],
+      },
+      "DOMSnapshot.captureSnapshot": snapshot,
+    });
+
+    const { snapshot: out } = await captureCdpSnapshot(page, withBudgetDefaults());
+
+    expect(out.elements.map((el) => `${el.axRole}:${el.axName}`)).toEqual([
+      "region:Enter keywords",
+      "combobox:Work",
+    ]);
+  });
+
+  test("seeds observable controls from AX when DOMSnapshot has no layout node", async () => {
+    const snapshot = buildSnapshot([]);
+    const page = makePage(
+      {
+        "Accessibility.getFullAXTree": {
+          nodes: [
+            {
+              backendDOMNodeId: 38,
+              role: { value: "combobox" },
+              name: { value: "Registered nurse with flexible part-time hours" },
+            },
+            {
+              backendDOMNodeId: 29,
+              role: { value: "combobox" },
+              name: { value: "Enter suburb, city, or region" },
+            },
+            {
+              backendDOMNodeId: 2113,
+              role: { value: "button" },
+              name: { value: "Submit search" },
+            },
+          ],
+        },
+        "DOMSnapshot.captureSnapshot": snapshot,
+      },
+      {
+        callOnBackendNode: async (backendNodeId: number) => {
+          const byId = {
+            38: {
+              tag: "div",
+              text: "",
+              attrs: {},
+              bounds: { x: 10, y: 80, w: 280, h: 48 },
+            },
+            29: {
+              tag: "div",
+              text: "",
+              attrs: {},
+              bounds: { x: 300, y: 80, w: 280, h: 48 },
+            },
+            2113: {
+              tag: "button",
+              text: "Search",
+              attrs: {},
+              bounds: { x: 590, y: 80, w: 120, h: 48 },
+            },
+          } as const;
+          return { ok: true, value: byId[backendNodeId as keyof typeof byId] ?? null };
+        },
+      },
+    );
+
+    const { snapshot: out, selectorMap } = await captureCdpSnapshot(page, withBudgetDefaults());
+
+    expect(out.elements.map((el) => [el.axRole, el.axName])).toEqual([
+      ["combobox", "Registered nurse with flexible part-time hours"],
+      ["combobox", "Enter suburb, city, or region"],
+      ["button", "Submit search"],
+    ]);
+    expect(selectorMap.byIndex.get(0)?.backendNodeId).toBe(38);
+    expect(selectorMap.byIndex.get(2)?.backendNodeId).toBe(2113);
   });
 
   test("captures testId and dataAttrs", async () => {

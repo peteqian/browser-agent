@@ -1,3 +1,4 @@
+import { MAX_ACTIONS_PER_DECISION } from "../llm/decisionSchema";
 import type { AgentInput, AgentOutput } from "./contracts";
 
 /**
@@ -28,16 +29,56 @@ ${historyBlock}
 Observation:
 ${input.observation}
 
-Return exactly one JSON object (no markdown) with this shape:
+Return exactly one JSON object (no markdown, no surrounding prose) with either this single-action shape:
 {"name":"<action_name>","params":{...}}
 
-You may add optional top-level fields: "thought" (one-line reasoning), "nextGoal" (next step you intend), "memory" (compact note carried forward). Example:
+or this batched shape:
+{"actions":[{"name":"<action_name>","params":{...}}],"done":false}
+
+\`name\` MUST be one of the action names from the Actions list above. \`params\` MUST match that action's schema. Do not invent action names. Batch at most ${MAX_ACTIONS_PER_DECISION} actions and only when every action uses the current observation; put navigation/click/submit actions last. If no listed action fits, call \`done\` with success=false explaining why.
+
+Optional top-level fields: "thought" (one-line reasoning), "nextGoal" (next step you intend), "memory" (compact note carried forward).
+
+Good example:
 {"thought":"page loaded","nextGoal":"extract H1","name":"extract_content","params":{"query":"H1"}}
 
-When you finish the task, call the "done" action with the answer in params.summary as plain text (and params.success=true). The summary string is the only thing the caller sees — be specific. Example:
+When you finish the task, call \`done\` with the answer in params.summary (and params.success=true). Done example:
 {"name":"done","params":{"success":true,"summary":"The H1 reads: Example Domain"}}
 
-Do not return any text outside JSON.`;
+BAD examples (these will be rejected):
+- Wrapping prose around JSON ("Here is my decision: { ... }")
+- Markdown code fences
+- An action name not in the Actions catalog (e.g. "click_search_button" when only "click_by" exists)
+- Missing required params for the chosen action
+
+The only output is one JSON object. Nothing before it, nothing after it.`;
+}
+
+/**
+ * Lean per-turn body for a PERSISTENT thread/conversation. The system prompt,
+ * task, action catalog, and JSON-shape rules were sent on the first turn and
+ * are carried by the thread, so here we send only what changed: the new
+ * observation and current tab state. This is the per-step token win that keeps
+ * a warm thread fast instead of re-ingesting the full prompt every step.
+ *
+ * The action catalog is included only when it differs from what was last sent
+ * (state-scoped custom actions can appear/disappear between turns).
+ */
+export function buildContinuationPrompt(
+  input: AgentInput,
+  opts: { includeCatalog: boolean } = { includeCatalog: false },
+): string {
+  const catalogBlock = opts.includeCatalog
+    ? `\nUpdated actions:\n${input.actionCatalog ?? "(default actions)"}\n`
+    : "";
+  return `Step: ${input.step}
+Active tab: ${input.activeTab}
+Open tabs: ${input.tabs.join(", ")}
+${catalogBlock}
+Observation:
+${input.observation}
+
+Return exactly one JSON object for your next action (same shape and rules as before).`;
 }
 
 /**
@@ -56,7 +97,50 @@ export function parseDecision(raw: string): AgentOutput {
       parsed = JSON.parse(extracted) as Record<string, unknown>;
     }
   }
-  if (!parsed || typeof parsed.name !== "string") {
+  if (!parsed) {
+    throw new Error("Decision response missing action name");
+  }
+
+  if (Array.isArray(parsed.actions)) {
+    const actions = parsed.actions.slice(0, MAX_ACTIONS_PER_DECISION).map((item) => {
+      if (!item || typeof item !== "object") {
+        throw new Error("Decision action is not an object");
+      }
+      const action = item as Record<string, unknown>;
+      if (typeof action.name !== "string") {
+        throw new Error("Decision action missing name");
+      }
+      return { name: action.name, params: action.params ?? {} };
+    });
+    const doneAction = actions.find((a) => a.name === "done");
+    const done = typeof parsed.done === "boolean" ? parsed.done : Boolean(doneAction);
+    // A done action carries its summary/success in params (see prompt's done
+    // example). Fall back to those when the model omits the top-level fields.
+    const doneParams = (doneAction?.params ?? {}) as Record<string, unknown>;
+    const summary =
+      typeof parsed.summary === "string"
+        ? parsed.summary
+        : typeof doneParams.summary === "string"
+          ? doneParams.summary
+          : undefined;
+    const success =
+      typeof parsed.success === "boolean"
+        ? parsed.success
+        : typeof doneParams.success === "boolean"
+          ? doneParams.success
+          : undefined;
+    return {
+      actions,
+      done,
+      summary,
+      success,
+      thought: typeof parsed.thought === "string" ? parsed.thought : undefined,
+      nextGoal: typeof parsed.nextGoal === "string" ? parsed.nextGoal : undefined,
+      memory: typeof parsed.memory === "string" ? parsed.memory : undefined,
+    };
+  }
+
+  if (typeof parsed.name !== "string") {
     throw new Error("Decision response missing action name");
   }
 

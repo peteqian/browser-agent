@@ -1,8 +1,16 @@
-import { BrowserSession, type Page } from "../browser/session";
+import { BrowserSession } from "../browser/session";
+import type { PageSnapshot } from "../dom/types";
+import { SessionRunner } from "../runtime/session-runner";
 import type { AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
 import { emitEvent } from "./emit";
 import { compactHistory } from "./history";
-import { buildLoopFingerprint, canonicaliseActionCall, isRepeatingLoop } from "./loop-detection";
+import {
+  buildLoopFingerprint,
+  canonicaliseActionCall,
+  detectAlternatingPair,
+  detectSameNameRun,
+  isRepeatingLoop,
+} from "./loop-detection";
 import {
   DEFAULT_HISTORY_HEAD,
   HISTORY_WINDOW,
@@ -22,16 +30,30 @@ import { combineSignals, withDecideTimeout, withRejectingTimeout } from "./timeo
 
 export { AgentController } from "./controller";
 export { compactHistory } from "./history";
-export { buildDecisionPrompt, buildDecisionUserPrompt } from "./decision-prompt";
+export {
+  buildDecisionPrompt,
+  buildDecisionPromptParts,
+  buildDecisionUserPrompt,
+} from "./decision-prompt";
+export type { DecisionPromptParts } from "./decision-prompt";
 
 /**
- * Runs the core browser-agent loop until completion, abort, or step-budget
- * exhaustion.
+ * Absolute internal safety ceiling. There is intentionally no user-facing
+ * step budget (callers asked for that), but a model making non-repeating,
+ * non-failing "progress" forever (infinite scroll, endless pagination) trips
+ * none of the other guards. This bound caps unbounded LLM/CDP spend. It is set
+ * far above any realistic task length so it never interferes with real work.
+ */
+const RUNAWAY_STEP_CEILING = 250;
+
+/**
+ * Runs the core browser-agent loop until completion, abort, repeated failure,
+ * or loop detection.
  *
  * The loop owns the session lifecycle when no caller-provided page/session is
  * given; otherwise it leaves cleanup to the caller.
  */
-export async function runAgent<TData = unknown>(
+export async function runLoop<TData = unknown>(
   options: AgentOptions<TData>,
 ): Promise<AgentResult<TData>> {
   if (options.transportResolution) {
@@ -40,12 +62,12 @@ export async function runAgent<TData = unknown>(
       resolution: options.transportResolution,
     });
   }
-  const result = await runAgentInner<TData>(options);
+  const result = await runLoopInner<TData>(options);
   await emitEvent(options, { type: "terminal", result });
   return result;
 }
 
-async function runAgentInner<TData = unknown>(
+async function runLoopInner<TData = unknown>(
   options: AgentOptions<TData>,
 ): Promise<AgentResult<TData>> {
   const cfg = resolveConfig(options);
@@ -60,26 +82,36 @@ async function runAgentInner<TData = unknown>(
   const actionHistory: Array<{ action: string; result: string }> = [];
   const loopFingerprints: string[] = [];
   const recentActionCalls: string[] = [];
+  const recentActionNames: string[] = [];
   const focusState = createFocusState();
   let consecutiveFailures = 0;
   let loopNudgesUsed = 0;
+  let consecutiveEmptyDecisions = 0;
   let pendingLoopNotice: string | null = null;
-  let latestExtraction: string | null = null;
+  const recentExtractions: Array<{ step: number; text: string }> = [];
   let currentMemory: string | undefined = options.memory;
+  let prevSnapshot: PageSnapshot | null = null;
+  const fullSnapshots = options.fullSnapshots === true;
 
   try {
     const initialPage = options.page ?? (session ? await session.newPage() : undefined);
     if (!initialPage) {
       throw new Error("No page available — provide options.page or options.session.");
     }
-    let page: Page = initialPage;
+    const runner = new SessionRunner({
+      session,
+      page: initialPage,
+      actionRegistry,
+      allowedDomains: options.allowedDomains,
+      domBudgets: options.domBudgets,
+    });
 
     unsubscribeBrowserEvents = session?.eventBus?.on((event) =>
       emitEvent(options, { type: "browser_event", event }),
     );
 
     if (options.startUrl) {
-      const health = await page.navigateWithHealthCheck(options.startUrl);
+      const health = await runner.page.navigateWithHealthCheck(options.startUrl);
       if (!health.ok) {
         return {
           success: false,
@@ -91,14 +123,31 @@ async function runAgentInner<TData = unknown>(
       }
     }
 
-    for (let step = 1; step <= cfg.maxSteps; step++) {
+    for (let step = 1; ; step++) {
+      if (step > RUNAWAY_STEP_CEILING) {
+        return {
+          success: false,
+          reason: "failed",
+          summary: `Stopped after ${RUNAWAY_STEP_CEILING} steps (internal runaway ceiling). The model kept acting without completing or repeating a detectable loop.`,
+          data: null,
+          steps: step - 1,
+        };
+      }
       const beforeStepInterrupt = await checkInterrupt(options, step - 1);
       if (beforeStepInterrupt) return beforeStepInterrupt;
 
+      await emitEvent(options, { type: "snapshot_started", stepIndex: step });
+      const snapshotStartedAt = Date.now();
       let context: StepContext;
       try {
         context = await withRejectingTimeout(
-          buildStepContext(page, session, cfg.vision, options.domBudgets, focusState),
+          buildStepContext(
+            runner,
+            cfg.vision,
+            options.domBudgets,
+            focusState,
+            fullSnapshots ? null : prevSnapshot,
+          ),
           cfg.stepTimeoutMs,
           `Step context preparation timed out after ${cfg.stepTimeoutMs}ms`,
         );
@@ -113,12 +162,23 @@ async function runAgentInner<TData = unknown>(
       }
 
       const { browserState, observation, tabs } = context;
+      prevSnapshot = browserState.snapshot;
+      const snapshotDurationMs = Date.now() - snapshotStartedAt;
+      const snapshotBytes = observation.length;
+      const snapshotElementCount = browserState.elements?.length ?? 0;
+      await emitEvent(options, {
+        type: "snapshot_captured",
+        stepIndex: step,
+        durationMs: snapshotDurationMs,
+        elementCount: snapshotElementCount,
+        bytes: snapshotBytes,
+      });
       await session?.eventBus?.emit({ type: "browser_state", state: browserState });
       await emitEvent(options, { type: "browser_state", step, state: browserState });
       if (browserState.screenshot) {
         await session?.eventBus?.emit({
           type: "screenshot",
-          targetId: page.targetId,
+          targetId: runner.page.targetId,
           screenshot: browserState.screenshot,
         });
         await emitEvent(options, {
@@ -128,32 +188,38 @@ async function runAgentInner<TData = unknown>(
         });
       }
 
+      const composedNotice = pendingLoopNotice;
+      const surfacedExtraction =
+        recentExtractions.length === 0
+          ? null
+          : recentExtractions.map((e) => `[from step ${e.step}]\n${e.text}`).join("\n\n---\n\n");
       const effectiveObservation = applyObservationPrefix(observation, {
-        isLastStep: step === cfg.maxSteps,
-        step,
-        maxSteps: cfg.maxSteps,
-        loopNotice: pendingLoopNotice,
-        latestExtraction,
+        loopNotice: composedNotice,
+        latestExtraction: surfacedExtraction,
       });
       pendingLoopNotice = null;
-      // Consume the extraction once — keep it visible only for the
-      // turn after the call; the agent should incorporate it then or
-      // re-extract if it needs a fresh snapshot.
-      latestExtraction = null;
 
       const decideInput: AgentInput = {
         task: options.task,
         step,
-        maxSteps: cfg.maxSteps,
         browserState,
         observation: effectiveObservation,
         tabs,
-        activeTab: page.targetId,
+        activeTab: runner.page.targetId,
         history: compactHistory(actionHistory, cfg.historyHead, cfg.historyTail),
         actionCatalog: actionRegistry.describeForPrompt(browserState),
+        tools: actionRegistry.toolDefsFor(browserState),
         memory: currentMemory,
       };
 
+      const provider = options.transportResolution?.provider ?? "unknown";
+      const decisionStartedAt = Date.now();
+      await emitEvent(options, {
+        type: "decision_started",
+        stepIndex: step,
+        provider,
+        model: "",
+      });
       let decision: AgentOutput;
       try {
         decision = await runDecide(options, decideInput, cfg.decisionTimeoutMs);
@@ -169,6 +235,16 @@ async function runAgentInner<TData = unknown>(
           steps: step,
         };
       }
+
+      await emitEvent(options, {
+        type: "decision_completed",
+        stepIndex: step,
+        durationMs: Date.now() - decisionStartedAt,
+        tokensIn: decision.telemetry?.usage?.inputTokens,
+        tokensOut: decision.telemetry?.usage?.outputTokens,
+        cacheReadTokens: decision.telemetry?.usage?.cachedInputTokens,
+        cacheCreationTokens: decision.telemetry?.usage?.cacheCreationTokens,
+      });
 
       if (typeof decision.memory === "string") currentMemory = decision.memory;
       if (cfg.planning && (decision.plan || decision.memory || decision.nextGoal)) {
@@ -187,8 +263,7 @@ async function runAgentInner<TData = unknown>(
         actionRegistry,
         decision,
         decideInput,
-        page,
-        session,
+        runner,
         step,
         browserState,
         actionTimeoutMs: cfg.actionTimeoutMs,
@@ -196,17 +271,31 @@ async function runAgentInner<TData = unknown>(
         focusState,
       });
 
-      page = stepOutcome.page;
+      const decidedActionCount = (decision.actions ?? []).length;
+      if (decidedActionCount === 0) {
+        consecutiveEmptyDecisions += 1;
+        if (consecutiveEmptyDecisions >= 2) {
+          return {
+            success: false,
+            reason: "failed",
+            summary: `Model returned no actions for ${consecutiveEmptyDecisions} consecutive turns. Stopping to avoid spinning.`,
+            data: null,
+            steps: step,
+          };
+        }
+      } else {
+        consecutiveEmptyDecisions = 0;
+      }
       if (stepOutcome.latestExtraction) {
-        // Cap the surfaced extraction so the next prompt does not blow up
-        // for sites that return tens of kilobytes of page text.
         const cap = 8_000;
-        latestExtraction =
+        const trimmed =
           stepOutcome.latestExtraction.length > cap
             ? `${stepOutcome.latestExtraction.slice(0, cap)}\n…[truncated ${
                 stepOutcome.latestExtraction.length - cap
               } chars]`
             : stepOutcome.latestExtraction;
+        recentExtractions.push({ step, text: trimmed });
+        if (recentExtractions.length > 2) recentExtractions.shift();
       }
       if (stepOutcome.terminalResult) return stepOutcome.terminalResult;
 
@@ -216,8 +305,54 @@ async function runAgentInner<TData = unknown>(
       if (cfg.loopDetectionMode !== "off") {
         for (const a of decision.actions ?? []) {
           recentActionCalls.push(canonicaliseActionCall(a.name, a.params));
+          recentActionNames.push(a.name);
         }
         while (recentActionCalls.length > 8) recentActionCalls.shift();
+        while (recentActionNames.length > 8) recentActionNames.shift();
+      }
+
+      // Coarser nudge: if the model keeps reaching for the same *kind* of
+      // action with cosmetically different params (classic case: `eval` with
+      // a slightly different selector each turn), the fingerprint detector
+      // never trips because the params differ. Detect 4+ consecutive same
+      // action names and prod the model toward an alternative.
+      // Both the name-based nudge below and the fingerprint detector further
+      // down share loopNudgesUsed/pendingLoopNotice. Track whether we already
+      // nudged this step so the fingerprint path can't double-consume the
+      // budget or clobber the notice in the same iteration.
+      let nudgedThisStep = false;
+      const sameNameNudge = detectSameNameRun(recentActionNames, 4);
+      const alternatingNudge = sameNameNudge ? null : detectAlternatingPair(recentActionNames, 3);
+      const triggeredNudge = sameNameNudge
+        ? buildSameNameNudge(sameNameNudge)
+        : alternatingNudge
+          ? buildAlternatingNudge(alternatingNudge)
+          : null;
+      if (triggeredNudge && cfg.loopDetectionMode !== "off") {
+        if (loopNudgesUsed >= cfg.loopNudgeBudget) {
+          // Nudges exhausted and the model is still stuck in the same
+          // pattern. Hard-stop rather than burning more decisions.
+          return {
+            success: false,
+            reason: "loop_detected",
+            summary: `Stopped: same action pattern repeated past the nudge budget (${cfg.loopNudgeBudget} nudges). Last nudge: ${triggeredNudge}`,
+            data: null,
+            steps: step,
+          };
+        }
+        if (cfg.loopDetectionMode === "nudge" && !pendingLoopNotice) {
+          loopNudgesUsed += 1;
+          pendingLoopNotice = triggeredNudge;
+          nudgedThisStep = true;
+          await emitEvent(options, {
+            type: "loop_nudge",
+            step,
+            notice: pendingLoopNotice,
+            nudgesUsed: loopNudgesUsed,
+            budget: cfg.loopNudgeBudget,
+          });
+          recentActionNames.length = 0;
+        }
       }
 
       // Loop-detection bookkeeping.
@@ -242,15 +377,19 @@ async function runAgentInner<TData = unknown>(
           };
         }
         if (detection.kind === "nudge") {
-          loopNudgesUsed = detection.nudgesUsed;
-          pendingLoopNotice = detection.notice;
-          await emitEvent(options, {
-            type: "loop_nudge",
-            step,
-            notice: detection.notice,
-            nudgesUsed: loopNudgesUsed,
-            budget: cfg.loopNudgeBudget,
-          });
+          // Skip if the name-based path already nudged this step — otherwise we
+          // double-count the budget and overwrite the notice the model needs.
+          if (!nudgedThisStep) {
+            loopNudgesUsed = detection.nudgesUsed;
+            pendingLoopNotice = detection.notice;
+            await emitEvent(options, {
+              type: "loop_nudge",
+              step,
+              notice: detection.notice,
+              nudgesUsed: loopNudgesUsed,
+              budget: cfg.loopNudgeBudget,
+            });
+          }
         } else if (detection.kind === "reset") {
           loopNudgesUsed = 0;
         }
@@ -271,11 +410,10 @@ async function runAgentInner<TData = unknown>(
             options,
             task: options.task,
             step,
-            maxSteps: cfg.maxSteps,
             browserState,
             observation,
             tabs,
-            activeTab: page.targetId,
+            activeTab: runner.page.targetId,
             history: compactHistory(actionHistory, cfg.historyHead, cfg.historyTail),
             decisionTimeoutMs: cfg.decisionTimeoutMs,
             actionRegistry,
@@ -310,14 +448,6 @@ async function runAgentInner<TData = unknown>(
         };
       }
     }
-
-    return {
-      success: false,
-      reason: "max_steps",
-      summary: `Exceeded max steps (${cfg.maxSteps}).`,
-      data: null,
-      steps: cfg.maxSteps,
-    };
   } finally {
     unsubscribeBrowserEvents?.();
     if (ownsSession && session) await session.close();
@@ -325,7 +455,6 @@ async function runAgentInner<TData = unknown>(
 }
 
 interface ResolvedConfig {
-  maxSteps: number;
   stepTimeoutMs: number;
   actionTimeoutMs: number;
   decisionTimeoutMs: number;
@@ -343,7 +472,6 @@ interface ResolvedConfig {
 function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
   const loopDetectionMode = options.loopDetectionMode ?? "nudge";
   return {
-    maxSteps: options.maxSteps ?? 40,
     stepTimeoutMs: coerceStepTimeoutMs(options.stepTimeoutMs),
     actionTimeoutMs: coerceActionTimeoutMs(options.actionTimeoutMs),
     decisionTimeoutMs: coerceDecisionTimeoutMs(options.decisionTimeoutMs),
@@ -362,19 +490,11 @@ function resolveConfig<TData>(options: AgentOptions<TData>): ResolvedConfig {
 function applyObservationPrefix(
   observation: string,
   opts: {
-    isLastStep: boolean;
-    step: number;
-    maxSteps: number;
     loopNotice: string | null;
     latestExtraction: string | null;
   },
 ): string {
   const prefixes: string[] = [];
-  if (opts.isLastStep) {
-    prefixes.push(
-      `FINAL STEP (${opts.step}/${opts.maxSteps}): No further actions will be executed after this turn. Respond with the \`done\` action — set success=true if the task is complete or success=false with a summary of remaining work otherwise.`,
-    );
-  }
   if (opts.loopNotice) prefixes.push(opts.loopNotice);
   if (opts.latestExtraction) {
     prefixes.push(
@@ -444,4 +564,28 @@ function handleLoopDetection(input: {
   }
 
   return input.nudgesUsed > 0 ? { kind: "reset" } : { kind: "noop" };
+}
+
+const ALTERNATIVES_BY_NAME: Record<string, string> = {
+  eval: "screenshot (with annotate=true), find_elements, find_by_role, find_by_text, or extract_content",
+  find_elements: "find_by_role, find_by_text, find_by_testid, snapshot refs, or extract_content",
+  search_page: "snapshot refs, find_by_text, or extract_content with a tighter query",
+  scroll: "click_by on a 'Next' / 'Load more' control, or extract_content with startFromChar",
+};
+
+function buildSameNameNudge(run: { name: string; count: number }): string {
+  const alt = ALTERNATIVES_BY_NAME[run.name] ?? "a different action";
+  return (
+    `Stagnation notice: \`${run.name}\` has been called ${run.count} times in a row. ` +
+    `The variations aren't producing new information. Switch tactic — try ${alt}. ` +
+    `If you have what you need, call \`done\` now.`
+  );
+}
+
+function buildAlternatingNudge(pair: { a: string; b: string; pairs: number }): string {
+  return (
+    `Stagnation notice: you have alternated \`${pair.a}\` and \`${pair.b}\` for ${pair.pairs} cycles. ` +
+    `This is the same loop pattern. Either commit the value you've already extracted to memory and emit \`done\`, ` +
+    `or switch strategy entirely.`
+  );
 }

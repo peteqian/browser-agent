@@ -1,12 +1,14 @@
-import type { ActionResult } from "../actions/execute";
+import type { ActionResult } from "../actions/handlers/shared";
 import type { ActionRegistry } from "../actions/registry";
 import type { Action } from "../actions/types";
-import type { BrowserSession, Page } from "../browser/session";
+import type { Page } from "../browser/session";
 import type { BrowserStateSummary } from "../browser/state";
+import { shouldReobserve } from "../runtime/executor";
+import type { SessionRunner } from "../runtime/session-runner";
 import type { AgentAction, AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
 import { emitEvent } from "./emit";
 import { buildAbortedResult, buildStoppedResult, buildTerminalData } from "./terminal-result";
-import { combineSignals, executeActionWithTimeout } from "./timeouts";
+import { combineSignals } from "./timeouts";
 
 export interface StepOutcome<TData> {
   page: Page;
@@ -36,8 +38,7 @@ export async function runActions<TData>(input: {
   actionRegistry: ActionRegistry;
   decision: AgentOutput;
   decideInput: AgentInput;
-  page: Page;
-  session: BrowserSession | undefined;
+  runner: SessionRunner;
   step: number;
   browserState: BrowserStateSummary;
   actionTimeoutMs: number;
@@ -49,59 +50,66 @@ export async function runActions<TData>(input: {
     actionRegistry,
     decision,
     decideInput,
-    session,
     step,
     browserState,
     actionTimeoutMs,
     actionHistory,
   } = input;
-  let { page } = input;
+  const { runner } = input;
 
   const actions = decision.actions ?? [];
   const actionResults: Array<{ ok: boolean; message: string }> = [];
   let latestExtraction: string | undefined;
 
-  for (const rawAction of actions) {
+  for (let actionIndex = 0; actionIndex < actions.length; actionIndex += 1) {
+    const rawAction = actions[actionIndex];
+    if (!rawAction) continue;
     const interrupt = await checkInterrupt(options, step);
-    if (interrupt) return { page, actionResults, terminalResult: interrupt };
+    if (interrupt) return { page: runner.page, actionResults, terminalResult: interrupt };
 
-    const action = actionRegistry.parse(rawAction.name, rawAction.params);
-    if (!action) {
-      actionResults.push({ ok: false, message: "Invalid action payload" });
-      actionHistory.push({ action: rawAction.name, result: "Invalid action payload" });
+    const parseResult = actionRegistry.parseDetailed(rawAction.name, rawAction.params);
+    if (!parseResult.ok) {
+      const detail =
+        parseResult.reason === "unknown_name"
+          ? `Unknown action name "${rawAction.name}"${parseResult.suggestion ? ` — did you mean "${parseResult.suggestion}"?` : ""}. Use only names from the catalog.`
+          : `Schema validation failed for "${rawAction.name}": ${parseResult.issues}`;
+      actionResults.push({ ok: false, message: detail });
+      actionHistory.push({ action: rawAction.name, result: detail });
       continue;
     }
+    const action = parseResult.action;
 
-    await session?.eventBus?.emit({ type: "action_start", step, action });
+    await runner.session?.eventBus?.emit({ type: "action_start", step, action });
     await emitEvent(options, { type: "action_start", step, action });
+    await emitEvent(options, { type: "action_started", stepIndex: step, action: action.name });
 
+    const actionStartedAt = Date.now();
     const parentSignal = combineSignals(options.signal, options.control?.signal);
-    let result: ActionResult;
+    let result;
     try {
-      result = await executeActionWithTimeout(
-        page,
-        action,
-        session,
-        actionRegistry,
-        actionTimeoutMs,
-        parentSignal.signal,
-        browserState.selectorMap,
-        options.sensitiveData,
-        options.newTabDetectMs,
-        options.extractionLLM,
-        {
-          focusState: input.focusState,
-          snapshotElements: browserState.elements,
-          currentStep: step,
-          currentUrl: browserState.url,
-        },
-      );
+      result = await runner.runAction(action, {
+        signal: parentSignal.signal,
+        sensitiveData: options.sensitiveData,
+        newTabDetectMs: options.newTabDetectMs,
+        extractionLLM: options.extractionLLM,
+        focusState: input.focusState,
+        currentStep: step,
+        currentUrl: browserState.url,
+        timeoutMs: actionTimeoutMs,
+      });
     } finally {
       parentSignal.cleanup();
     }
 
+    await emitEvent(options, {
+      type: "action_completed",
+      stepIndex: step,
+      action: action.name,
+      durationMs: Date.now() - actionStartedAt,
+      ok: result.ok,
+    });
+
     actionResults.push({ ok: result.ok, message: result.message });
-    if (result.activeTargetId && session) page = session.getPage(result.activeTargetId);
     if (
       action.name === "extract_content" &&
       typeof result.extractedContent === "string" &&
@@ -117,7 +125,7 @@ export async function runActions<TData>(input: {
       result: { ok: result.ok, message: result.message },
     };
     options.onStep?.(stepInfo);
-    await session?.eventBus?.emit({ type: "action_end", step, action, result });
+    await runner.session?.eventBus?.emit({ type: "action_end", step, action, result });
     await emitEvent(options, { type: "action", ...stepInfo });
 
     actionHistory.push({
@@ -132,24 +140,16 @@ export async function runActions<TData>(input: {
       options,
       step,
     });
-    if (terminal) return { page, actionResults, terminalResult: terminal, latestExtraction };
+    if (terminal)
+      return { page: runner.page, actionResults, terminalResult: terminal, latestExtraction };
 
-    // Multi-action safety: if the action navigated to a new URL or attached
-    // a new tab, abandon the rest of the intra-step batch and force a fresh
-    // observation on the next step. Locators planned against the old DOM
-    // are now invalid.
-    if (
-      result.activeTargetId ||
-      action.name === "navigate" ||
-      action.name === "go_back" ||
-      action.name === "go_forward" ||
-      action.name === "refresh"
-    ) {
+    const nextRawAction = actions[actionIndex + 1];
+    if (shouldReobserve(action, result, nextRawAction?.name)) {
       break;
     }
   }
 
-  return { page, actionResults, terminalResult: null, latestExtraction };
+  return { page: runner.page, actionResults, terminalResult: null, latestExtraction };
 }
 
 async function maybeTerminal<TData>(input: {

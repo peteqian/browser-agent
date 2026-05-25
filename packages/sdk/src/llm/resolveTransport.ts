@@ -6,6 +6,7 @@ import type { EnvId, GetNextActionFn, TransportId, TransportResolution } from ".
 import { detectEnv } from "./env";
 import { createDefaultLogger, type Logger } from "../logger";
 import { createOpenAIDecide } from "./openai";
+import { createOpenAIToolDecide } from "./openaiTools";
 import { createAnthropicDecide } from "./anthropic";
 import { createCodexCliDecide } from "../agent/codexCliDecide";
 import { createCodexSdkDecide } from "../agent/codexSdkDecide";
@@ -29,6 +30,13 @@ export interface ResolveOptions {
   env?: EnvId | "auto";
   /** Force a specific transport. Skips fallback chain. */
   transport?: TransportId | "auto";
+  /**
+   * Decision encoding for API transports. "tool" uses native provider
+   * tool-calling (one action per turn, persistent lean conversation); "json"
+   * uses structured-output JSON. Default "json". Only affects the openai/codex
+   * `sdk-api` path today.
+   */
+  decisionMode?: "tool" | "json";
   /** Optional logger. Default: JSONL-to-stderr. */
   logger?: Logger;
 }
@@ -235,19 +243,17 @@ function buildDecide(options: ResolveOptions, transport: TransportId): GetNextAc
       baseURL: options.baseURL,
     }) as GetNextActionFn;
   }
-  if (options.provider === "codex" && transport === "sdk-api") {
-    return createOpenAIDecide({
+  if ((options.provider === "codex" || options.provider === "openai") && transport === "sdk-api") {
+    const adapterOptions = {
       model: options.model,
       apiKey: options.apiKey,
       baseURL: options.baseURL,
-    }) as GetNextActionFn;
-  }
-  if (options.provider === "openai" && transport === "sdk-api") {
-    return createOpenAIDecide({
-      model: options.model,
-      apiKey: options.apiKey,
-      baseURL: options.baseURL,
-    }) as GetNextActionFn;
+    };
+    return (
+      options.decisionMode === "tool"
+        ? createOpenAIToolDecide(adapterOptions)
+        : createOpenAIDecide(adapterOptions)
+    ) as GetNextActionFn;
   }
   throw new Error(`buildDecide: no impl for provider=${options.provider} transport=${transport}`);
 }

@@ -6,7 +6,7 @@ import type { BrowserEvent } from "../browser/events";
 import type { BrowserStateSummary } from "../browser/state";
 import type { DomBudgetOptions } from "../dom/cdp-snapshot";
 import type { RetryOptions } from "./retry";
-import type { z } from "zod";
+import type { z } from "zod/v4";
 
 /**
  * Public contract types shared with browser-agent consumers.
@@ -16,11 +16,21 @@ import type { z } from "zod";
  * breaking the integration contract.
  */
 
+/**
+ * A single action exposed to native tool-calling transports as a callable
+ * tool. `parameters` is the JSON Schema of the action's params (derived from
+ * its zod schema). Text/JSON adapters ignore this and use `actionCatalog`.
+ */
+export interface ToolDef {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
 /** Snapshot of what the AI sees before choosing the next action. */
 export interface AgentInput {
   task: string;
   step: number;
-  maxSteps: number;
   browserState?: BrowserStateSummary;
   observation: string;
   tabs: string[];
@@ -28,8 +38,15 @@ export interface AgentInput {
   history: Array<{ action: string; result: string }>;
   actionCatalog?: string;
   /**
+   * Action tool definitions for native tool-calling transports. Populated by
+   * the loop from the registry for the current browser state. Text/JSON
+   * adapters ignore it; tool-calling adapters turn each entry into a provider
+   * tool. Changes between steps when state-scoped actions appear/disappear.
+   */
+  tools?: ToolDef[];
+  /**
    * Persistent run memory carried across decisions. The loop initializes
-   * this from `AgentOptions.memory` and updates it whenever an `AgentOutput`
+   * this from the Agent memory option and updates it whenever an `AgentOutput`
    * returns a new `memory` field. Adapters should surface it in the
    * prompt so the model can rely on it across steps.
    */
@@ -42,7 +59,7 @@ export interface AgentOutputAction {
   params: unknown;
 }
 
-/** Structured AI output consumed by `runAgent`. */
+/** Structured AI output consumed by the Agent loop. */
 export interface AgentOutput {
   thought?: string;
   memory?: string;
@@ -78,7 +95,7 @@ export interface StepInfo {
 
 /**
  * Discriminated union of events emitted during an agent run. Subscribe via
- * `AgentOptions.onEvent` to drive UIs, telemetry, or audit trails.
+ * the Agent `onEvent` option to drive UIs, telemetry, or audit trails.
  *
  * Event order per step: one `decision` (after the model returns), one
  * `action` per executed action, then `terminal` once when the loop exits.
@@ -99,6 +116,34 @@ export type AgentEvent<TData = unknown> =
     }
   | { type: "transport_resolved"; resolution: TransportResolution }
   | { type: "loop_nudge"; step: number; notice: string; nudgesUsed: number; budget: number }
+  | { type: "decision_started"; stepIndex: number; provider: string; model: string }
+  | {
+      type: "decision_completed";
+      stepIndex: number;
+      durationMs: number;
+      tokensIn?: number;
+      tokensOut?: number;
+      /** Cached prompt tokens read (provider cache hit on prefix). */
+      cacheReadTokens?: number;
+      /** Tokens written into provider cache on this request. */
+      cacheCreationTokens?: number;
+    }
+  | { type: "snapshot_started"; stepIndex: number }
+  | {
+      type: "snapshot_captured";
+      stepIndex: number;
+      durationMs: number;
+      elementCount: number;
+      bytes: number;
+    }
+  | { type: "action_started"; stepIndex: number; action: string }
+  | {
+      type: "action_completed";
+      stepIndex: number;
+      action: string;
+      durationMs: number;
+      ok: boolean;
+    }
   | { type: "terminal"; result: AgentResult<TData> };
 
 /** Logical environment the agent is running in. Drives transport priority. */
@@ -133,7 +178,6 @@ export type OnEventCallback<TData = unknown> = (event: AgentEvent<TData>) => voi
 export type TerminalReason =
   | "completed"
   | "failed"
-  | "max_steps"
   | "max_failures"
   | "loop_detected"
   | "aborted"
@@ -145,14 +189,14 @@ export type TerminalReason =
   | "judge_failed";
 
 /**
- * Final-validation hook. When `AgentOptions.judge` is set, the loop
+ * Final-validation hook. When the Agent `judge` option is set, the loop
  * invokes it after the model emits a successful `done` action and uses
  * the verdict to either confirm success or fail the run with
  * `reason: "judge_failed"`. Receives the final `AgentInput` along
  * with the model's terminal summary and (when present) typed data.
  */
 /**
- * Hook for structured extraction. When `AgentOptions.extractionLLM` is set
+ * Hook for structured extraction. When the Agent `extractionLLM` option is set
  * and the model's `extract_content` action carries a `schemaJson`, the
  * executor passes the extracted markdown plus the schema to this hook and
  * surfaces the result as `data.structured` alongside the existing markdown
@@ -218,8 +262,18 @@ export interface AgentOptions<TData = unknown> {
   task: string;
   /** Decision function — usually `createDecide({...})` or a built-in adapter. */
   decide: GetNextActionFn;
-  /** Capture screenshots and pass them to providers that support multimodal input. Default: "auto". */
+  /**
+   * Capture screenshots and pass them to providers that support multimodal
+   * input. Default: false. Set true to ship a screenshot per step (only
+   * useful for vision-capable models).
+   */
   vision?: boolean | "auto";
+  /**
+   * Always send a full DOM snapshot instead of a per-step diff. Default
+   * false — the loop renders an element-level diff against the prior
+   * snapshot when the URL is unchanged and churn is below 50%.
+   */
+  fullSnapshots?: boolean;
   /** Include planning/memory fields in prompts and events. Default: true. */
   planning?: boolean;
   /** Override or extend the action catalog used by the model and executor. */
@@ -230,8 +284,6 @@ export interface AgentOptions<TData = unknown> {
    * "schema_violation"` with `data: null`.
    */
   outputSchema?: z.ZodType<TData>;
-  /** Hard cap on loop iterations. Default: 40. */
-  maxSteps?: number;
   /** Timeout for per-step page-context preparation (DOM serialize, pending requests). Default: 180000. */
   stepTimeoutMs?: number;
   /** Timeout for executing a single action. Default: 30000. */
@@ -359,4 +411,13 @@ export interface AgentOptions<TData = unknown> {
    * `result.data.structured`. Without this hook, `schemaJson` is ignored.
    */
   extractionLLM?: ExtractionLLMFn;
+  /**
+   * Restrict `navigate` and `new_tab` actions to URLs whose host matches
+   * one of these patterns. Each pattern is either an exact host
+   * (`example.com`) or a wildcard (`*.example.com`, which also matches
+   * the apex). Non-http(s) URLs (about:blank, file:) bypass the check.
+   * Blocked navigations return a deterministic failure result without
+   * touching the network. When undefined or empty, no restriction.
+   */
+  allowedDomains?: readonly string[];
 }

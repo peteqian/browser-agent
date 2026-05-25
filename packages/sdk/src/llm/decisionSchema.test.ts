@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { decisionJsonSchema, validateDecision } from "./decisionSchema";
+import { MAX_ACTIONS_PER_DECISION, decisionJsonSchema, validateDecision } from "./decisionSchema";
 
 describe("decisionJsonSchema", () => {
   test("declares actions and done as required fields", () => {
@@ -10,6 +10,10 @@ describe("decisionJsonSchema", () => {
 
   test("actions item requires name and params", () => {
     expect(decisionJsonSchema.properties.actions.items.required).toEqual(["name", "params"]);
+  });
+
+  test("allows bounded action batches", () => {
+    expect(decisionJsonSchema.properties.actions.maxItems).toBe(MAX_ACTIONS_PER_DECISION);
   });
 });
 
@@ -67,6 +71,35 @@ describe("validateDecision", () => {
       done: false,
     });
     expect(result.actions[0]?.params).toEqual({});
+  });
+
+  test("preserves a short action batch", () => {
+    const result = validateDecision({
+      actions: [
+        { name: "focus", params: { index: 0 } },
+        { name: "type", params: { index: 0, text: "hello" } },
+        { name: "click", params: { index: 1 } },
+      ],
+      done: false,
+    });
+
+    expect(result.actions).toHaveLength(3);
+    expect(result.actions[2]).toEqual({ name: "click", params: { index: 1 } });
+  });
+
+  test("caps oversized action batches", () => {
+    const result = validateDecision({
+      actions: [
+        { name: "wait", params: { ms: 1 } },
+        { name: "wait", params: { ms: 2 } },
+        { name: "wait", params: { ms: 3 } },
+        { name: "wait", params: { ms: 4 } },
+        { name: "wait", params: { ms: 5 } },
+      ],
+      done: false,
+    });
+
+    expect(result.actions).toHaveLength(MAX_ACTIONS_PER_DECISION);
   });
 
   test("rejects null", () => {

@@ -1,17 +1,16 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
-import type { ContentBlockParam } from "@anthropic-ai/sdk/resources/messages";
+import type { ContentBlockParam, TextBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
-import { buildDecisionUserPrompt } from "../agent/loop";
-import { SYSTEM_PROMPT } from "../agent/prompts";
+import { buildDecisionPromptParts } from "../agent/decision-prompt";
 import type { AgentInput, AgentOutput } from "../agent/contracts";
 import type { LLMAdapterOptions } from "./types";
 import { buildTelemetry } from "./telemetry";
 import { decisionJsonSchema, validateDecision } from "./decisionSchema";
 
-function buildUserContent(input: AgentInput): ContentBlockParam[] {
+function buildUserContent(input: AgentInput, suffix: string): ContentBlockParam[] {
   const screenshot = input.browserState?.screenshot;
-  const blocks: ContentBlockParam[] = [{ type: "text", text: buildDecisionUserPrompt(input) }];
+  const blocks: ContentBlockParam[] = [{ type: "text", text: suffix }];
   if (screenshot) {
     blocks.unshift({
       type: "image",
@@ -29,7 +28,10 @@ function buildUserContent(input: AgentInput): ContentBlockParam[] {
  * Create a decide adapter backed by the Anthropic Messages API.
  *
  * Uses the official `@anthropic-ai/sdk` with native structured output
- * (`jsonSchemaOutputFormat`) for reliable AgentOutput parsing.
+ * (`jsonSchemaOutputFormat`) for reliable AgentOutput parsing. The system
+ * prompt + action catalog (the prefix) is sent as a single text block with
+ * `cache_control: { type: "ephemeral" }`, so step 2+ pays ~zero input tokens
+ * for the (~4-5 KB) prefix.
  */
 export function createAnthropicDecide(
   options: LLMAdapterOptions,
@@ -51,12 +53,21 @@ export function createAnthropicDecide(
   return async (input: AgentInput, signal?: AbortSignal): Promise<AgentOutput> => {
     const startedAt = Date.now();
 
+    const { prefix, suffix } = buildDecisionPromptParts(input);
+    const systemBlocks: TextBlockParam[] = [
+      {
+        type: "text",
+        text: prefix,
+        cache_control: { type: "ephemeral" },
+      },
+    ];
+
     const message = await client.messages.parse(
       {
         model,
         max_tokens: maxTokens,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: "user", content: buildUserContent(input) }],
+        system: systemBlocks,
+        messages: [{ role: "user", content: buildUserContent(input, suffix) }],
         output_config: {
           format: jsonSchemaOutputFormat(
             decisionJsonSchema as unknown as Parameters<typeof jsonSchemaOutputFormat>[0],
@@ -80,6 +91,7 @@ export function createAnthropicDecide(
             inputTokens: message.usage.input_tokens,
             outputTokens: message.usage.output_tokens,
             cachedInputTokens: message.usage.cache_read_input_tokens ?? undefined,
+            cacheCreationTokens: message.usage.cache_creation_input_tokens ?? undefined,
           }
         : undefined,
     );

@@ -12,6 +12,8 @@ export interface BrowserProfileInit {
   cdpUrl?: string;
   executablePath?: string;
   channel?: BrowserChannel;
+  /** Engine shorthand. "lightpanda" maps to channel "lightpanda"; "chrome" preserves channel default. */
+  engine?: "chrome" | "lightpanda";
   headless?: boolean;
   userDataDir?: string;
   proxyServer?: string;
@@ -36,8 +38,17 @@ export interface BrowserProfileInit {
   permissionGrants?: BrowserPermissionGrant[];
   storageStatePath?: string;
   saveStorageStateOnClose?: boolean;
+  /** Directory for the named-state vault. Defaults to BROWSER_AGENT_STATE_DIR env or ~/.browser-agent/states. */
+  stateVaultDir?: string;
   /** Inject an init script that auto-dismisses common cookie/consent banners. Default: false. */
   autoConsent?: boolean;
+  /**
+   * JavaScript sources registered via `Page.addScriptToEvaluateOnNewDocument`
+   * on every new page in this session. Runs before any page script on each
+   * navigation. Useful for auth-token injection, time mocking, or stubbing
+   * globals. Each entry is a raw JS source string.
+   */
+  initScripts?: readonly string[];
 }
 
 export class BrowserProfile {
@@ -68,12 +79,15 @@ export class BrowserProfile {
   permissionGrants: BrowserPermissionGrant[];
   storageStatePath: string | undefined;
   saveStorageStateOnClose: boolean;
+  stateVaultDir: string | undefined;
   autoConsent: boolean;
+  initScripts: string[];
 
   constructor(init: BrowserProfileInit = {}) {
     this.cdpUrl = init.cdpUrl;
     this.executablePath = init.executablePath;
-    this.channel = init.channel ?? "chromium";
+    this.channel =
+      init.channel ?? (init.engine === "lightpanda" ? "lightpanda" : "chrome-for-testing");
     this.headless = init.headless ?? true;
     this.userDataDir = init.userDataDir;
     this.proxyServer = init.proxyServer;
@@ -102,7 +116,9 @@ export class BrowserProfile {
       })) ?? [];
     this.storageStatePath = init.storageStatePath;
     this.saveStorageStateOnClose = init.saveStorageStateOnClose ?? Boolean(init.storageStatePath);
+    this.stateVaultDir = init.stateVaultDir;
     this.autoConsent = init.autoConsent ?? false;
+    this.initScripts = init.initScripts ? [...init.initScripts] : [];
   }
 
   isRemoteConnection(): boolean {

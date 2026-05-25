@@ -1,6 +1,6 @@
 # Public API And Examples
 
-Status: PARTIAL. Typed output example is done; load this file when changing exports or examples.
+Status: DONE. Public SDK examples are linked, typechecked, and cover the planned consumption paths.
 
 ## Goal
 
@@ -15,13 +15,13 @@ Keep the package easy to consume as a library.
 
 ## Examples
 
-- Basic navigation.
-- Agent task with local Chrome.
-- Agent task with remote CDP attach.
-- Structured extraction example.
-- Custom action example.
+- [x] Basic navigation.
+- [x] Agent task with local Chrome.
+- [x] Agent task with remote CDP attach.
+- [x] Structured extraction example.
+- [x] Custom action example.
 
 ## Acceptance Criteria
 
-- Examples typecheck with the package.
-- README links to examples instead of duplicating all details.
+- [x] Examples typecheck with the package.
+- [x] README links to examples instead of duplicating all details.

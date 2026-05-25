@@ -1,5 +1,7 @@
 import type { AgentOutput } from "../agent/contracts";
 
+export const MAX_ACTIONS_PER_DECISION = 4;
+
 /**
  * JSON Schema describing the AgentOutput shape for structured-output APIs
  * (OpenAI `response_format: json_schema`, Anthropic `output_config`).
@@ -28,6 +30,9 @@ export const decisionJsonSchema = {
     },
     actions: {
       type: "array",
+      // Allow short same-observation batches. The runner stops the batch after
+      // navigation-like actions so later actions never run against stale DOM.
+      maxItems: MAX_ACTIONS_PER_DECISION,
       items: {
         type: "object",
         properties: {
@@ -72,6 +77,8 @@ export function validateDecision(raw: unknown): AgentOutput {
     }
     return { name: action.name, params: action.params ?? {} };
   });
+
+  if (actions.length > MAX_ACTIONS_PER_DECISION) actions.length = MAX_ACTIONS_PER_DECISION;
 
   if (typeof d.done !== "boolean") {
     throw new Error("Decision.done must be a boolean");

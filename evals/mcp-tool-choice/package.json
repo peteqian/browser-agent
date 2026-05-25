@@ -1,0 +1,20 @@
+{
+  "name": "@peteqian/browser-agent-evals-mcp-tool-choice",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Evals harness grading whether an LLM picks the correct MCP tools for a given browser task.",
+  "type": "module",
+  "scripts": {
+    "start": "bun run src/run.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.92.0",
+    "@peteqian/browser-agent-sdk": "workspace:*",
+    "openai": "^6.35.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

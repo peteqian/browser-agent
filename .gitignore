@@ -14,3 +14,4 @@ packages/*/bench/results/*.json
 apps/*/bench/results/*.json
 !packages/*/bench/results/*.published.json
 !apps/*/bench/results/*.published.json
+booking-annotated.png

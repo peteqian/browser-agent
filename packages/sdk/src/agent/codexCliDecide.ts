@@ -16,7 +16,7 @@ export interface CodexCliOptions {
   onRaw?: (raw: string, step: number) => void;
 }
 
-// Codex CLI adapter for standalone runAgent callers (CLI/MCP/examples) that do
+// Codex CLI adapter for Agent callers (CLI/MCP/examples) that do
 // not have the Codex SDK available. The explorer service uses the SDK directly
 // via apps/server/src/lib/codex.ts::createCodexThread.
 export function createCodexCliDecide(

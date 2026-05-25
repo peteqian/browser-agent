@@ -62,6 +62,89 @@ export async function handleClick(
   return finalizeOk();
 }
 
+export async function handleFocus(
+  ctx: HandlerContext,
+  action: ByName<"focus">,
+): Promise<ActionResult> {
+  const resolved = resolveBackendId(ctx.selectorMap, action.params.index);
+  if (!resolved.ok) return fail(resolved.message);
+  const result = await ctx.page.focusByBackendNodeId(resolved.backendNodeId);
+  if (result.ok) return ok(`Focused [${action.params.index}]`);
+  if (result.reason === "index_stale") return fail(staleMessage(action.params.index));
+  return fail(`Element [${action.params.index}] not focusable`);
+}
+
+function findElementByIndex(
+  ctx: HandlerContext,
+  index: number,
+): { ok: true; element: ElementInfo } | { ok: false; result: ActionResult } {
+  const elements = ctx.snapshotElements ?? [];
+  const el = elements.find((e) => e.index === index);
+  if (!el) {
+    return { ok: false, result: fail(`Index [${index}] is not present in the current snapshot`) };
+  }
+  if (el.bbox.w <= 0 || el.bbox.h <= 0) {
+    return { ok: false, result: fail(`Element [${index}] has no visible bbox`) };
+  }
+  return { ok: true, element: el };
+}
+
+export async function handleHover(
+  ctx: HandlerContext,
+  action: ByName<"hover">,
+): Promise<ActionResult> {
+  const resolved = findElementByIndex(ctx, action.params.index);
+  if (!resolved.ok) return resolved.result;
+  const { bbox } = resolved.element;
+  const x = bbox.x + bbox.w / 2;
+  const y = bbox.y + bbox.h / 2;
+  await ctx.page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x,
+    y,
+    button: "none",
+    clickCount: 0,
+  });
+  return ok(`Hovered [${action.params.index}]`, {
+    longTermMemory: `Hovered [${action.params.index}]`,
+  });
+}
+
+export async function handleDblclick(
+  ctx: HandlerContext,
+  action: ByName<"dblclick">,
+): Promise<ActionResult> {
+  const resolved = findElementByIndex(ctx, action.params.index);
+  if (!resolved.ok) return resolved.result;
+  const { bbox } = resolved.element;
+  const x = bbox.x + bbox.w / 2;
+  const y = bbox.y + bbox.h / 2;
+  await ctx.page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mouseMoved",
+    x,
+    y,
+    button: "none",
+    clickCount: 0,
+  });
+  await ctx.page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x,
+    y,
+    button: "left",
+    clickCount: 2,
+  });
+  await ctx.page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x,
+    y,
+    button: "left",
+    clickCount: 2,
+  });
+  return ok(`Double-clicked [${action.params.index}]`, {
+    longTermMemory: `Double-clicked [${action.params.index}]`,
+  });
+}
+
 export async function handleType(
   ctx: HandlerContext,
   action: ByName<"type">,
@@ -91,6 +174,25 @@ export async function handleType(
   return fail(`Element [${action.params.index}] failed value verification`);
 }
 
+export async function handleFill(
+  ctx: HandlerContext,
+  action: ByName<"fill">,
+): Promise<ActionResult> {
+  const result = await handleType(ctx, {
+    name: "type",
+    params: {
+      index: action.params.index,
+      text: action.params.text,
+      submit: action.params.submit,
+      mode: "replace",
+    },
+  });
+  if (!result.ok) return result;
+  return ok(`Filled [${action.params.index}]${action.params.submit ? " and submitted" : ""}`, {
+    longTermMemory: `Filled [${action.params.index}]`,
+  });
+}
+
 export async function handleScroll(
   ctx: HandlerContext,
   action: ByName<"scroll">,
@@ -109,20 +211,32 @@ export async function handleScroll(
   );
 }
 
-export async function handleWait(
-  ctx: HandlerContext,
-  action: ByName<"wait">,
-): Promise<ActionResult> {
-  await ctx.page.waitForTimeout(action.params.ms);
-  return ok(`Waited ${action.params.ms}ms`);
-}
-
 export async function handleSendKeys(
   ctx: HandlerContext,
   action: ByName<"send_keys">,
 ): Promise<ActionResult> {
   await ctx.page.sendKeys(action.params.keys);
   return ok(`Sent keys: ${action.params.keys}`);
+}
+
+export async function handlePress(
+  ctx: HandlerContext,
+  action: ByName<"press">,
+): Promise<ActionResult> {
+  await ctx.page.pressKey(action.params.key);
+  return ok(`Pressed key: ${action.params.key}`);
+}
+
+export async function handleKeyboardType(
+  ctx: HandlerContext,
+  action: ByName<"keyboard_type">,
+): Promise<ActionResult> {
+  const sub = substituteSecrets(action.params.text, ctx.sensitiveData);
+  if (!sub.ok) {
+    return fail(`Keyboard type aborted: unknown secret placeholder <secret>${sub.key}</secret>`);
+  }
+  await ctx.page.keyboardType(sub.value);
+  return ok("Typed text with keyboard input");
 }
 
 export async function handleSelectOption(
@@ -271,14 +385,4 @@ export async function handleUploadFile(
         longTermMemory: `Uploaded file(s) to [${action.params.index}]`,
       })
     : fail(staleMessage(action.params.index));
-}
-
-export async function handleWaitForText(
-  ctx: HandlerContext,
-  action: ByName<"wait_for_text">,
-): Promise<ActionResult> {
-  const found = await ctx.page.waitForText(action.params.text, action.params.timeoutMs ?? 10_000);
-  return found
-    ? ok(`Text found: ${action.params.text}`, { longTermMemory: "Found text on page" })
-    : fail(`Timed out waiting for text: ${action.params.text}`);
 }

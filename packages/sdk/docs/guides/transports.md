@@ -88,14 +88,16 @@ Prints the resolution JSON:
 
 ## Observing resolution at runtime
 
-When you pass `transportResolution` to `runAgent`, a `transport_resolved` event fires before step 1:
+When you pass `transportResolution` to `runTask`, a `transport_resolved` event fires before step 1:
 
 ```ts
+import { createDecide, runTask } from "@peteqian/browser-agent-sdk";
+
 const { decide, resolution } = createDecide({ provider: "codex" });
 
-await runAgent({
+await runTask({
   task: "...",
-  decide,
+  getNextAction: decide,
   transportResolution: resolution,
   onEvent: (event) => {
     if (event.type === "transport_resolved") {

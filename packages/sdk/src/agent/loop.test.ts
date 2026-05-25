@@ -3,11 +3,20 @@ import { afterEach, describe, expect, test } from "bun:test";
 import type { BrowserSession, Page } from "../browser/session";
 import type { AgentEvent, AgentInput, StepInfo } from "./contracts";
 import { SYSTEM_PROMPT } from "./prompts";
-import { AgentController, buildDecisionPrompt, buildDecisionUserPrompt, runAgent } from "./loop";
+import { AgentController, buildDecisionPrompt, buildDecisionUserPrompt, runLoop } from "./loop";
 
 function makeFakeCdpSnapshot() {
   // Two interactive button elements at indexes 0 and 1, with backendNodeIds 0 and 1.
-  const strings = ["https://example.com/", "Example", "BUTTON", "block", "visible", "1"];
+  const strings = [
+    "https://example.com/",
+    "Example",
+    "BUTTON",
+    "block",
+    "visible",
+    "1",
+    "First",
+    "Second",
+  ];
   return {
     documents: [
       {
@@ -28,7 +37,7 @@ function makeFakeCdpSnapshot() {
             [3, 4, 5, -1, -1, -1, -1],
             [3, 4, 5, -1, -1, -1, -1],
           ],
-          text: [-1, -1],
+          text: [6, 7],
           paintOrders: [0, 1],
         },
       },
@@ -92,7 +101,6 @@ describe("decision prompt builders", () => {
   const input: AgentInput = {
     task: "Check the heading",
     step: 1,
-    maxSteps: 3,
     observation: "URL: https://example.com/",
     tabs: ["page-1"],
     activeTab: "page-1",
@@ -113,15 +121,14 @@ describe("decision prompt builders", () => {
   });
 });
 
-describe("runAgent action timeouts", () => {
+describe("runLoop action timeouts", () => {
   test("records a timed-out action and lets the model recover", async () => {
     const steps: StepInfo[] = [];
     const decisions: AgentInput[] = [];
 
-    const result = await runAgent({
+    const result = await runLoop({
       task: "recover from a hung wait",
       page: createFakePage(),
-      maxSteps: 2,
       actionTimeoutMs: 10,
       onStep: (step) => steps.push(step),
       decide: async (input) => {
@@ -161,12 +168,11 @@ describe("runAgent action timeouts", () => {
   });
 
   test("invalid action timeout values fall back instead of timing out immediately", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "use fallback timeout",
       page: createFakePage({
         waitForTimeout: async () => {},
       }),
-      maxSteps: 1,
       actionTimeoutMs: Number.NaN,
       decide: async () => ({
         actions: [
@@ -180,12 +186,43 @@ describe("runAgent action timeouts", () => {
     expect(result.success).toBe(true);
     expect(result.summary).toBe("No immediate timeout");
   });
+
+  test("runs same-observation batches and stops the batch after a click", async () => {
+    const actions: string[] = [];
+    const result = await runLoop({
+      task: "fill and submit",
+      page: createFakePage({
+        typeByBackendNodeId: async () => ({ ok: true as const }),
+        clickByBackendNodeId: async () => ({ ok: true as const }),
+      }),
+      onStep: (step) => actions.push(step.action.name),
+      decide: async (input) => {
+        if (input.step === 1) {
+          return {
+            actions: [
+              { name: "type", params: { index: 0, text: "senior software engineer" } },
+              { name: "click", params: { index: 1 } },
+              { name: "wait", params: { ms: 1 } },
+            ],
+            done: false,
+          };
+        }
+        return {
+          actions: [{ name: "done", params: { success: true, summary: "finalized" } }],
+          done: false,
+        };
+      },
+    });
+
+    expect(actions).toEqual(["type", "click", "done"]);
+    expect(result.summary).toBe("finalized");
+  });
 });
 
-describe("runAgent browser lifecycle", () => {
+describe("runLoop browser lifecycle", () => {
   test("fails before the first decision when startUrl navigation is unhealthy", async () => {
     let decisions = 0;
-    const result = await runAgent({
+    const result = await runLoop({
       task: "open a bad start url",
       page: createFakePage({
         navigateWithHealthCheck: async () => ({
@@ -218,7 +255,7 @@ describe("runAgent browser lifecycle", () => {
     let closed = false;
     const steps: StepInfo[] = [];
 
-    const result = await runAgent({
+    const result = await runLoop({
       task: "close the browser",
       page: createFakePage(),
       session: createFakeSession({
@@ -226,7 +263,6 @@ describe("runAgent browser lifecycle", () => {
           closed = true;
         },
       }),
-      maxSteps: 3,
       onStep: (step) => steps.push(step),
       decide: async () => ({
         actions: [{ name: "close_browser", params: {} }],
@@ -247,15 +283,14 @@ describe("runAgent browser lifecycle", () => {
   });
 });
 
-describe("runAgent history compaction", () => {
+describe("runLoop history compaction", () => {
   test("middle steps collapse to a marker entry once the window overflows", async () => {
     const seen: AgentInput[] = [];
     let calls = 0;
 
-    await runAgent({
+    await runLoop({
       task: "build up history then read it back",
       page: createFakePage({ waitForTimeout: async () => {} }),
-      maxSteps: 20,
       historyHead: 2,
       historyTail: 4,
       loopDetectionMode: "off",
@@ -291,12 +326,11 @@ describe("runAgent history compaction", () => {
   });
 });
 
-describe("runAgent decision timeouts", () => {
+describe("runLoop decision timeouts", () => {
   test("returns a deterministic failure when decision hangs", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "handle hung model",
       page: createFakePage(),
-      maxSteps: 1,
       decisionTimeoutMs: 10,
       decide: async () => {
         await new Promise(() => {});
@@ -314,10 +348,9 @@ describe("runAgent decision timeouts", () => {
   });
 
   test("invalid decision timeout values fall back instead of timing out immediately", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "use decision fallback timeout",
       page: createFakePage(),
-      maxSteps: 1,
       decisionTimeoutMs: Number.NaN,
       decide: async () => ({
         actions: [{ name: "done", params: { success: true, summary: "Decision completed" } }],
@@ -330,11 +363,59 @@ describe("runAgent decision timeouts", () => {
   });
 });
 
-describe("runAgent step context timeouts", () => {
+describe("runLoop snapshot diff", () => {
+  test("step 2 swaps the full interactive listing for a diff body", async () => {
+    const inputs: AgentInput[] = [];
+    await runLoop({
+      task: "observe diff replaces full snapshot",
+      page: createFakePage({ waitForTimeout: async () => {} }),
+      loopDetectionMode: "off",
+      decide: async (input) => {
+        inputs.push(input);
+        if (input.step >= 2) {
+          return {
+            actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+            done: false,
+          };
+        }
+        return { actions: [{ name: "wait", params: { ms: 1 } }], done: false };
+      },
+    });
+    expect(inputs.length).toBeGreaterThanOrEqual(2);
+    expect(inputs[0]!.observation).toContain("INTERACTIVE ELEMENTS");
+    expect(inputs[0]!.observation).not.toContain("SNAPSHOT DIFF");
+    expect(inputs[1]!.observation).toContain("SNAPSHOT DIFF");
+    expect(inputs[1]!.observation).not.toContain("INTERACTIVE ELEMENTS");
+  });
+
+  test("fullSnapshots=true disables diffing", async () => {
+    const inputs: AgentInput[] = [];
+    await runLoop({
+      task: "force full snapshots",
+      page: createFakePage({ waitForTimeout: async () => {} }),
+      loopDetectionMode: "off",
+      fullSnapshots: true,
+      decide: async (input) => {
+        inputs.push(input);
+        if (input.step >= 2) {
+          return {
+            actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+            done: false,
+          };
+        }
+        return { actions: [{ name: "wait", params: { ms: 1 } }], done: false };
+      },
+    });
+    expect(inputs[1]!.observation).not.toContain("SNAPSHOT DIFF");
+    expect(inputs[1]!.observation).toContain("INTERACTIVE ELEMENTS");
+  });
+});
+
+describe("runLoop step context timeouts", () => {
   test("returns a deterministic failure when context preparation hangs", async () => {
     let decideCalled = false;
 
-    const result = await runAgent({
+    const result = await runLoop({
       task: "handle hung page context",
       page: createFakePage({
         evaluate: async () => {
@@ -342,7 +423,6 @@ describe("runAgent step context timeouts", () => {
           throw new Error("unreachable");
         },
       }),
-      maxSteps: 1,
       stepTimeoutMs: 10,
       decide: async () => {
         decideCalled = true;
@@ -361,10 +441,9 @@ describe("runAgent step context timeouts", () => {
   });
 
   test("invalid step timeout values fall back instead of timing out immediately", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "use step fallback timeout",
       page: createFakePage(),
-      maxSteps: 1,
       stepTimeoutMs: Number.NaN,
       decide: async () => ({
         actions: [{ name: "done", params: { success: true, summary: "Context completed" } }],
@@ -377,12 +456,11 @@ describe("runAgent step context timeouts", () => {
   });
 });
 
-describe("runAgent consecutive failures", () => {
+describe("runLoop consecutive failures", () => {
   test("stops after maxFailures consecutive single-action failures", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "stop after repeated failures",
       page: createFakePage(),
-      maxSteps: 5,
       maxFailures: 2,
       decide: async () => ({
         actions: [{ name: "click", params: { index: 99 } }],
@@ -398,10 +476,9 @@ describe("runAgent consecutive failures", () => {
   });
 
   test("stops after maxFailures consecutive multi-action failures", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "stop after repeated multi-action failures",
       page: createFakePage(),
-      maxSteps: 5,
       maxFailures: 2,
       finalResponseAfterFailure: false,
       decide: async () => ({
@@ -422,13 +499,12 @@ describe("runAgent consecutive failures", () => {
 
   test("does not count partially-successful multi-action steps as failures", async () => {
     let calls = 0;
-    const result = await runAgent({
+    const result = await runLoop({
       task: "partial success resets counter",
       page: createFakePage({
         clickByBackendNodeId: async (id: number) =>
           id === 1 ? { ok: true } : { ok: false, reason: "index_stale" },
       }),
-      maxSteps: 3,
       maxFailures: 2,
       finalResponseAfterFailure: false,
       decide: async () => {
@@ -456,10 +532,9 @@ describe("runAgent consecutive failures", () => {
   test("can ask for a final recovery response after maxFailures", async () => {
     let calls = 0;
 
-    const result = await runAgent({
+    const result = await runLoop({
       task: "summarize after repeated failures",
       page: createFakePage(),
-      maxSteps: 3,
       maxFailures: 2,
       finalResponseAfterFailure: true,
       decide: async (input) => {
@@ -500,10 +575,9 @@ describe("runAgent consecutive failures", () => {
   test("can disable final recovery after maxFailures", async () => {
     let calls = 0;
 
-    const result = await runAgent({
+    const result = await runLoop({
       task: "stop without recovery",
       page: createFakePage(),
-      maxSteps: 3,
       maxFailures: 2,
       finalResponseAfterFailure: false,
       decide: async () => {
@@ -524,13 +598,12 @@ describe("runAgent consecutive failures", () => {
   test("resets consecutive failures after a successful action step", async () => {
     let call = 0;
 
-    const result = await runAgent({
+    const result = await runLoop({
       task: "recover between failures",
       page: createFakePage({
         clickByBackendNodeId: async (id: number) =>
           id === 1 ? { ok: true } : { ok: false, reason: "index_stale" },
       }),
-      maxSteps: 4,
       maxFailures: 2,
       decide: async () => {
         call += 1;
@@ -559,10 +632,11 @@ describe("runAgent consecutive failures", () => {
   });
 
   test("invalid maxFailures values fall back instead of stopping immediately", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "use max failure fallback",
       page: createFakePage(),
-      maxSteps: 1,
+      finalResponseAfterFailure: false,
+      loopDetectionMode: "off",
       maxFailures: Number.NaN,
       decide: async () => ({
         actions: [{ name: "click", params: { index: 99 } }],
@@ -571,18 +645,18 @@ describe("runAgent consecutive failures", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.summary).toBe("Exceeded max steps (1).");
+    expect(result.reason).toBe("max_failures");
+    expect(result.summary).toContain("Stopped after 5 consecutive failed steps");
   });
 });
 
-describe("runAgent loop detection", () => {
+describe("runLoop loop detection", () => {
   test("strict mode stops after repeated identical action fingerprints", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "detect repeated loop",
       page: createFakePage({
         clickByBackendNodeId: async () => ({ ok: true }),
       }),
-      maxSteps: 5,
       loopDetectionMode: "strict",
       loopDetectionWindow: 3,
       decide: async () => ({
@@ -602,12 +676,11 @@ describe("runAgent loop detection", () => {
 
   test("default nudge mode emits notices and escalates to a hard stop after the budget is spent", async () => {
     const nudges: number[] = [];
-    const result = await runAgent({
+    const result = await runLoop({
       task: "nudge then escalate",
       page: createFakePage({
         clickByBackendNodeId: async () => ({ ok: true }),
       }),
-      maxSteps: 10,
       loopDetectionWindow: 3,
       loopDetectionNudgeBudget: 2,
       onEvent: async (event) => {
@@ -623,37 +696,42 @@ describe("runAgent loop detection", () => {
     expect(result.reason).toBe("loop_detected");
   });
 
-  test("can disable loop detection", async () => {
-    const result = await runAgent({
+  test("can disable loop detection and stop externally", async () => {
+    const controller = new AgentController();
+    const result = await runLoop({
       task: "allow repeated loop",
       page: createFakePage({
         clickByBackendNodeId: async () => ({ ok: true }),
       }),
-      maxSteps: 3,
+      control: controller,
       loopDetectionMode: "off",
       loopDetectionWindow: 2,
-      decide: async () => ({
-        actions: [{ name: "click", params: { index: 1 } }],
-        done: false,
-      }),
+      onStep: (step) => {
+        if (step.step === 3) controller.stop("test complete");
+      },
+      decide: async () => {
+        return {
+          actions: [{ name: "click", params: { index: 1 } }],
+          done: false,
+        };
+      },
     });
 
     expect(result).toEqual({
       success: false,
-      reason: "max_steps",
-      summary: "Exceeded max steps (3).",
+      reason: "stopped",
+      summary: "Agent run stopped: test complete",
       data: null,
       steps: 3,
     });
   });
 
   test("invalid loop detection window falls back", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "fallback loop window",
       page: createFakePage({
         clickByBackendNodeId: async () => ({ ok: true }),
       }),
-      maxSteps: 4,
       loopDetectionMode: "strict",
       loopDetectionWindow: Number.NaN,
       decide: async () => ({
@@ -677,12 +755,11 @@ describe("AgentController", () => {
       firstStepSeen = resolve;
     });
 
-    const runPromise = runAgent({
+    const runPromise = runLoop({
       task: "pause and resume",
       page: createFakePage({ clickByBackendNodeId: async () => ({ ok: true }) }),
       control,
       loopDetectionMode: "off",
-      maxSteps: 2,
       onStep: (step) => {
         if (step.step === 1) {
           control.pause();
@@ -717,11 +794,10 @@ describe("AgentController", () => {
     const control = new AgentController();
     control.pause();
 
-    const runPromise = runAgent({
+    const runPromise = runLoop({
       task: "stop while paused",
       page: createFakePage(),
       control,
-      maxSteps: 1,
       decide: async () => {
         throw new Error("decide should not be called");
       },
@@ -744,10 +820,9 @@ describe("AgentController", () => {
   test("emits decision, action, and terminal events in order", async () => {
     const events: AgentEvent[] = [];
 
-    await runAgent({
+    await runLoop({
       task: "emit events",
       page: createFakePage({ clickByBackendNodeId: async () => ({ ok: true }) }),
-      maxSteps: 1,
       decide: async () => ({
         actions: [
           { name: "click", params: { index: 1 } },
@@ -761,15 +836,23 @@ describe("AgentController", () => {
     });
 
     expect(events.map((e) => e.type)).toEqual([
+      "snapshot_started",
+      "snapshot_captured",
       "browser_state",
+      "decision_started",
+      "decision_completed",
       "decision",
       "action_start",
+      "action_started",
+      "action_completed",
       "action",
       "action_start",
+      "action_started",
+      "action_completed",
       "action",
       "terminal",
     ]);
-    const terminal = events[6];
+    const terminal = events[events.length - 1];
     expect(terminal?.type).toBe("terminal");
     if (terminal?.type === "terminal") {
       expect(terminal.result.reason).toBe("completed");
@@ -780,11 +863,10 @@ describe("AgentController", () => {
   test("can stop before executing the next action", async () => {
     const control = new AgentController();
 
-    const result = await runAgent({
+    const result = await runLoop({
       task: "stop before action",
       page: createFakePage(),
       control,
-      maxSteps: 1,
       decide: async () => {
         control.stop("before action");
         return { actions: [{ name: "click", params: { index: 1 } }], done: false };
@@ -801,12 +883,11 @@ describe("AgentController", () => {
   });
 });
 
-describe("runAgent final judge", () => {
+describe("runLoop final judge", () => {
   test("rejects a successful done when the judge returns pass: false", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "judge rejects",
       page: createFakePage({ waitForTimeout: async () => {} }),
-      maxSteps: 2,
       decide: async () => ({
         actions: [{ name: "done", params: { success: true, summary: "claims done" } }],
         done: true,
@@ -820,10 +901,9 @@ describe("runAgent final judge", () => {
   });
 
   test("confirms a successful done when the judge returns pass: true", async () => {
-    const result = await runAgent({
+    const result = await runLoop({
       task: "judge accepts",
       page: createFakePage({ waitForTimeout: async () => {} }),
-      maxSteps: 2,
       decide: async () => ({
         actions: [{ name: "done", params: { success: true, summary: "all good" } }],
         done: true,
@@ -837,10 +917,9 @@ describe("runAgent final judge", () => {
 
   test("does not run the judge when done is success=false", async () => {
     let called = 0;
-    const result = await runAgent({
+    const result = await runLoop({
       task: "skip judge on failure",
       page: createFakePage({ waitForTimeout: async () => {} }),
-      maxSteps: 2,
       decide: async () => ({
         actions: [{ name: "done", params: { success: false, summary: "gave up" } }],
         done: true,
@@ -856,13 +935,12 @@ describe("runAgent final judge", () => {
   });
 });
 
-describe("runAgent persistent memory", () => {
+describe("runLoop persistent memory", () => {
   test("seeds AgentInput.memory from options and propagates AgentOutput.memory updates", async () => {
     const seen: Array<string | undefined> = [];
-    await runAgent({
+    await runLoop({
       task: "carry memory",
       page: createFakePage({ waitForTimeout: async () => {} }),
-      maxSteps: 3,
       memory: "seed-memory",
       decide: async (input) => {
         seen.push(input.memory);
@@ -887,7 +965,6 @@ describe("runAgent persistent memory", () => {
     const prompt = buildDecisionUserPrompt({
       task: "x",
       step: 1,
-      maxSteps: 2,
       observation: "",
       tabs: [],
       activeTab: "",
@@ -898,13 +975,12 @@ describe("runAgent persistent memory", () => {
   });
 });
 
-describe("runAgent final-step finalization", () => {
-  test("prepends FINAL STEP notice to observation on the last allowed step", async () => {
+describe("runLoop observation prefixes", () => {
+  test("does not inject a final-step notice", async () => {
     const seen: string[] = [];
-    await runAgent({
-      task: "finalize cleanly",
+    await runLoop({
+      task: "finish without artificial final step",
       page: createFakePage({ waitForTimeout: async () => {} }),
-      maxSteps: 2,
       decide: async (input) => {
         seen.push(input.observation);
         if (input.step === 1) {
@@ -918,8 +994,8 @@ describe("runAgent final-step finalization", () => {
     });
 
     expect(seen).toHaveLength(2);
-    expect(seen[0]).not.toContain("FINAL STEP");
-    expect(seen[1]).toContain("FINAL STEP (2/2)");
-    expect(seen[1]).toContain("`done` action");
+    const forcedFinalTurn = new RegExp(["^FINAL", " STEP.*\\n\\n"].join(""), "s");
+    expect(seen[0]).toBe(seen[0]?.replace(forcedFinalTurn, ""));
+    expect(seen[1]).toBe(seen[1]?.replace(forcedFinalTurn, ""));
   });
 });

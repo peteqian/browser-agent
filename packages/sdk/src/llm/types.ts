@@ -2,7 +2,18 @@
 export interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
+  /**
+   * Cached prompt tokens reported by the provider. Anthropic surfaces this as
+   * `cache_read_input_tokens`; OpenAI as `input_tokens_details.cached_tokens`.
+   * When non-zero on step 2+ it indicates the ephemeral-cache prefix hit.
+   */
   cachedInputTokens?: number;
+  /**
+   * Tokens that were written into the provider cache on this request
+   * (Anthropic's `cache_creation_input_tokens`). Typically non-zero only on
+   * the first request that primes the cache.
+   */
+  cacheCreationTokens?: number;
 }
 
 /**

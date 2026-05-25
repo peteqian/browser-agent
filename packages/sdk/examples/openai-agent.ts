@@ -1,4 +1,4 @@
-import { createOpenAIDecide, runAgent } from "../src/index";
+import { createOpenAIDecide, runTask } from "../src/index";
 
 const task =
   process.argv[2] ?? "Go to https://example.com and report the H1 text via done(data=...).";
@@ -9,12 +9,11 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const result = await runAgent({
+const result = await runTask({
   task,
   startUrl: "about:blank",
-  maxSteps: 15,
   launch: { headless: true },
-  decide: createOpenAIDecide({
+  getNextAction: createOpenAIDecide({
     model: "gpt-4.1-mini",
     apiKey,
   }),

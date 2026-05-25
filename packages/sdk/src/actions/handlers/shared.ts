@@ -27,6 +27,11 @@ export interface HandlerContext {
   snapshotElements?: readonly ElementInfo[];
   currentStep?: number;
   currentUrl?: string;
+  /**
+   * If set, navigation/new-tab actions reject URLs whose host does not
+   * match one of these patterns. See `matchesAllowedDomains` for syntax.
+   */
+  allowedDomains?: readonly string[];
 }
 
 export function ok(message: string, extra?: Omit<ActionResult, "ok" | "message">): ActionResult {

@@ -1,8 +1,12 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
 import type { AgentInput, AgentOutput } from "./contracts";
-import { SYSTEM_PROMPT } from "./prompts";
-import { buildFreeformDecisionPrompt, parseDecision } from "./parseDecision";
+import { buildDecisionPromptParts } from "./decision-prompt";
+import {
+  buildContinuationPrompt,
+  buildFreeformDecisionPrompt,
+  parseDecision,
+} from "./parseDecision";
 import { buildTelemetry } from "../llm/telemetry";
 
 export interface ClaudeSdkOptions {
@@ -14,7 +18,12 @@ export interface ClaudeSdkOptions {
 
 /**
  * Claude Agent SDK adapter. Disables all built-in tools so the model returns
- * a single JSON action per call, matching the existing CLI/Codex adapters.
+ * browser-agent JSON decisions instead of calling provider-native tools.
+ *
+ * Keeps ONE session for the whole run (like the codex SDK adapter): turn 1
+ * sends the system prompt + full prompt and captures the session id; later
+ * turns `resume` that session and send only the new observation, so the SDK
+ * carries the conversation instead of us replaying history every step.
  *
  * Aborts via the SDK's `abortController` option. The signal forwarded by the
  * loop is bridged to a per-call AbortController.
@@ -28,6 +37,9 @@ export function createClaudeSdkDecide(
     ? { ...filterStringEnv(process.env), ANTHROPIC_API_KEY: options.apiKey }
     : undefined;
 
+  let sessionId: string | null = null;
+  let lastCatalog: string | undefined;
+
   return async (input, signal) => {
     const startedAt = Date.now();
     const abortController = new AbortController();
@@ -38,15 +50,23 @@ export function createClaudeSdkDecide(
     }
 
     try {
-      const prompt = buildFreeformDecisionPrompt(input);
+      // Turn 1: full prompt + system prefix. Later turns: resume the session
+      // and send only the continuation (new observation), re-sending the
+      // catalog only when state-scoped actions change.
+      const isFirst = sessionId === null;
+      const { prefix } = buildDecisionPromptParts(input);
+      const prompt = isFirst
+        ? buildFreeformDecisionPrompt(input)
+        : buildContinuationPrompt(input, { includeCatalog: input.actionCatalog !== lastCatalog });
+      lastCatalog = input.actionCatalog;
       const iter = query({
         prompt,
         options: {
           model: options.model,
-          systemPrompt: SYSTEM_PROMPT,
           maxTurns: 1,
           tools: [],
           abortController,
+          ...(isFirst ? { systemPrompt: prefix } : { resume: sessionId ?? undefined }),
           ...(options.cwd ? { cwd: options.cwd } : {}),
           ...(queryEnv ? { env: queryEnv } : {}),
         },
@@ -54,9 +74,18 @@ export function createClaudeSdkDecide(
 
       let raw = "";
       let usage:
-        | { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number }
+        | {
+            input_tokens?: number;
+            output_tokens?: number;
+            cache_read_input_tokens?: number;
+            cache_creation_input_tokens?: number;
+          }
         | undefined;
       for await (const message of iter) {
+        // Capture/refresh the session id from any message that carries it so
+        // the next step can resume this conversation.
+        const sid = (message as { session_id?: unknown }).session_id;
+        if (typeof sid === "string" && sid.length > 0) sessionId = sid;
         if (message.type === "result") {
           if (message.subtype !== "success") {
             throw new Error(`Claude SDK turn failed: ${message.subtype}`);
@@ -70,6 +99,10 @@ export function createClaudeSdkDecide(
               cache_read_input_tokens:
                 typeof u.cache_read_input_tokens === "number"
                   ? u.cache_read_input_tokens
+                  : undefined,
+              cache_creation_input_tokens:
+                typeof u.cache_creation_input_tokens === "number"
+                  ? u.cache_creation_input_tokens
                   : undefined,
             };
           }
@@ -90,6 +123,7 @@ export function createClaudeSdkDecide(
               inputTokens: usage.input_tokens ?? 0,
               outputTokens: usage.output_tokens ?? 0,
               cachedInputTokens: usage.cache_read_input_tokens,
+              cacheCreationTokens: usage.cache_creation_input_tokens,
             }
           : undefined,
       );
