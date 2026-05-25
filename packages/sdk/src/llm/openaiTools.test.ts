@@ -70,7 +70,9 @@ function toolCallResponse(id: string, name: string, args: Record<string, unknown
         message: {
           role: "assistant",
           content: null,
-          tool_calls: [{ id, type: "function", function: { name, arguments: JSON.stringify(args) } }],
+          tool_calls: [
+            { id, type: "function", function: { name, arguments: JSON.stringify(args) } },
+          ],
         },
       },
     ],
@@ -109,14 +111,20 @@ describe("createOpenAIToolDecide", () => {
     ];
 
     await decide(makeInput());
-    const out2 = await decide(makeInput({ step: 2, observation: "URL: https://example.com\nH1: Example Domain" }));
+    const out2 = await decide(
+      makeInput({ step: 2, observation: "URL: https://example.com\nH1: Example Domain" }),
+    );
 
     expect(out2.done).toBe(true);
     expect(out2.success).toBe(true);
     expect(out2.summary).toBe("H1 is Example Domain");
 
     const req2 = captured.calls[1]!;
-    const messages = req2.messages as Array<{ role: string; tool_call_id?: string; content?: string }>;
+    const messages = req2.messages as Array<{
+      role: string;
+      tool_call_id?: string;
+      content?: string;
+    }>;
     const toolMsg = messages.find((m) => m.role === "tool");
     expect(toolMsg?.tool_call_id).toBe("call_1");
     expect(toolMsg?.content).toContain("Example Domain");
@@ -136,8 +144,16 @@ describe("createOpenAIToolDecide", () => {
               role: "assistant",
               content: null,
               tool_calls: [
-                { id: "a", type: "function", function: { name: "navigate", arguments: '{"url":"https://a.com"}' } },
-                { id: "b", type: "function", function: { name: "navigate", arguments: '{"url":"https://b.com"}' } },
+                {
+                  id: "a",
+                  type: "function",
+                  function: { name: "navigate", arguments: '{"url":"https://a.com"}' },
+                },
+                {
+                  id: "b",
+                  type: "function",
+                  function: { name: "navigate", arguments: '{"url":"https://b.com"}' },
+                },
               ],
             },
           },
@@ -155,7 +171,10 @@ describe("createOpenAIToolDecide", () => {
     const { createOpenAIToolDecide } = await import("./openaiTools");
     const decide = createOpenAIToolDecide({ model: "gpt-4.1-mini", apiKey: "k" });
     responseQueue = [
-      { choices: [{ message: { role: "assistant", content: "thinking..." } }], usage: { prompt_tokens: 3, completion_tokens: 1 } },
+      {
+        choices: [{ message: { role: "assistant", content: "thinking..." } }],
+        usage: { prompt_tokens: 3, completion_tokens: 1 },
+      },
     ];
 
     const out = await decide(makeInput());
@@ -168,8 +187,21 @@ describe("createOpenAIToolDecide", () => {
     const decide = createOpenAIToolDecide({ model: "gpt-4.1-mini", apiKey: "k" });
     responseQueue = [
       {
-        choices: [{ message: { role: "assistant", tool_calls: [{ id: "x", type: "function", function: { name: "done", arguments: "{}" } }] } }],
-        usage: { prompt_tokens: 100, completion_tokens: 20, prompt_tokens_details: { cached_tokens: 80 } },
+        choices: [
+          {
+            message: {
+              role: "assistant",
+              tool_calls: [
+                { id: "x", type: "function", function: { name: "done", arguments: "{}" } },
+              ],
+            },
+          },
+        ],
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 20,
+          prompt_tokens_details: { cached_tokens: 80 },
+        },
       },
     ];
 

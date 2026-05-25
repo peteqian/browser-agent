@@ -212,10 +212,7 @@ export async function handleExtractContent(
   const digest = digestContent(result.content);
   const memo = extractMemoByPage.get(ctx.page as unknown as object);
   const isRepeat =
-    memo &&
-    memo.url === result.url &&
-    memo.digest === digest &&
-    memo.query === action.params.query;
+    memo && memo.url === result.url && memo.digest === digest && memo.query === action.params.query;
   if (isRepeat && memo) {
     memo.hits += 1;
     if (memo.hits >= 2) {

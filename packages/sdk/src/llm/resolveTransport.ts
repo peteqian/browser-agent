@@ -243,10 +243,7 @@ function buildDecide(options: ResolveOptions, transport: TransportId): GetNextAc
       baseURL: options.baseURL,
     }) as GetNextActionFn;
   }
-  if (
-    (options.provider === "codex" || options.provider === "openai") &&
-    transport === "sdk-api"
-  ) {
+  if ((options.provider === "codex" || options.provider === "openai") && transport === "sdk-api") {
     const adapterOptions = {
       model: options.model,
       apiKey: options.apiKey,

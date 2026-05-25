@@ -117,9 +117,7 @@ function buildDecision(message: { tool_calls?: unknown; content?: string | null 
   const functionCalls = toolCalls.filter((c) => c.type === "function" && c.function);
   const first = functionCalls[0];
   // Every other tool_call in this assistant turn still needs a tool result.
-  const ignoredToolCallIds = toolCalls
-    .filter((c) => c.id !== first?.id)
-    .map((c) => c.id);
+  const ignoredToolCallIds = toolCalls.filter((c) => c.id !== first?.id).map((c) => c.id);
   if (!first?.function) {
     // Text-only reply: no action this turn. The loop's empty-decision guard
     // handles a model that stalls without calling a tool.
