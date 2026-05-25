@@ -129,6 +129,18 @@ export function buildLightpandaArgs(port: number): string[] {
   return ["serve", "--host", "127.0.0.1", "--port", String(port)];
 }
 
+/**
+ * Chrome's sandbox cannot initialize as root or inside most CI containers, so
+ * the browser exits before DevTools comes up. Disable it automatically in those
+ * environments (on top of an explicit `docker` flag) so headless launches
+ * survive. Security trade-off is accepted only for root/CI, never normal use.
+ */
+function sandboxMustBeDisabled(docker: boolean | undefined): boolean {
+  if (docker) return true;
+  if (process.env.CI) return true;
+  return typeof process.getuid === "function" && process.getuid() === 0;
+}
+
 export function buildChromeArgs(options: BuildChromeArgsOptions): string[] {
   const args = [
     `--remote-debugging-port=${options.remoteDebuggingPort}`,
@@ -140,7 +152,7 @@ export function buildChromeArgs(options: BuildChromeArgsOptions): string[] {
     args.push(...CHROME_HEADLESS_ARGS);
   }
 
-  if (options.docker) {
+  if (sandboxMustBeDisabled(options.docker)) {
     args.push(...CHROME_DOCKER_ARGS);
   }
 
