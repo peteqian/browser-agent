@@ -76,6 +76,17 @@ export function createOpenAIToolDecide(
 
     const decision = buildDecision(message);
     if (decision.pendingToolCallId) pendingToolCallId = decision.pendingToolCallId;
+    // `parallel_tool_calls: false` is a request hint, not a guarantee on
+    // OpenAI-compatible endpoints. If the model still returns extra tool_calls
+    // we won't act on, satisfy each id now — the API rejects the next request
+    // unless every tool_call in the assistant turn has a tool result.
+    for (const ignoredId of decision.ignoredToolCallIds) {
+      messages.push({
+        role: "tool",
+        tool_call_id: ignoredId,
+        content: "Ignored: only one action is processed per turn.",
+      });
+    }
 
     decision.output.telemetry = buildTelemetry(
       startedAt,
@@ -95,6 +106,7 @@ export function createOpenAIToolDecide(
 function buildDecision(message: { tool_calls?: unknown; content?: string | null } | undefined): {
   output: AgentOutput;
   pendingToolCallId: string | null;
+  ignoredToolCallIds: string[];
 } {
   const toolCalls = (message?.tool_calls ?? []) as Array<{
     id: string;
@@ -102,11 +114,16 @@ function buildDecision(message: { tool_calls?: unknown; content?: string | null 
     function?: { name: string; arguments: string };
   }>;
   // One action per turn: honor only the first tool call.
-  const first = toolCalls.find((c) => c.type === "function" && c.function);
+  const functionCalls = toolCalls.filter((c) => c.type === "function" && c.function);
+  const first = functionCalls[0];
+  // Every other tool_call in this assistant turn still needs a tool result.
+  const ignoredToolCallIds = toolCalls
+    .filter((c) => c.id !== first?.id)
+    .map((c) => c.id);
   if (!first?.function) {
     // Text-only reply: no action this turn. The loop's empty-decision guard
     // handles a model that stalls without calling a tool.
-    return { output: { actions: [], done: false }, pendingToolCallId: null };
+    return { output: { actions: [], done: false }, pendingToolCallId: null, ignoredToolCallIds };
   }
 
   let params: Record<string, unknown> = {};
@@ -128,6 +145,7 @@ function buildDecision(message: { tool_calls?: unknown; content?: string | null 
       success: done && typeof params.success === "boolean" ? params.success : undefined,
     },
     pendingToolCallId: first.id,
+    ignoredToolCallIds,
   };
 }
 
@@ -150,10 +168,16 @@ ${continuationText(input)}`;
 
 function continuationText(input: AgentInput): string {
   const tabs = input.tabs.length > 0 ? input.tabs.join(", ") : "(none)";
+  // Surface the prior action's result (this turn's tool result reports on the
+  // tool the model just called). Without this the model never sees parse/schema
+  // rejections — they live only in history, which this adapter doesn't replay —
+  // and would repeat the same invalid call.
+  const last = input.history[input.history.length - 1];
+  const lastResult = last ? `Result of ${last.action}: ${last.result}\n\n` : "";
   return `Step ${input.step}
 Active tab: ${input.activeTab}
 Open tabs: ${tabs}
 
-Observation:
+${lastResult}Observation:
 ${input.observation}`;
 }

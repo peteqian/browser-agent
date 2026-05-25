@@ -82,7 +82,9 @@ function findExecutable(baseDir: string, executableName: string, maxDepth: numbe
     }
   }
 
-  return matches.toSorted((a, b) => b.localeCompare(a))[0] ?? null;
+  // Numeric collation so chrome-140 sorts above chrome-99 (plain localeCompare
+  // is lexical: '9' > '1', which would pick the older build).
+  return matches.toSorted((a, b) => b.localeCompare(a, undefined, { numeric: true }))[0] ?? null;
 }
 
 function detectChromeForTestingBinary(): string | null {
@@ -112,7 +114,8 @@ function detectPlaywrightChromiumBinary(): string | null {
     const entries = readdirSync(base, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name)
-      .toSorted((a, b) => b.localeCompare(a));
+      // Numeric collation so chromium-1140 sorts above chromium-999.
+      .toSorted((a, b) => b.localeCompare(a, undefined, { numeric: true }));
 
     const candidates: string[] = [];
     for (const entry of entries) {

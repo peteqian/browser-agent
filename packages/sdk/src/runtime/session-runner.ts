@@ -42,6 +42,7 @@ export interface RunActionOptions {
 
 export interface RunActionsOptions extends RunActionOptions {
   stopOnFailure?: boolean;
+  reobserve?: boolean;
   onAction?: (event: {
     action: RuntimeAction;
     result: ActionResult;
@@ -150,6 +151,7 @@ export class SessionRunner {
       allowedDomains: this.allowedDomains,
       timeoutMs: options.timeoutMs,
       stopOnFailure: options.stopOnFailure,
+      reobserve: options.reobserve,
       onAction: options.onAction,
     });
     this.currentPage = executed.page;

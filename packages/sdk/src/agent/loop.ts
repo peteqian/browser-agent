@@ -316,6 +316,11 @@ async function runLoopInner<TData = unknown>(
       // a slightly different selector each turn), the fingerprint detector
       // never trips because the params differ. Detect 4+ consecutive same
       // action names and prod the model toward an alternative.
+      // Both the name-based nudge below and the fingerprint detector further
+      // down share loopNudgesUsed/pendingLoopNotice. Track whether we already
+      // nudged this step so the fingerprint path can't double-consume the
+      // budget or clobber the notice in the same iteration.
+      let nudgedThisStep = false;
       const sameNameNudge = detectSameNameRun(recentActionNames, 4);
       const alternatingNudge = sameNameNudge ? null : detectAlternatingPair(recentActionNames, 3);
       const triggeredNudge = sameNameNudge
@@ -338,6 +343,7 @@ async function runLoopInner<TData = unknown>(
         if (cfg.loopDetectionMode === "nudge" && !pendingLoopNotice) {
           loopNudgesUsed += 1;
           pendingLoopNotice = triggeredNudge;
+          nudgedThisStep = true;
           await emitEvent(options, {
             type: "loop_nudge",
             step,
@@ -371,15 +377,19 @@ async function runLoopInner<TData = unknown>(
           };
         }
         if (detection.kind === "nudge") {
-          loopNudgesUsed = detection.nudgesUsed;
-          pendingLoopNotice = detection.notice;
-          await emitEvent(options, {
-            type: "loop_nudge",
-            step,
-            notice: detection.notice,
-            nudgesUsed: loopNudgesUsed,
-            budget: cfg.loopNudgeBudget,
-          });
+          // Skip if the name-based path already nudged this step — otherwise we
+          // double-count the budget and overwrite the notice the model needs.
+          if (!nudgedThisStep) {
+            loopNudgesUsed = detection.nudgesUsed;
+            pendingLoopNotice = detection.notice;
+            await emitEvent(options, {
+              type: "loop_nudge",
+              step,
+              notice: detection.notice,
+              nudgesUsed: loopNudgesUsed,
+              budget: cfg.loopNudgeBudget,
+            });
+          }
         } else if (detection.kind === "reset") {
           loopNudgesUsed = 0;
         }

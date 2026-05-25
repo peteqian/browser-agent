@@ -743,34 +743,50 @@ export async function captureCdpSnapshot(
     if (candidates.length >= budgets.maxElements) break;
   }
 
-  for (const axNode of ax.nodes) {
-    if (candidates.length >= budgets.maxElements) break;
-    const backendNodeId = axNode.backendDOMNodeId;
-    if (typeof backendNodeId !== "number") continue;
-    if (candidateBackendIds.has(backendNodeId)) continue;
-    if (axNode.ignored === true) continue;
+  // Collect AX nodes the DOM-snapshot pass missed, then read their DOM info in
+  // parallel — one awaited CDP round-trip per node in series scaled per-step
+  // latency with the AX tree size and tripped stepTimeoutMs on busy pages.
+  const remaining = budgets.maxElements - candidates.length;
+  if (remaining > 0) {
+    const eligible: Array<{ axNode: (typeof ax.nodes)[number]; backendNodeId: number }> = [];
+    for (const axNode of ax.nodes) {
+      if (eligible.length >= remaining) break;
+      const backendNodeId = axNode.backendDOMNodeId;
+      if (typeof backendNodeId !== "number") continue;
+      if (candidateBackendIds.has(backendNodeId)) continue;
+      if (axNode.ignored === true) continue;
 
-    const axRole = usefulAxRole(axStringValue(axNode.role?.value));
-    const axName = axStringValue(axNode.name?.value) ?? null;
-    if (!isObservableCandidate({ tag: "", attrs: {}, isClickable: false, axRole, axName })) {
-      continue;
+      const axRole = usefulAxRole(axStringValue(axNode.role?.value));
+      const axName = axStringValue(axNode.name?.value) ?? null;
+      if (!isObservableCandidate({ tag: "", attrs: {}, isClickable: false, axRole, axName })) {
+        continue;
+      }
+
+      candidateBackendIds.add(backendNodeId);
+      eligible.push({ axNode, backendNodeId });
     }
 
-    const domInfo = await readAxDomInfo(page, backendNodeId);
-    if (!domInfo) continue;
+    const domInfos = await Promise.all(
+      eligible.map((entry) => readAxDomInfo(page, entry.backendNodeId)),
+    );
 
-    candidates.push({
-      backendNodeId,
-      tag: domInfo.tag,
-      text: clean(domInfo.text, budgets.maxTextChars),
-      attrs: domInfo.attrs,
-      bounds: domInfo.bounds,
-      framePath: "main",
-      frameId: undefined,
-      paintOrder: candidates.length,
-      ax: axNode,
-    });
-    candidateBackendIds.add(backendNodeId);
+    for (let i = 0; i < eligible.length; i += 1) {
+      const domInfo = domInfos[i];
+      if (!domInfo) continue;
+      const entry = eligible[i] as (typeof eligible)[number];
+
+      candidates.push({
+        backendNodeId: entry.backendNodeId,
+        tag: domInfo.tag,
+        text: clean(domInfo.text, budgets.maxTextChars),
+        attrs: domInfo.attrs,
+        bounds: domInfo.bounds,
+        framePath: "main",
+        frameId: undefined,
+        paintOrder: candidates.length,
+        ax: entry.axNode,
+      });
+    }
   }
 
   candidates.sort(

@@ -49,6 +49,13 @@ export async function executeRuntimeAction(
 export interface RunRuntimeActionsOptions extends Omit<ExecuteRuntimeActionOptions, "action"> {
   actions: readonly RuntimeAction[];
   stopOnFailure?: boolean;
+  /**
+   * Stop the batch for a fresh observation after a state-changing action (the
+   * agent loop's default). Set false for caller-supplied action lists (MCP
+   * `run_actions`) that must execute every action in order; the runner still
+   * marks state stale so the next observe refreshes. Default true.
+   */
+  reobserve?: boolean;
   onAction?: (event: {
     action: RuntimeAction;
     result: ActionResult;
@@ -89,8 +96,11 @@ export async function runRuntimeActions(
 
     const nextAction = options.actions[actionIndex + 1];
     if (shouldReobserve(action, executed.result, nextAction?.name)) {
+      // State changed: flag it stale so the runner refreshes. The agent loop
+      // breaks here to re-observe before the next decision; caller-supplied
+      // batches (reobserve:false) keep running every action in order.
       stoppedForObservation = true;
-      break;
+      if (options.reobserve !== false) break;
     }
   }
 

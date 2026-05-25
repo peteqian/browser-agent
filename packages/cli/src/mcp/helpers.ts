@@ -96,6 +96,10 @@ export async function runSessionActions(
   const results: ActionResult[] = [];
   await runner.runActions(actions, {
     stopOnFailure: true,
+    // Caller asked for these exact actions in order; run them all (don't break
+    // mid-batch for a re-observe) so the result reflects every action, not just
+    // the first state-changing one.
+    reobserve: false,
     onAction: async ({ action, result, page, durationMs }) => {
       results.push(result);
       recordActionArtifact(record, action.name, result);

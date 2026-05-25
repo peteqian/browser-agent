@@ -30,6 +30,7 @@ export type AgentProviderOptions = Pick<
   | "effort"
   | "env"
   | "transport"
+  | "decisionMode"
   | "logger"
   | "onCodexRaw"
 >;
@@ -212,6 +213,7 @@ function resolveLlm<TData>(options: SimpleAgentOptions<TData>): {
           effort: options.effort,
           env: options.env,
           transport: options.transport,
+          decisionMode: options.decisionMode,
           logger: options.logger,
         };
 
@@ -236,6 +238,7 @@ function resolveAutoLlm<TData>(options: SimpleAgentOptions<TData>): {
         effort: options.effort,
         env: options.env,
         transport: options.transport,
+        decisionMode: options.decisionMode,
         logger: options.logger,
       });
     } catch (error) {
