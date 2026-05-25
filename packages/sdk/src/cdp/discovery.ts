@@ -88,7 +88,14 @@ function findExecutable(baseDir: string, executableName: string, maxDepth: numbe
 }
 
 function detectChromeForTestingBinary(): string | null {
-  const executableName = process.platform === "win32" ? "chrome.exe" : "Google Chrome for Testing";
+  // The Chrome-for-Testing binary name differs per platform: macOS ships the
+  // branded `.app` binary, Linux installs a plain `chrome`, Windows `chrome.exe`.
+  const executableName =
+    process.platform === "win32"
+      ? "chrome.exe"
+      : process.platform === "darwin"
+        ? "Google Chrome for Testing"
+        : "chrome";
 
   for (const dir of browserCacheDirs()) {
     const found = findExecutable(dir, executableName, 8);
