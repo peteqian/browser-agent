@@ -7,7 +7,7 @@
 TypeScript browser-automation SDK. Raw Chrome DevTools Protocol + an LLM decision loop. Domain-agnostic. The library core consumed by `@peteqian/browser-agent` (CLI + MCP).
 
 [![npm](https://img.shields.io/npm/v/@peteqian/browser-agent-sdk.svg)](https://www.npmjs.com/package/@peteqian/browser-agent-sdk)
-[![CI](https://github.com/peteqian/agent-browser/actions/workflows/ci.yml/badge.svg)](https://github.com/peteqian/agent-browser/actions/workflows/ci.yml)
+[![CI](https://github.com/peteqian/browser-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/peteqian/browser-agent/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 [![Types: TypeScript](https://img.shields.io/badge/types-typescript-blue.svg)](#)
 
@@ -29,7 +29,7 @@ Your model can reason, plan, write code. It can't open a tab, dismiss a cookie b
 
 ## Benchmark
 
-10 tasks across 5 categories; identical task list and judge on both sides. Different driver models. See [`bench/`](https://github.com/peteqian/agent-browser/tree/main/packages/sdk/bench) for methodology, per-task verdicts, raw bundles, and the comparison chart.
+10 tasks across 5 categories; identical task list and judge on both sides. Different driver models. See [`bench/`](https://github.com/peteqian/browser-agent/tree/main/packages/sdk/bench) for methodology, per-task verdicts, raw bundles, and the comparison chart.
 
 ## Install
 
