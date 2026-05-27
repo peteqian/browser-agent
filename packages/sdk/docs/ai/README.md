@@ -8,7 +8,7 @@ This package is a generic TypeScript browser-automation agent. Raw Chrome DevToo
 
 1. [`architecture.md`](./architecture.md) — directory map, runtime topology.
 2. [`contracts.md`](./contracts.md) — public type surface, ownership rules, change protocol.
-3. [`agentic-browsing-architecture.md`](./agentic-browsing-architecture.md) — Vercel `agent-browser` comparison and efficiency roadmap.
+3. [`agentic-browsing-architecture.md`](./agentic-browsing-architecture.md) — Vercel `browser-agent` comparison and efficiency roadmap.
 4. [`commands.md`](./commands.md) — dev/test/build commands and when to run them.
 5. [`conventions.md`](./conventions.md) — editing rules, refactor guidance, what not to touch.
 6. [`troubleshooting.md`](./troubleshooting.md) — Chrome/CDP/MCP failure pointers.

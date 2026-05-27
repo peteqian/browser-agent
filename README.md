@@ -1,4 +1,4 @@
-# agent-browser
+# browser-agent
 
 TypeScript browser-automation. Raw Chrome DevTools Protocol + an LLM decision loop.
 

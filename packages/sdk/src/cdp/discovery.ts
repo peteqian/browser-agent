@@ -45,11 +45,9 @@ function maybePath(path: string): string | null {
 }
 
 function browserCacheDirs(): string[] {
-  const dirs = [
-    process.env.BROWSER_AGENT_BROWSERS_PATH,
-    "~/.browser-agent/browsers",
-    "~/.agent-browser/browsers",
-  ].filter((dir): dir is string => Boolean(dir));
+  const dirs = [process.env.BROWSER_AGENT_BROWSERS_PATH, "~/.browser-agent/browsers"].filter(
+    (dir): dir is string => Boolean(dir),
+  );
   return [...new Set(dirs.map(expandHome))];
 }
 
@@ -163,7 +161,6 @@ function groupsForPlatform(): PatternGroup[] {
           group: "chrome-for-testing",
           paths: [
             "~/.browser-agent/browsers/chrome-*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
-            "~/.agent-browser/browsers/chrome-*/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing",
           ],
         },
         {
@@ -198,10 +195,7 @@ function groupsForPlatform(): PatternGroup[] {
       return [
         {
           group: "chrome-for-testing",
-          paths: [
-            "~/.browser-agent/browsers/chrome-*/chrome-linux*/chrome",
-            "~/.agent-browser/browsers/chrome-*/chrome-linux*/chrome",
-          ],
+          paths: ["~/.browser-agent/browsers/chrome-*/chrome-linux*/chrome"],
         },
         {
           group: "chrome",
@@ -235,10 +229,7 @@ function groupsForPlatform(): PatternGroup[] {
       return [
         {
           group: "chrome-for-testing",
-          paths: [
-            `${local}\\browser-agent\\browsers\\chrome-*\\chrome-win\\chrome.exe`,
-            `${local}\\agent-browser\\browsers\\chrome-*\\chrome-win\\chrome.exe`,
-          ],
+          paths: [`${local}\\browser-agent\\browsers\\chrome-*\\chrome-win\\chrome.exe`],
         },
         {
           group: "chrome",
