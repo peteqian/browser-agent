@@ -22,8 +22,8 @@
     "typecheck": "turbo typecheck",
     "lint": "turbo lint",
     "test": "turbo test",
-    "fmt": "oxfmt",
-    "fmt:check": "oxfmt --check --ignore-path .gitignore",
+    "fmt": "oxfmt --ignore-path .gitignore --ignore-path .oxfmtignore",
+    "fmt:check": "oxfmt --check --ignore-path .gitignore --ignore-path .oxfmtignore",
     "changeset": "changeset",
     "version-packages": "changeset version && bun install",
     "release": "turbo build && node scripts/publish.mjs"
