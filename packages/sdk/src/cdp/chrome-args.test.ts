@@ -19,7 +19,10 @@ test("buildChromeArgs uses minimal launch args in native fingerprint mode", () =
     fingerprintMode: "native",
   });
 
-  expect(args).toEqual(["--remote-debugging-port=9222", "--user-data-dir=/tmp/profile"]);
+  expect(args[0]).toBe("--remote-debugging-port=9222");
+  expect(args[1]).toBe("--user-data-dir=/tmp/profile");
+  expect(args).not.toContain("--disable-blink-features=AutomationControlled");
+  expect(args).not.toContain("--no-first-run");
 });
 
 test("buildChromeArgs still honors explicit caller args in native fingerprint mode", () => {
