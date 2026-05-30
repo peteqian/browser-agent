@@ -1,0 +1,63 @@
+[step 1] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-01.png
+[step 1] plan: Load Booking.com homepage and access the search form for San Francisco with target dates.
+[step 1] action navigate ok=true url=about:blank msg=Navigated to https://www.booking.com
+[step 2] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-02.png
+[step 2] plan: Select San Francisco suggestion and set dates in the calendar on the next observation.
+[step 2] action type_by ok=true url=https://www.booking.com/?chal_t=1779022444958&force_referer= msg=Typed into role=combobox name="Where are you going?" ([287])
+[step 3] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-03.png
+[step 3] plan: Open date picker, choose 2026-06-10 and 2026-06-15, then submit search
+[step 3] action click_by ok=true url=https://www.booking.com/?chal_t=1779022444958&force_referer= msg=Clicked testid="searchbox-dates-container" ([287])
+[step 4] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-04.png
+[step 4] plan: select check-in and check-out dates, then search
+[step 4] action click_by ok=true url=https://www.booking.com/?chal_t=1779022444958&force_referer= msg=Clicked role=button name="Next month" ([306])
+[step 5] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-05.png
+[step 5] plan: Submit search for San Francisco with 2026-06-10 to 2026-06-15
+[step 5] action click_by ok=false url=https://www.booking.com/?chal_t=1779022444958&force_referer= msg=Locator ambiguous: text="10" matched 4 elements. Add 'nth' or tighten scope. Candidates: [58] testid="web-core-property-card"; [65] testid="web-core-property-card"; [309] role=checkbox name="We 10 Jun
+[step 6] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-06.png
+[step 6] plan: Select check-out date June 15, 2026 and submit search
+[step 6] action click_by ok=true url=https://www.booking.com/?chal_t=1779022444958&force_referer= msg=Clicked role=checkbox name="We 10 June 2026" ([309])
+[step 7] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-07.png
+[step 7] plan: click Search to open San Francisco results for the selected dates
+[step 7] action click_by ok=true url=https://www.booking.com/?chal_t=1779022444958&force_referer= msg=Clicked role=checkbox name="Mo 15 June 2026" ([314])
+[step 8] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-08.png
+[step 8] plan: Open search results page and apply price-lowest sort.
+[step 8] action click_by ok=true url=https://www.booking.com/?chal_t=1779022444958&force_referer= msg=Clicked role=button name="Search" ([291])
+[step 9] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-09.png
+[step 9] plan: Open sort options and choose Price (lowest first)
+[step 9] action click_by ok=true url=https://www.booking.com/searchresults.html?ss=San+Francisco&efdco=1&label=gen173nr-10CAEoggI46AdIM1gEaDuIAQGYATO4AQfIAQzYAQPoAQH4AQGIAgGoAgG4Au30ptAGwAIB0gIkY2Q4NWVlZmEtNWYzNi00MGQyLWJmODYtNGY0NDM5YzBjOGZl2AIB4AIB&aid=304142&lang=en-us&sb=1&src_elem=sb&src=index&dest_id=20015732&dest_type=city&ac_position=0&ac_click_type=b&ac_langcode=xu&ac_suggestion_list_length=5&search_selected=true&search_pageview_id=72595ab60bea05f3&ac_meta=GhA3MjU5NWFiNjBiZWEwNWYzIAAoATICeHU6DVNhbiBGcmFuY2lzY28%3D&checkin=2026-06-10&checkout=2026-06-15&group_adults=2&no_rooms=1&group_children=0 msg=Clicked testid="sorters-dropdown-trigger" ([135])
+[step 10] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-10.png
+[step 10] plan: Apply lowest-price sort, then extract top 10 hotel names and prices in display order
+[step 10] action click_by ok=true url=https://www.booking.com/searchresults.html?ss=San+Francisco&efdco=1&label=gen173nr-10CAEoggI46AdIM1gEaDuIAQGYATO4AQfIAQzYAQPoAQH4AQGIAgGoAgG4Au30ptAGwAIB0gIkY2Q4NWVlZmEtNWYzNi00MGQyLWJmODYtNGY0NDM5YzBjOGZl2AIB4AIB&aid=304142&lang=en-us&sb=1&src_elem=sb&src=index&dest_id=20015732&dest_type=city&ac_position=0&ac_click_type=b&ac_langcode=xu&ac_suggestion_list_length=5&search_selected=true&search_pageview_id=72595ab60bea05f3&ac_meta=GhA3MjU5NWFiNjBiZWEwNWYzIAAoATICeHU6DVNhbiBGcmFuY2lzY28%3D&checkin=2026-06-10&checkout=2026-06-15&group_adults=2&no_rooms=1&group_children=0 msg=Clicked role=menuitem name="Price (lowest first)" ([589])
+[step 11] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-11.png
+[step 11] action extract_content ok=true url=https://www.booking.com/searchresults.html?label=gen173nr-10CAEoggI46AdIM1gEaDuIAQGYATO4AQfIAQzYAQPoAQH4AQGIAgGoAgG4Au30ptAGwAIB0gIkY2Q4NWVlZmEtNWYzNi00MGQyLWJmODYtNGY0NDM5YzBjOGZl2AIB4AIB&aid=304142&ss=San+Francisco&efdco=1&lang=en-us&sb=1&src_elem=sb&dest_id=20015732&dest_type=city&ac_position=0&ac_click_type=b&ac_langcode=xu&ac_suggestion_list_length=5&search_selected=true&search_pageview_id=72595ab60bea05f3&checkin=2026-06-10&checkout=2026-06-15&group_adults=2&no_rooms=1&group_children=0&order=price msg=Extracted content for query "Active sort label and top 10 hotels in display order with rank, hotel name, and displayed price": 13778/13778 chars
+[step 12] screenshot -> /Users/applecakes/projects/practice/jobseeker/packages/browser-agent/bench/demos/booking-sf-list/step-12.png
+[step 12] action done ok=true url=https://www.booking.com/searchresults.html?label=gen173nr-10CAEoggI46AdIM1gEaDuIAQGYATO4AQfIAQzYAQPoAQH4AQGIAgGoAgG4Au30ptAGwAIB0gIkY2Q4NWVlZmEtNWYzNi00MGQyLWJmODYtNGY0NDM5YzBjOGZl2AIB4AIB&aid=304142&ss=San+Francisco&efdco=1&lang=en-us&sb=1&src_elem=sb&dest_id=20015732&dest_type=city&ac_position=0&ac_click_type=b&ac_langcode=xu&ac_suggestion_list_length=5&search_selected=true&search_pageview_id=72595ab60bea05f3&checkin=2026-06-10&checkout=2026-06-15&group_adults=2&no_rooms=1&group_children=0&order=price msg=Done (success=true): Active sort label: Price (lowest first)
+
+1. The Utah Inn — €259
+2. Union Hotel — €277
+3. Europa Hotel — €313
+4. Winsor Hotel — €318
+5. Amsterdam Hostel — €319
+6. Boston Hotel — €3
+[terminal] success=true reason=completed
+[terminal] summary:
+Active sort label: Price (lowest first)
+
+1. The Utah Inn — €259
+2. Union Hotel — €277
+3. Europa Hotel — €313
+4. Winsor Hotel — €318
+5. Amsterdam Hostel — €319
+6. Boston Hotel — €325
+7. European Hostel — €352
+8. Hotel North Beach — €360
+9. Warfield Hotel — €363
+10. SF Travelers Inn — €373
+=== FINAL ===
+{
+  "success": true,
+  "reason": "completed",
+  "summary": "Active sort label: Price (lowest first)\n\n1. The Utah Inn — €259\n2. Union Hotel — €277\n3. Europa Hotel — €313\n4. Winsor Hotel — €318\n5. Amsterdam Hostel — €319\n6. Boston Hotel — €325\n7. European Hostel — €352\n8. Hotel North Beach — €360\n9. Warfield Hotel — €363\n10. SF Travelers Inn — €373",
+  "data": null,
+  "steps": 12
+}

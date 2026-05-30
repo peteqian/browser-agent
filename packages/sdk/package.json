@@ -11,14 +11,14 @@
     "llm",
     "sdk"
   ],
-  "homepage": "https://github.com/peteqian/agent-browser#readme",
+  "homepage": "https://github.com/peteqian/browser-agent#readme",
   "bugs": {
-    "url": "https://github.com/peteqian/agent-browser/issues"
+    "url": "https://github.com/peteqian/browser-agent/issues"
   },
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/peteqian/agent-browser.git",
+    "url": "git+https://github.com/peteqian/browser-agent.git",
     "directory": "packages/sdk"
   },
   "files": [

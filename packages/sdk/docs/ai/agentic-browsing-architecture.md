@@ -1,16 +1,16 @@
 # Agentic Browsing Architecture Notes
 
-## Vercel agent-browser Comparison
+## Vercel browser-agent Comparison
 
-We exercised Vercel's `agent-browser` CLI against the SEEK apply task:
+We exercised Vercel's `browser-agent` CLI against the SEEK apply task:
 
-1. `agent-browser chat "..."` is the closest one-shot equivalent, but it is gated on `AI_GATEWAY_API_KEY`.
+1. `browser-agent chat "..."` is the closest one-shot equivalent, but it is gated on `AI_GATEWAY_API_KEY`.
 2. Its primitive layer worked immediately in a headed session:
    - opened the SEEK search URL,
    - returned a compact interactive accessibility snapshot with stable `@e...` refs,
    - clicked the first result by ref,
    - clicked the page's Apply link by ref.
-3. It launched Chrome for Testing from `~/.agent-browser/browsers/...`, keeping automation separate from the user's normal Chrome profile.
+3. It launched Chrome for Testing from `~/.browser-agent/browsers/...`, keeping automation separate from the user's normal Chrome profile.
 
 The useful architectural lesson is not the exact CLI shape. It is that the AI should operate at the task level while the browser layer exposes fast, deterministic primitives against a persistent session.
 

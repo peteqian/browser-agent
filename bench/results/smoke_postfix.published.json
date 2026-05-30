@@ -1,0 +1,98 @@
+{
+  "bundle": {
+    "commit_sha": "5c6878b",
+    "run_started_at": "2026-05-17T07:29:15.494Z",
+    "agent": "@peteqian/browser-agent",
+    "agent_version": "0.0.1",
+    "model": "default",
+    "judge_model": "claude-sonnet-4-5",
+    "records": [
+      {
+        "task_id": "custom-001",
+        "category": "custom",
+        "agent": "@peteqian/browser-agent",
+        "agent_version": "0.0.1",
+        "model": "default",
+        "judge_model": "claude-sonnet-4-5",
+        "started_at": "2026-05-17T07:29:15.494Z",
+        "ended_at": "2026-05-17T07:29:44.594Z",
+        "duration_ms": 23397,
+        "steps": 2,
+        "reason": "completed",
+        "summary": "The H1 reads: Example Domain",
+        "trajectory": "step 1 done=false | thought=Need to open the target page first, then read the H1. | goal=Navigate to example.com and extract the heading text\nstep 1 action=navigate params={\"url\":\"https://example.com\"} url=about:blank ok=true msg=Navigated to https://example.com\nstep 2 done=true | summary=The H1 reads: Example Domain\nstep 2 action=done params={\"success\":true,\"summary\":\"The H1 reads: Example Domain\"} url=https://example.com/ ok=true msg=Done (success=true): The H1 reads: Example Domain",
+        "judgement": {
+          "reasoning": "Summary matches ground truth.",
+          "verdict": true,
+          "failure_reason": null,
+          "impossible_task": false,
+          "reached_captcha": false
+        }
+      },
+      {
+        "task_id": "custom-002",
+        "category": "custom",
+        "agent": "@peteqian/browser-agent",
+        "agent_version": "0.0.1",
+        "model": "default",
+        "judge_model": "claude-sonnet-4-5",
+        "started_at": "2026-05-17T07:29:44.595Z",
+        "ended_at": "2026-05-17T07:30:15.748Z",
+        "duration_ms": 25444,
+        "steps": 2,
+        "reason": "completed",
+        "summary": "The registered example second-level domains are: example.com, example.net, and example.org.",
+        "trajectory": "step 1 done=false | thought=Start by opening the target page to read the listed example domains. | goal=Load IANA help page and extract the registered second-level domains.\nstep 1 action=navigate params={\"url\":\"https://www.iana.org/help/example-domains\"} url=about:blank ok=true msg=Navigated to https://www.iana.org/help/example-domains\nstep 2 done=true | summary=The registered example second-level domains are: example.com, example.net, and example.org.\nstep 2 action=done params={\"success\":true,\"summary\":\"The registered example second-level domains are: example.com, example.net, and example.org.\"} url=https://www.iana.org/help/example-domains ok=true msg=Done (success=true): The registered example second-level domains are: example.com, example.net, and example.org.",
+        "judgement": {
+          "reasoning": "Summary matches ground truth.",
+          "verdict": true,
+          "failure_reason": null,
+          "impossible_task": false,
+          "reached_captcha": false
+        }
+      },
+      {
+        "task_id": "qa-001",
+        "category": "qa",
+        "agent": "@peteqian/browser-agent",
+        "agent_version": "0.0.1",
+        "model": "default",
+        "judge_model": "claude-sonnet-4-5",
+        "started_at": "2026-05-17T07:30:15.748Z",
+        "ended_at": "2026-05-17T07:31:29.381Z",
+        "duration_ms": 68289,
+        "steps": 5,
+        "reason": "completed",
+        "summary": "1992",
+        "trajectory": "step 1 done=false | thought=Need to open the target page first | goal=Navigate to the HTTP 404 Wikipedia page and locate the history/explanation year\nstep 1 action=navigate params={\"url\":\"https://en.wikipedia.org/wiki/HTTP_404\"} url=about:blank ok=true msg=Navigated to https://en.wikipedia.org/wiki/HTTP_404\nstep 2 done=false | thought=Need the year from the page’s history/explanation section, so I’ll search the visible text for the introduction statement. | goal=Locate the sentence mentioning when 404 was introduced\nstep 2 action=find_text params={\"text\":\"introduced\"} url=https://en.wikipedia.org/wiki/HTTP_404 ok=true msg=Scrolled to text: introduced\nstep 3 done=false\nstep 4 done=false | thought=Need the specific year from the article text; extracting content is the fastest reliable step. | goal=Locate the sentence that states when 404 was introduced.\nstep 4 action=extract_content params={\"query\":\"introduced 404 status code history explanation year\"} url=https://en.wikipedia.org/wiki/HTTP_404 ok=true msg=Extracted content for query \"introduced 404 status code history explanation year\": 14352/14352 chars\nstep 5 done=true | summary=1992\nstep 5 action=done params={\"success\":true,\"summary\":\"1992\"} url=https://en.wikipedia.org/wiki/HTTP_404 ok=true msg=Done (success=true): 1992",
+        "judgement": {
+          "reasoning": "Matches ground truth.",
+          "verdict": true,
+          "failure_reason": null,
+          "impossible_task": false,
+          "reached_captcha": false
+        }
+      }
+    ]
+  },
+  "summary": {
+    "agent": "@peteqian/browser-agent",
+    "agent_version": "0.0.1",
+    "model": "default",
+    "attempted": 3,
+    "passed": 3,
+    "pass_rate": 1,
+    "by_category": {
+      "custom": {
+        "attempted": 2,
+        "passed": 2
+      },
+      "qa": {
+        "attempted": 1,
+        "passed": 1
+      }
+    },
+    "avg_duration_ms": 39043,
+    "avg_steps": 3
+  }
+}

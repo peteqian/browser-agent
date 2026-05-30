@@ -1,0 +1,220 @@
+{
+  "commit_sha": "5c6878b2b033fec90eb06da483c01a964d75009d",
+  "run_started_at": "2026-05-17T09:00:45.721Z",
+  "agent": "browser-use",
+  "agent_version": "0.11.7",
+  "model": "gemma4:31b-cloud(ollama)",
+  "judge_model": "claude-cli",
+  "records": [
+    {
+      "task_id": "custom-001",
+      "category": "custom",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T08:59:46.011Z",
+      "ended_at": "2026-05-17T08:59:46.011Z",
+      "duration_ms": 40184,
+      "steps": 3,
+      "reason": "completed",
+      "summary": "The exact text of the H1 heading on https://example.com is 'Example Domain'.",
+      "judgement": {
+        "reasoning": "Summary matches ground truth exactly.",
+        "verdict": true,
+        "failure_reason": null,
+        "impossible_task": false,
+        "reached_captcha": false
+      }
+    },
+    {
+      "task_id": "custom-002",
+      "category": "custom",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T08:59:53.804Z",
+      "ended_at": "2026-05-17T08:59:53.804Z",
+      "duration_ms": 39198,
+      "steps": 5,
+      "reason": "completed",
+      "summary": "The registered example second-level domains mentioned on the page are example.com and example.org. (Note: per RFC 2606 referenced on the page, example.net is also reserved for this purpose).",
+      "judgement": {
+        "reasoning": "Agent listed example.com and example.org in main answer, mentioned example.net only parenthetically as note. Ground truth requires all three. Partial match, incomplete.",
+        "verdict": false,
+        "failure_reason": "Missing example.net in primary answer",
+        "impossible_task": false,
+        "reached_captcha": false
+      }
+    },
+    {
+      "task_id": "qa-001",
+      "category": "qa",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T08:59:59.806Z",
+      "ended_at": "2026-05-17T08:59:59.806Z",
+      "duration_ms": 36481,
+      "steps": 5,
+      "reason": "completed",
+      "summary": "The provided Wikipedia page for 'HTTP 404' does not state the year the 404 status code was introduced. It mentions that the term 'soft 404' was introduced in 2004, but this is distinct from the introduction of the status code itself.",
+      "judgement": {
+        "reasoning": "Agent did not provide 1992; reported page lacks info. Mismatch with ground truth.",
+        "verdict": false,
+        "failure_reason": "Did not extract correct year 1992",
+        "impossible_task": false,
+        "reached_captcha": false
+      }
+    },
+    {
+      "task_id": "qa-002",
+      "category": "qa",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T09:00:06.083Z",
+      "ended_at": "2026-05-17T09:00:06.083Z",
+      "duration_ms": 37692,
+      "steps": 3,
+      "reason": "completed",
+      "summary": "The HTTP status returned for https://httpbin.org/status/200 is 200 OK.",
+      "judgement": {
+        "reasoning": "Agent reports 200, matches ground truth.",
+        "verdict": true,
+        "failure_reason": null,
+        "impossible_task": false,
+        "reached_captcha": false
+      }
+    },
+    {
+      "task_id": "multi-001",
+      "category": "multi-step",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T09:00:11.789Z",
+      "ended_at": "2026-05-17T09:00:11.789Z",
+      "duration_ms": 59718,
+      "steps": 5,
+      "reason": "completed",
+      "summary": "The task was not completed because the agent was terminated due to repeated formatting errors. I reached the Hacker News homepage and located the 'past' link (index [72]), but was unable to navigate to the page and retrieve the title of the top link as requested.",
+      "judgement": {
+        "reasoning": "Agent admit task not completed, never retrieved title.",
+        "verdict": false,
+        "failure_reason": "Agent terminated before navigating to past page; no title reported.",
+        "impossible_task": false,
+        "reached_captcha": false
+      }
+    },
+    {
+      "task_id": "multi-002",
+      "category": "multi-step",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T09:00:19.689Z",
+      "ended_at": "2026-05-17T09:00:19.689Z",
+      "duration_ms": 23502,
+      "steps": 5,
+      "reason": "completed",
+      "summary": "The task was not completed. I successfully navigated to https://www.wikipedia.org, but the agent was terminated before I could click the English Wikipedia link, search for 'Chrome DevTools Protocol', and retrieve the first sentence of the article.",
+      "judgement": {
+        "reasoning": "Agent admit not complete task. No first sentence retrieved.",
+        "verdict": false,
+        "failure_reason": "Agent terminated before completing search and retrieval",
+        "impossible_task": false,
+        "reached_captcha": false
+      }
+    },
+    {
+      "task_id": "form-001",
+      "category": "form",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T09:00:25.225Z",
+      "ended_at": "2026-05-17T09:00:25.225Z",
+      "duration_ms": 120456,
+      "steps": 7,
+      "reason": "completed",
+      "summary": "I was unable to complete the request. Although I navigated to DuckDuckGo and entered the query 'site:example.com', I encountered technical errors that prevented me from submitting the search and extracting the title of the first organic result.",
+      "judgement": {
+        "reasoning": "Agent reported failure, no result extracted.",
+        "verdict": false,
+        "failure_reason": "Could not submit search / extract result due to technical errors",
+        "impossible_task": false,
+        "reached_captcha": false
+      }
+    },
+    {
+      "task_id": "form-002",
+      "category": "form",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T09:00:33.914Z",
+      "ended_at": "2026-05-17T09:00:33.914Z",
+      "duration_ms": 98534,
+      "steps": 5,
+      "reason": "completed",
+      "summary": "The task was not completed because the agent failed to provide valid outputs in the required format. I reached the target page (https://httpbin.org/forms/post), but I was unable to fill the customer name with 'Bench User', select 'medium' pizza size, check 'cheese', or submit the form and report the resulting JSON.",
+      "judgement": {
+        "reasoning": "Agent admits failure to complete form submission and did not report echoed JSON.",
+        "verdict": false,
+        "failure_reason": "Agent could not produce valid actions to fill/submit form",
+        "impossible_task": false,
+        "reached_captcha": false
+      }
+    },
+    {
+      "task_id": "stealth-001",
+      "category": "stealth",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T09:00:39.593Z",
+      "ended_at": "2026-05-17T09:00:39.593Z",
+      "duration_ms": 541205,
+      "steps": 28,
+      "reason": "completed",
+      "summary": "I was unable to complete the request. I navigated to https://nowsecure.nl/ but became stuck on the Cloudflare bot check ('Verify you are human' widget). Despite multiple attempts to wait for automatic redirection and interacting with the challenge widget, the page did not proceed to the success message. Therefore, I cannot report the success message text.",
+      "judgement": {
+        "reasoning": "Agent hit Cloudflare bot check, could not pass, reported failure honestly.",
+        "verdict": false,
+        "failure_reason": "Blocked by Cloudflare bot check",
+        "impossible_task": false,
+        "reached_captcha": true
+      }
+    },
+    {
+      "task_id": "stealth-002",
+      "category": "stealth",
+      "agent": "browser-use",
+      "agent_version": "0.11.7",
+      "model": "gemma4:31b-cloud(ollama)",
+      "judge_model": "claude-cli",
+      "started_at": "2026-05-17T09:00:45.705Z",
+      "ended_at": "2026-05-17T09:00:45.705Z",
+      "duration_ms": 13222,
+      "steps": 2,
+      "reason": "completed",
+      "summary": "The WebDriver test row on https://bot.sannysoft.com/ shows 'missing (passed)'.",
+      "judgement": {
+        "reasoning": "Plausible result for sannysoft bot test; 'missing (passed)' is standard cell value for WebDriver row when not detected.",
+        "verdict": true,
+        "failure_reason": null,
+        "impossible_task": false,
+        "reached_captcha": false
+      }
+    }
+  ]
+}

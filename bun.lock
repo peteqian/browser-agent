@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "agent-browser",
+      "name": "browser-agent",
       "devDependencies": {
         "@changesets/cli": "^2.27.0",
         "@types/node": "^25.1.0",
