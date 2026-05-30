@@ -13,7 +13,6 @@
 ### Patch Changes
 
 - ccf21f1: Fix eight correctness bugs found in review:
-
   - MCP `run_actions` now runs every action in a caller-supplied batch instead of stopping after the first state-changing one (it previously dropped the rest but reported success).
   - `extract_content` no longer rejects a second, differently-queried extraction on the same page as a duplicate.
   - The native tool-calling adapter now returns a result for every `tool_call` when a model emits several, avoiding a failed follow-up request.
