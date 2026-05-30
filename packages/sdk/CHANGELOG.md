@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3
+
+### Patch Changes
+
+- e90c518: Add examples for `fingerprintMode: "native"` — reuse signed-in browser profiles without stealth patches or `navigator.webdriver` detection.
+
 ## 0.1.2
 
 ### Patch Changes

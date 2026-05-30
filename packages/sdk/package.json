@@ -1,6 +1,6 @@
 {
   "name": "@peteqian/browser-agent-sdk",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "TypeScript browser automation SDK. Raw CDP + LLM loop. Used by @peteqian/browser-agent (CLI + MCP).",
   "keywords": [
     "agent",
