@@ -105,6 +105,26 @@ next MCP session. The CLI mirrors this with `browser-agent --profile booking`.
 Use `browser-agent profile list` / `show <name>` / `clear <name>` to inspect
 or remove profile directories when they are no longer needed.
 
+For sites that rely on browser fingerprint trust, use a real headed browser
+surface instead of the default stealth patches. The SDK, CLI, MCP, and dashboard
+launch paths support `fingerprintMode: "native"` / `--fingerprint-mode native`,
+which preserves the browser's own JS-visible fingerprint and skips the
+hard-coded user-agent/client-hints override. When Browser Agent owns the Chrome
+process, native mode also uses only essential DevTools/profile launch flags
+instead of the broader automation-tuned default arg set. Pair it with a
+persistent profile or a real Chrome CDP endpoint:
+
+```bash
+browser-agent "Report the current browser fingerprint" \
+  --cdp-url http://127.0.0.1:9222 \
+  --fingerprint-mode native
+```
+
+Then use the `fingerprint_report` action to inspect the exposed user agent,
+`navigator.webdriver`, plugins, language, screen, timezone, and WebGL values.
+This makes manual challenge flows debuggable, but it is not a guarantee that a
+third-party anti-bot provider will accept the session.
+
 If the host loses the `sessionId` while the MCP daemon is still running, use
 `list_sessions` to see live sessions or `attach_session({ profile: "booking" })`
 to recover the current page and latest `@eN` observation.

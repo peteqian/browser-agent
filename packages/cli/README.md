@@ -32,6 +32,21 @@ Named profiles live under `~/.browser-agent/profiles/<name>/`. Use
 `browser-agent profile list`, `browser-agent profile show <name>`, and
 `browser-agent profile clear <name>` to inspect or remove them.
 
+For a real headed browser that a user can inspect or manually complete checks
+in, attach by CDP and preserve the native fingerprint:
+
+```bash
+browser-agent "Run fingerprint_report and summarize it" \
+  --cdp-url http://127.0.0.1:9222 \
+  --fingerprint-mode native
+```
+
+`native` skips the stealth init script and the fixed user-agent/client-hints
+override. For owned Chrome launches, it also avoids the broader
+automation-tuned default arg set. Use it with a persistent profile when a site
+ties trust to the exact browser, cookies, localStorage, IP, and human
+interaction history.
+
 `browser-agent dashboard` starts a local HTTP dashboard at
 `http://127.0.0.1:3217`. It writes `~/.browser-agent/daemon.json` so later CLI
 or MCP processes can discover and health-check the running dashboard daemon.
@@ -42,6 +57,10 @@ MCP clients can use the `daemon_*` tools to work with sessions owned by that
 dashboard process from a fresh MCP connection: launch/list/attach sessions,
 read snapshots/events/artifacts, run named extraction/screenshot/PDF tools, run
 generic actions, and close sessions.
+
+For sessions owned by the stdio MCP server, `close_session` does a normal
+shutdown by default. Pass `force: true` to kill the launched browser process
+tree when Chrome or a child process is stuck.
 
 ## MCP server
 

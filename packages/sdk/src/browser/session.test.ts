@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import type { BrowserEvent } from "./events";
 import type { BrowserPermissionGrant } from "./profile";
 import { BrowserEventBus } from "./events";
-import { BrowserSession, Page } from "./session";
+import { BrowserSession, Page, resolveCdpEndpoint } from "./session";
 import { reconnectIfNeeded } from "./session-reconnect";
 import { configurePermissions } from "./session-setup";
 import type { CDPClient } from "../cdp/client";
@@ -101,13 +101,38 @@ describe("Page navigation watchdog", () => {
 });
 
 describe("BrowserSession reconnect watchdog", () => {
+  test("resolveCdpEndpoint leaves websocket endpoints unchanged", async () => {
+    await expect(resolveCdpEndpoint("ws://127.0.0.1:9222/devtools/browser/test")).resolves.toBe(
+      "ws://127.0.0.1:9222/devtools/browser/test",
+    );
+  });
+
+  test("resolveCdpEndpoint resolves http DevTools endpoints", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL | Request) => {
+      expect(String(url)).toBe("http://127.0.0.1:9222/json/version");
+      return new Response(
+        JSON.stringify({ webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/browser/test" }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+    try {
+      await expect(resolveCdpEndpoint("http://127.0.0.1:9222")).resolves.toBe(
+        "ws://127.0.0.1:9222/devtools/browser/test",
+      );
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   test("constructs remote CDP sessions without local launch ownership", () => {
     const session = new BrowserSession({
       cdpUrl: "ws://127.0.0.1:9222/devtools/browser/test",
-      profile: { reconnectOnDisconnect: false },
+      profile: { fingerprintMode: "native", reconnectOnDisconnect: false },
     });
 
     expect(session.profile.cdpUrl).toBe("ws://127.0.0.1:9222/devtools/browser/test");
+    expect(session.profile.fingerprintMode).toBe("native");
     expect(session.profile.isRemoteConnection()).toBe(true);
     expect(session.profile.isManagedLocal()).toBe(false);
     expect(session.profile.reconnectOnDisconnect).toBe(false);

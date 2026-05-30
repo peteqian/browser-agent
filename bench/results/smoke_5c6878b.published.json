@@ -1,0 +1,98 @@
+{
+  "bundle": {
+    "commit_sha": "5c6878b",
+    "run_started_at": "2026-05-17T07:15:16.603Z",
+    "agent": "@peteqian/browser-agent",
+    "agent_version": "0.0.1",
+    "model": "default",
+    "judge_model": "claude-sonnet-4-5",
+    "records": [
+      {
+        "task_id": "custom-001",
+        "category": "custom",
+        "agent": "@peteqian/browser-agent",
+        "agent_version": "0.0.1",
+        "model": "default",
+        "judge_model": "claude-sonnet-4-5",
+        "started_at": "2026-05-17T07:15:16.603Z",
+        "ended_at": "2026-05-17T07:15:58.362Z",
+        "duration_ms": 35953,
+        "steps": 2,
+        "reason": "completed",
+        "summary": "",
+        "trajectory": "step 1 done=false\nstep 1 action=navigate params={\"url\":\"https://example.com\"} url=about:blank ok=true msg=Navigated to https://example.com\nstep 2 done=true",
+        "judgement": {
+          "reasoning": "Agent terminated done but provided empty summary. No H1 text reported.",
+          "verdict": false,
+          "failure_reason": "Empty summary; did not report H1 text",
+          "impossible_task": false,
+          "reached_captcha": false
+        }
+      },
+      {
+        "task_id": "custom-002",
+        "category": "custom",
+        "agent": "@peteqian/browser-agent",
+        "agent_version": "0.0.1",
+        "model": "default",
+        "judge_model": "claude-sonnet-4-5",
+        "started_at": "2026-05-17T07:15:58.362Z",
+        "ended_at": "2026-05-17T07:16:57.856Z",
+        "duration_ms": 53848,
+        "steps": 4,
+        "reason": "completed",
+        "summary": "",
+        "trajectory": "step 1 done=false\nstep 1 action=navigate params={\"url\":\"https://www.iana.org/help/example-domains\"} url=about:blank ok=true msg=Navigated to https://www.iana.org/help/example-domains\nstep 2 done=false\nstep 3 done=false\nstep 4 done=true",
+        "judgement": {
+          "reasoning": "Agent summary empty, no answer provided.",
+          "verdict": false,
+          "failure_reason": "No final answer in summary",
+          "impossible_task": false,
+          "reached_captcha": false
+        }
+      },
+      {
+        "task_id": "qa-001",
+        "category": "qa",
+        "agent": "@peteqian/browser-agent",
+        "agent_version": "0.0.1",
+        "model": "default",
+        "judge_model": "claude-sonnet-4-5",
+        "started_at": "2026-05-17T07:16:57.856Z",
+        "ended_at": "2026-05-17T07:18:48.387Z",
+        "duration_ms": 104608,
+        "steps": 8,
+        "reason": "completed",
+        "summary": "",
+        "trajectory": "step 1 done=false\nstep 1 action=navigate params={\"url\":\"https://en.wikipedia.org/wiki/HTTP_404\"} url=about:blank ok=true msg=Navigated to https://en.wikipedia.org/wiki/HTTP_404\nstep 2 done=false\nstep 3 done=false\nstep 4 done=false\nstep 5 done=false\nstep 5 action=extract_content params={\"query\":\"history introduced year 404 status code\"} url=https://en.wikipedia.org/wiki/HTTP_404 ok=true msg=Extracted content for query \"history introduced year 404 status code\": 14352/14352 chars\nstep 6 done=false\nstep 6 action=extract_content params={\"query\":\"year introduced 404 status code history explanation\"} url=https://en.wikipedia.org/wiki/HTTP_404 ok=true msg=Extracted content for query \"year introduced 404 status code history explanation\": 14352/14352 chars\nstep 7 done=false\nstep 7 action=extract_content params={\"query\":\"According to history/explanation, what year was the 404 status code introduced?\"} url=https://en.wikipedia.org/wiki/HTTP_404 ok=true msg=Extracted content for query \"According to history/explanation, what year was the 404 status code introduced?\": 14352/14352 chars\nstep 8 done=true",
+        "judgement": {
+          "reasoning": "Empty summary, no answer given.",
+          "verdict": false,
+          "failure_reason": "Agent terminated without providing the year.",
+          "impossible_task": false,
+          "reached_captcha": false
+        }
+      }
+    ]
+  },
+  "summary": {
+    "agent": "@peteqian/browser-agent",
+    "agent_version": "0.0.1",
+    "model": "default",
+    "attempted": 3,
+    "passed": 0,
+    "pass_rate": 0,
+    "by_category": {
+      "custom": {
+        "attempted": 2,
+        "passed": 0
+      },
+      "qa": {
+        "attempted": 1,
+        "passed": 0
+      }
+    },
+    "avg_duration_ms": 64803,
+    "avg_steps": 5
+  }
+}

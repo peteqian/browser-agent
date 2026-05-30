@@ -46,7 +46,7 @@ import {
 } from "./handlers/extraction";
 import { handleSaveAsPdf, handleScreenshot } from "./handlers/capture";
 import { handleFocusArea } from "./handlers/focus-area";
-import { handleDone, handleEval } from "./handlers/meta";
+import { handleDone, handleEval, handleFingerprintReport } from "./handlers/meta";
 import { handleFindByRole, handleFindByText, handleFindByTestid } from "./handlers/find";
 import { handleDialogHandle } from "./handlers/dialog";
 import {
@@ -175,6 +175,8 @@ export async function executeAction(
         return await handleDblclick(ctx, action);
       case "eval":
         return await handleEval(ctx, action);
+      case "fingerprint_report":
+        return await handleFingerprintReport(ctx);
       case "find_by_role":
         return handleFindByRole(ctx, action);
       case "find_by_text":

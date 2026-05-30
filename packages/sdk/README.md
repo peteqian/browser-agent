@@ -61,6 +61,9 @@ try {
 ```
 
 That's it. Default provider auto-resolves to whatever's signed in locally (Codex → Claude → OpenAI/Anthropic by API key).
+Use `browser.close()` for normal cleanup. If the browser is wedged or an
+external challenge flow leaves Chrome hanging, use `browser.kill()` to force
+kill the launched browser process tree.
 
 Chrome launches in CDP debug mode by default. For authenticated one-shot tasks,
 use a named profile and keep the task as the only thing the agent has to solve:
@@ -75,6 +78,28 @@ const result = await runTask({
 
 The profile is stored under `~/.browser-agent/profiles/gmail/` and reuses
 cookies/localStorage on later runs.
+
+For real-browser challenge diagnostics, attach to an existing Chrome DevTools
+endpoint and preserve the browser's native fingerprint:
+
+```ts
+const browser = new Browser({
+  cdpUrl: process.env.BROWSER_AGENT_CDP_URL, // http://127.0.0.1:9222 or ws://...
+  fingerprintMode: "native",
+});
+
+const result = await runTask({
+  task: "Run fingerprint_report and summarize the exposed browser signals.",
+  browser,
+});
+```
+
+`native` mode skips the stealth init script and the fixed user-agent/client-hints
+override. For owned Chrome launches, it also avoids the broad automation-tuned
+default arg set and keeps only the essential DevTools/profile flags plus caller
+provided options. It is intended for user-controlled headed/profile browsers
+where cookies, storage, IP, and manual interaction need to stay tied to the same
+browser identity.
 
 ### Pin a provider
 
@@ -192,6 +217,9 @@ Examples:
 - [`examples/remote-cdp.ts`](./examples/remote-cdp.ts) — attach to an existing DevTools endpoint.
 - [`examples/extraction.ts`](./examples/extraction.ts) — chunk and dedupe extracted page content.
 - [`examples/downloads.ts`](./examples/downloads.ts), [`examples/upload.ts`](./examples/upload.ts), and [`examples/storage-state.ts`](./examples/storage-state.ts) cover local browser workflows.
+- [`examples/seek-apply.ts`](./examples/seek-apply.ts) — search and apply on SEEK with a saved profile.
+- [`examples/seek-signed-in-task.ts`](./examples/seek-signed-in-task.ts) — reuse a signed-in SEEK profile via `runTask`.
+- [`examples/seek-signed-in-session.ts`](./examples/seek-signed-in-session.ts) — low-level `BrowserSession` with a signed-in profile.
 
 The MCP example lives in [`packages/cli/examples/mcp.ts`](../cli/examples/mcp.ts).
 

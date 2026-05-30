@@ -21,6 +21,8 @@ export const TRANSPORTS: readonly (TransportId | "auto")[] = [
 export const ENVS: readonly (EnvId | "auto")[] = ["auto", "local", "cloud"];
 export const ENGINES = ["chrome", "lightpanda"] as const;
 export type EngineId = (typeof ENGINES)[number];
+export const FINGERPRINT_MODES = ["stealth", "native"] as const;
+export type FingerprintMode = (typeof FINGERPRINT_MODES)[number];
 
 export interface CliOptions {
   task: string;
@@ -43,7 +45,9 @@ export interface CliOptions {
   outputFile?: string;
   probe: boolean;
   engine: EngineId;
+  cdpUrl?: string;
   autoConsent: boolean;
+  fingerprintMode: FingerprintMode;
   profile?: string;
   storageStatePath?: string;
   summary: boolean;
@@ -68,7 +72,9 @@ interface ConfigFile {
   env?: EnvId | "auto";
   outputFile?: string;
   engine?: EngineId;
+  cdpUrl?: string;
   autoConsent?: boolean;
+  fingerprintMode?: FingerprintMode;
   profile?: string;
   storageStatePath?: string;
   allowedDomains?: string[];
@@ -147,8 +153,10 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
       "max-failures": { type: "string" },
       "output-file": { type: "string" },
       engine: { type: "string" },
+      "cdp-url": { type: "string" },
       "auto-consent": { type: "boolean" },
       "no-auto-consent": { type: "boolean" },
+      "fingerprint-mode": { type: "string" },
       profile: { type: "string" },
       "storage-state": { type: "string" },
       "allowed-domains": { type: "string" },
@@ -188,6 +196,13 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
   const engine: EngineId = values.engine
     ? parseEnum<EngineId>(values.engine as string, ENGINES, "--engine")
     : (config.engine ?? "chrome");
+  const fingerprintMode: FingerprintMode = values["fingerprint-mode"]
+    ? parseEnum<FingerprintMode>(
+        values["fingerprint-mode"] as string,
+        FINGERPRINT_MODES,
+        "--fingerprint-mode",
+      )
+    : (config.fingerprintMode ?? "stealth");
 
   const headless = values["no-headless"]
     ? false
@@ -248,7 +263,9 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
     outputFile: (values["output-file"] as string | undefined) ?? config.outputFile,
     probe: Boolean(values.probe),
     engine,
+    cdpUrl: (values["cdp-url"] as string | undefined) ?? config.cdpUrl,
     autoConsent,
+    fingerprintMode,
     profile: (values.profile as string | undefined) ?? config.profile,
     storageStatePath: (values["storage-state"] as string | undefined) ?? config.storageStatePath,
     summary: Boolean(values.summary),

@@ -4,7 +4,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createServer } from "node:net";
 
-import { BrowserProfile, type BrowserPermissionGrant } from "../browser/profile";
+import {
+  BrowserProfile,
+  type BrowserFingerprintMode,
+  type BrowserPermissionGrant,
+} from "../browser/profile";
 import { discoverBrowserExecutable, installBrowser, type BrowserChannel } from "./discovery";
 import { buildChromeArgs, buildLightpandaArgs } from "./chrome-args";
 
@@ -19,6 +23,7 @@ export interface LaunchOptions {
   acceptLanguage?: string;
   locale?: string;
   timezoneId?: string;
+  fingerprintMode?: BrowserFingerprintMode;
   extensionPaths?: string[];
   port?: number;
   docker?: boolean;
@@ -28,6 +33,7 @@ export interface LaunchOptions {
   autoInstallBrowser?: boolean;
   downloadsDir?: string;
   permissionGrants?: BrowserPermissionGrant[];
+  initScripts?: string[];
   storageStatePath?: string;
   saveStorageStateOnClose?: boolean;
   autoConsent?: boolean;
@@ -143,16 +149,43 @@ async function waitForDebuggerEndpoint(
 }
 
 async function terminateChild(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null) return;
-  child.kill("SIGTERM");
-  await new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      resolve();
-    }, 2_000);
+  if (hasExited(child)) return;
+  signalChildTree(child, "SIGTERM");
+  const exited = await waitForExit(child, 2_000);
+  if (exited) return;
+  signalChildTree(child, "SIGKILL");
+  await waitForExit(child, 1_000);
+}
+
+async function killChild(child: ChildProcess): Promise<void> {
+  if (hasExited(child)) return;
+  signalChildTree(child, "SIGKILL");
+  await waitForExit(child, 1_000);
+}
+
+function hasExited(child: ChildProcess): boolean {
+  return child.exitCode !== null || child.signalCode !== null;
+}
+
+function signalChildTree(child: ChildProcess, signal: NodeJS.Signals): void {
+  if (process.platform !== "win32" && typeof child.pid === "number") {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      // Fall through to signaling the direct child below.
+    }
+  }
+  child.kill(signal);
+}
+
+async function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
+  if (hasExited(child)) return true;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(false), timeoutMs);
     child.once("exit", () => {
       clearTimeout(timer);
-      resolve();
+      resolve(true);
     });
   });
 }
@@ -202,6 +235,7 @@ async function launchAttempt(
     acceptLanguage?: string;
     locale?: string;
     timezoneId?: string;
+    fingerprintMode?: BrowserFingerprintMode;
     extensionPaths?: string[];
     port?: number;
   },
@@ -220,6 +254,7 @@ async function launchAttempt(
         headless: profile.headless,
         docker: profile.docker,
         disableSecurity: profile.disableSecurity,
+        fingerprintMode: profile.fingerprintMode,
         proxyServer: profile.proxyServer,
         proxyBypass: profile.proxyBypass,
         userAgent: profile.userAgent,
@@ -230,9 +265,19 @@ async function launchAttempt(
 
   const child = spawn(executablePath, args, {
     stdio: ["ignore", "pipe", "pipe"],
+    detached: process.platform !== "win32",
   });
 
-  const webSocketDebuggerUrl = await waitForDebuggerEndpoint(child, debuggerAddress, 20_000);
+  let webSocketDebuggerUrl: string;
+  try {
+    webSocketDebuggerUrl = await waitForDebuggerEndpoint(child, debuggerAddress, 20_000);
+  } catch (error) {
+    await killChild(child);
+    if (ownsUserDataDir && userDataDir) {
+      rmSync(userDataDir, { recursive: true, force: true });
+    }
+    throw error;
+  }
 
   return {
     process: child,
@@ -248,9 +293,7 @@ async function launchAttempt(
       }
     },
     kill: async () => {
-      if (child.exitCode === null) {
-        child.kill("SIGKILL");
-      }
+      await killChild(child);
       if (ownsUserDataDir && userDataDir) {
         rmSync(userDataDir, { recursive: true, force: true });
       }
@@ -285,6 +328,7 @@ export async function launchBrowser(options: LaunchOptions = {}): Promise<Launch
         acceptLanguage: attemptOptions.acceptLanguage,
         locale: attemptOptions.locale,
         timezoneId: attemptOptions.timezoneId,
+        fingerprintMode: attemptOptions.fingerprintMode,
         extensionPaths: attemptOptions.extensionPaths,
         userDataDir: attemptOptions.userDataDir,
         port: attemptOptions.port,
@@ -329,6 +373,7 @@ export async function launchBrowserFromProfile(profile: BrowserProfile): Promise
     acceptLanguage: profile.acceptLanguage,
     locale: profile.locale,
     timezoneId: profile.timezoneId,
+    fingerprintMode: profile.fingerprintMode,
     extensionPaths: profile.extensionPaths,
     port: profile.remoteDebuggingPort,
     docker: profile.docker,

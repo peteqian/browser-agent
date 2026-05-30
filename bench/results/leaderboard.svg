@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 460" width="880" height="460">
+  <style>
+    .root { font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Helvetica, Arial, sans-serif; }
+    .title { font-size: 22px; font-weight: 700; fill: #f5f5f7; letter-spacing: -0.012em; }
+    .subtitle { font-size: 13px; font-weight: 400; fill: #a1a1a6; }
+    .axis-label { font-size: 12px; font-weight: 500; fill: #8e8e93; font-variant-numeric: tabular-nums; }
+    .bar-label { font-size: 13px; font-weight: 600; fill: #f5f5f7; }
+    .bar-sub { font-size: 11px; font-weight: 400; fill: #8e8e93; }
+    .bar-value { font-size: 16px; font-weight: 600; fill: #f5f5f7; font-variant-numeric: tabular-nums; }
+    .footnote { font-size: 11px; font-weight: 400; fill: #8e8e93; }
+    text { dominant-baseline: middle; }
+  </style>
+  <rect width="880" height="460" fill="#000000"/>
+  <g class="root">
+  <text x="80" y="44" class="title">Pass-rate, 10-task browser benchmark</text>
+  <text x="80" y="68" class="subtitle">Same tasks. Same judge (claude-sonnet-4-5). Cold browser per task.</text>
+  <line x1="80" y1="100" x2="80" y2="370" stroke="#3a3a3c" stroke-width="1"/>
+  <line x1="80" y1="370" x2="840" y2="370" stroke="#3a3a3c" stroke-width="1"/>
+  <line x1="80" y1="370" x2="840" y2="370" stroke="#1c1c1e" stroke-width="1"/>
+  <text x="68" y="370" text-anchor="end" class="axis-label">0%</text>
+  <line x1="80" y1="302.5" x2="840" y2="302.5" stroke="#1c1c1e" stroke-width="1"/>
+  <text x="68" y="302.5" text-anchor="end" class="axis-label">25%</text>
+  <line x1="80" y1="235" x2="840" y2="235" stroke="#1c1c1e" stroke-width="1"/>
+  <text x="68" y="235" text-anchor="end" class="axis-label">50%</text>
+  <line x1="80" y1="167.5" x2="840" y2="167.5" stroke="#1c1c1e" stroke-width="1"/>
+  <text x="68" y="167.5" text-anchor="end" class="axis-label">75%</text>
+  <line x1="80" y1="100" x2="840" y2="100" stroke="#1c1c1e" stroke-width="1"/>
+  <text x="68" y="100" text-anchor="end" class="axis-label">100%</text>
+  <rect x="230" y="181" width="80" height="189" rx="6" fill="#0a84ff"/>
+  <text x="270" y="167" text-anchor="middle" class="bar-value">7/10%</text>
+  <text x="270" y="392" text-anchor="middle" class="bar-label">browser-agent</text>
+  <text x="270" y="410" text-anchor="middle" class="bar-sub">codex SDK</text>
+  <rect x="610" y="289" width="80" height="81" rx="6" fill="#636366"/>
+  <text x="650" y="275" text-anchor="middle" class="bar-value">3/10%</text>
+  <text x="650" y="392" text-anchor="middle" class="bar-label">browser-use</text>
+  <text x="650" y="410" text-anchor="middle" class="bar-sub">0.11.7 · gemma4:31b-cloud</text>
+  <text x="80" y="442" class="footnote">Higher is better. Bar value shows tasks passed of attempted.</text>
+  </g>
+</svg>

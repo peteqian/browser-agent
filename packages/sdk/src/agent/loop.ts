@@ -76,7 +76,11 @@ async function runLoopInner<TData = unknown>(
   const ownsSession = !options.session && !options.page;
   const session =
     options.session ??
-    (ownsSession ? await BrowserSession.launch(options.launch ?? {}) : undefined);
+    (ownsSession
+      ? options.cdpUrl
+        ? await BrowserSession.connect(options.cdpUrl, { profile: options.launch })
+        : await BrowserSession.launch(options.launch ?? {})
+      : undefined);
   let unsubscribeBrowserEvents: (() => void) | undefined;
 
   const actionHistory: Array<{ action: string; result: string }> = [];

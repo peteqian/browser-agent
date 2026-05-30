@@ -233,6 +233,8 @@ const ACTION_DESCRIPTIONS = {
   hover: "Move the mouse over element [index].",
   dblclick: "Double-click element [index].",
   eval: "Evaluate a JavaScript expression. ONLY for computing values the DOM cannot tell you (window globals, framework state, page-side math). Do NOT use to scrape text or prices via CSS selectors — call `extract_content` instead. Result is sliced to 4000 chars.",
+  fingerprint_report:
+    "Return the browser's JS-visible fingerprint signals (UA, webdriver, languages, plugins, screen, timezone, WebGL). Use to diagnose real-vs-stealth browser state.",
   find_by_role:
     "Return indices of snapshot elements matching ARIA role (and optional accessible name).",
   find_by_text:

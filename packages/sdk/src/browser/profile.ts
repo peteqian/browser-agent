@@ -22,6 +22,15 @@ export interface BrowserProfileInit {
   acceptLanguage?: string;
   locale?: string;
   timezoneId?: string;
+  /**
+   * Browser fingerprint policy.
+   * - "stealth": install lightweight headless-detection patches and a stable
+   *   user-agent override.
+   * - "native": preserve the browser's own JS-visible surface. Use this when
+   *   attaching to a real headed/profile browser and a human may complete
+   *   site checks manually.
+   */
+  fingerprintMode?: BrowserFingerprintMode;
   extensionPaths?: string[];
   remoteDebuggingPort?: number;
   docker?: boolean;
@@ -51,6 +60,8 @@ export interface BrowserProfileInit {
   initScripts?: readonly string[];
 }
 
+export type BrowserFingerprintMode = "stealth" | "native";
+
 export class BrowserProfile {
   cdpUrl: string | undefined;
   executablePath: string | undefined;
@@ -63,6 +74,7 @@ export class BrowserProfile {
   acceptLanguage: string | undefined;
   locale: string | undefined;
   timezoneId: string | undefined;
+  fingerprintMode: BrowserFingerprintMode;
   extensionPaths: string[];
   remoteDebuggingPort: number | undefined;
   docker: boolean;
@@ -96,6 +108,7 @@ export class BrowserProfile {
     this.acceptLanguage = init.acceptLanguage;
     this.locale = init.locale;
     this.timezoneId = init.timezoneId;
+    this.fingerprintMode = init.fingerprintMode ?? "stealth";
     this.extensionPaths = init.extensionPaths ?? [];
     this.remoteDebuggingPort = init.remoteDebuggingPort;
     this.docker = init.docker ?? false;

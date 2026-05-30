@@ -23,6 +23,11 @@
 
 ### Patch Changes
 
+- Add CLI, dashboard, and MCP support for native browser fingerprint sessions
+  via `--fingerprint-mode native`, `--cdp-url`, profile persistence, and
+  real-browser diagnostic workflows.
+- Add MCP `close_session` force cleanup. Passing `force: true` kills the owned
+  browser process tree when Chrome or a child process is stuck.
 - Add persistent profile management with `browser-agent profile list`, `show`,
   and `clear`.
 - Add the local HTTP dashboard daemon (`browser-agent dashboard`) with

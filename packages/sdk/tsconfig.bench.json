@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "tsBuildInfoFile": ".tsbuildinfo.bench"
+  },
+  "include": ["bench/src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}
