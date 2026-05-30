@@ -53,6 +53,7 @@ export interface SimpleAgentOptions<TData = unknown> extends Partial<AgentProvid
   initialActions?: unknown[];
   initial_actions?: unknown[];
   headless?: boolean;
+  cdpUrl?: string;
   userDataDir?: string;
   storageStatePath?: string;
   saveStorageStateOnClose?: boolean;
@@ -145,6 +146,7 @@ export class Agent<TData = unknown> {
     const agentOptions: AgentOptions<TData> = {
       ...options,
       launch,
+      cdpUrl: options.cdpUrl,
       session,
       decide,
       transportResolution: resolution ?? options.transportResolution,

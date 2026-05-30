@@ -57,6 +57,12 @@ export function wireCdpHandlers(client: CDPClient, session: BrowserSession): voi
 
   client.on("Target.attachedToTarget", (params) => {
     const event = params as AttachedTargetEvent;
+    // Chrome 144+ pauses every auto-attached target "waiting for the debugger"
+    // even with waitForDebuggerOnStart:false. Resume ALL target types here,
+    // immediately and independently of enableDomains (which is page-only and may
+    // fail) — an unresumed worker/other/popup target freezes the whole browser
+    // ("Debugger paused in another tab").
+    void client.send("Runtime.runIfWaitingForDebugger", {}, event.sessionId).catch(() => {});
     if (event.targetInfo.type !== "page") return;
     session.targetToSession.set(event.targetInfo.targetId, event.sessionId);
     session.sessionToTarget.set(event.sessionId, event.targetInfo.targetId);

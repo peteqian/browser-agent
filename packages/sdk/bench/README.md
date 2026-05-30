@@ -74,6 +74,22 @@ bun run bench -- --tasks 3        # first 3 tasks only (smoke)
 bun run bench -- --judge openai   # use OpenAI judge instead of Claude
 ```
 
+To verify a real headed Chrome / Cloudflare-sensitive path, start Chrome with
+remote debugging, pass the HTTP DevTools endpoint, and run only the stealth
+tasks:
+
+```bash
+bun run bench -- \
+  --category stealth \
+  --headful \
+  --cdp-url http://127.0.0.1:9222 \
+  --fingerprint-mode native
+```
+
+`native` mode intentionally preserves the attached browser's own fingerprint.
+It does not install a captcha bypass; a human may still need to complete an
+interactive challenge in the headed browser.
+
 For browser-use side-by-side, see [`runners/browser-use.md`](./runners/browser-use.md).
 
 ## Methodology — fair comparison rules

@@ -99,9 +99,11 @@ export async function runTaskCommand(argv: string[]): Promise<number> {
     stepTimeoutMs: opts.stepTimeoutMs,
     actionTimeoutMs: opts.actionTimeoutMs,
     maxFailures: opts.maxFailures,
+    cdpUrl: opts.cdpUrl,
     launch: {
       headless: opts.headless,
       autoConsent: opts.autoConsent,
+      fingerprintMode: opts.fingerprintMode,
       userDataDir: browserPaths.userDataDir,
       storageStatePath: browserPaths.storageStatePath,
       initScripts: opts.initScripts,

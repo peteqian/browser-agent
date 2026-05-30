@@ -119,7 +119,13 @@ async function disposeSession(sessionId: string): Promise<void> {
   const record = sessions.get(sessionId);
   if (!record) return;
   sessions.delete(sessionId);
-  await record.session.close().catch(() => {});
+  try {
+    await record.session.close();
+  } catch {
+    if (typeof record.session.kill === "function") {
+      await record.session.kill().catch(() => {});
+    }
+  }
 }
 
 export async function sweepIdleSessions(now: number = Date.now()): Promise<string[]> {

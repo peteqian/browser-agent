@@ -23,6 +23,10 @@ Flags:
   --no-headless              Show the browser window.
   --headless                 Run headless (default).
   --engine <e>               ${ENGINES.join(" | ")}  (default: chrome)
+  --cdp-url <url>            Attach to an existing Chrome DevTools endpoint
+                             (http://host:port or ws://...).
+  --fingerprint-mode <m>     stealth | native  (default: stealth). Use native
+                             for real headed/profile browsers and manual checks.
   --auto-consent             Auto-dismiss common cookie/consent banners (default).
   --no-auto-consent          Disable auto consent handling.
   --profile <name>           Named persistent browser profile under ~/.browser-agent.

@@ -113,7 +113,7 @@ export class BrowserSession {
     }
 
     this.setState("connecting");
-    await this.connectToEndpoint(this.getSocketUrl());
+    await this.connectToEndpoint(await resolveCdpEndpoint(this.getSocketUrl()));
     this.setState("connected");
   }
 
@@ -394,6 +394,22 @@ export class BrowserSession {
   }
 }
 
+export async function resolveCdpEndpoint(cdpUrl: string): Promise<string> {
+  if (cdpUrl.startsWith("ws://") || cdpUrl.startsWith("wss://")) return cdpUrl;
+  if (!cdpUrl.startsWith("http://") && !cdpUrl.startsWith("https://")) return cdpUrl;
+
+  const baseUrl = cdpUrl.replace(/\/$/, "");
+  const response = await fetch(`${baseUrl}/json/version`);
+  if (!response.ok) {
+    throw new Error(`Failed to resolve CDP endpoint from ${baseUrl}: HTTP ${response.status}`);
+  }
+  const data = (await response.json()) as { webSocketDebuggerUrl?: string };
+  if (!data.webSocketDebuggerUrl) {
+    throw new Error(`CDP endpoint ${baseUrl} did not return webSocketDebuggerUrl`);
+  }
+  return data.webSocketDebuggerUrl;
+}
+
 function createProfile(options: BrowserSessionOptions): BrowserProfile {
   const launch = options.launch;
   return new BrowserProfile({
@@ -410,6 +426,7 @@ function createProfile(options: BrowserSessionOptions): BrowserProfile {
           acceptLanguage: launch.acceptLanguage,
           locale: launch.locale,
           timezoneId: launch.timezoneId,
+          fingerprintMode: launch.fingerprintMode,
           extensionPaths: launch.extensionPaths,
           remoteDebuggingPort: launch.port,
           docker: launch.docker,
@@ -419,6 +436,7 @@ function createProfile(options: BrowserSessionOptions): BrowserProfile {
           autoInstallBrowser: launch.autoInstallBrowser,
           downloadsDir: launch.downloadsDir,
           permissionGrants: launch.permissionGrants ?? options.profile?.permissionGrants,
+          initScripts: launch.initScripts ?? options.profile?.initScripts,
           storageStatePath: launch.storageStatePath ?? options.profile?.storageStatePath,
           saveStorageStateOnClose:
             launch.saveStorageStateOnClose ?? options.profile?.saveStorageStateOnClose,

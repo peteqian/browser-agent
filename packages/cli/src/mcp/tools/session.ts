@@ -26,8 +26,10 @@ export function registerSessionTools(server: McpServer): void {
       description: "Launch a Chromium session. Returns sessionId for subsequent tool calls.",
       inputSchema: {
         headless: z.boolean().optional().default(true),
+        cdpUrl: z.string().min(1).optional(),
         startUrl: z.string().optional(),
         autoConsent: z.boolean().optional().default(true),
+        fingerprintMode: z.enum(["stealth", "native"]).optional().default("stealth"),
         profile: z.string().min(1).optional(),
         userDataDir: z.string().min(1).optional(),
         storageStatePath: z.string().min(1).optional(),
@@ -56,8 +58,10 @@ export function registerSessionTools(server: McpServer): void {
     },
     async ({
       headless,
+      cdpUrl,
       startUrl,
       autoConsent,
+      fingerprintMode,
       profile,
       userDataDir,
       storageStatePath,
@@ -70,9 +74,10 @@ export function registerSessionTools(server: McpServer): void {
       allowedDomains,
     }) => {
       const paths = resolveBrowserPaths({ profile, userDataDir, storageStatePath });
-      const session = await BrowserSession.launch({
+      const profileOptions = {
         headless,
         autoConsent,
+        fingerprintMode,
         userDataDir: paths.userDataDir,
         storageStatePath: paths.storageStatePath,
         saveStorageStateOnClose,
@@ -81,7 +86,10 @@ export function registerSessionTools(server: McpServer): void {
         locale,
         timezoneId,
         acceptLanguage,
-      });
+      };
+      const session = cdpUrl
+        ? await BrowserSession.connect(cdpUrl, { profile: profileOptions })
+        : await BrowserSession.launch(profileOptions);
       const page = await session.newPage();
       const sessionId = nextSessionId();
       const now = Date.now();
@@ -232,15 +240,24 @@ export function registerSessionTools(server: McpServer): void {
   registerTool(
     "close_session",
     {
-      description: "Close a Chromium session and release resources.",
-      inputSchema: { sessionId: z.string() },
+      description:
+        "Close a Chromium session and release resources. Set force=true to kill the browser process tree.",
+      inputSchema: { sessionId: z.string(), force: z.boolean().optional().default(false) },
     },
-    async ({ sessionId }) => {
+    async ({ sessionId, force }) => {
       const record = getSession(sessionId);
-      recordSessionEvent(record, { kind: "lifecycle", name: "close_session", ok: true }, sessionId);
-      await record.session.close();
+      recordSessionEvent(
+        record,
+        { kind: "lifecycle", name: force ? "kill_session" : "close_session", ok: true },
+        sessionId,
+      );
+      if (force) {
+        await record.session.kill();
+      } else {
+        await record.session.close();
+      }
       deleteSession(sessionId);
-      return jsonResult({ closed: true });
+      return jsonResult({ closed: true, force });
     },
   );
 

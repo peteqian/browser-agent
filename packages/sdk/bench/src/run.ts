@@ -10,12 +10,16 @@ import type { BenchTask, RunBundle, TaskRunRecord } from "./types";
 
 interface CliArgs {
   tasksLimit?: number;
+  taskId?: string;
+  category?: BenchTask["category"];
   judgeProvider?: JudgeOptions["provider"];
   judgeModel?: string;
   agentProvider?: string;
   agentModel?: string;
   outFile?: string;
   headful?: boolean;
+  cdpUrl?: string;
+  fingerprintMode?: "stealth" | "native";
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -24,12 +28,16 @@ function parseArgs(argv: string[]): CliArgs {
     const a = argv[i];
     const next = argv[i + 1];
     if (a === "--tasks") out.tasksLimit = Number(next);
+    else if (a === "--task-id") out.taskId = next;
+    else if (a === "--category") out.category = next as BenchTask["category"];
     else if (a === "--judge") out.judgeProvider = next as never;
     else if (a === "--judge-model") out.judgeModel = next;
     else if (a === "--provider") out.agentProvider = next;
     else if (a === "--model") out.agentModel = next;
     else if (a === "--out") out.outFile = next;
     else if (a === "--headful") out.headful = true;
+    else if (a === "--cdp-url") out.cdpUrl = next;
+    else if (a === "--fingerprint-mode") out.fingerprintMode = parseFingerprintMode(next);
     if (a?.startsWith("--") && next && !next.startsWith("--") && a !== "--headful") i++;
   }
   return out;
@@ -40,7 +48,15 @@ async function main(): Promise<void> {
   const here = dirname(fileURLToPath(import.meta.url));
   const tasksPath = resolve(here, "../tasks/tasks.json");
   const allTasks = JSON.parse(await readFile(tasksPath, "utf8")) as BenchTask[];
-  const tasks = args.tasksLimit ? allTasks.slice(0, args.tasksLimit) : allTasks;
+  const filteredTasks = allTasks.filter((task) => {
+    if (args.taskId && task.task_id !== args.taskId) return false;
+    if (args.category && task.category !== args.category) return false;
+    return true;
+  });
+  const tasks = args.tasksLimit ? filteredTasks.slice(0, args.tasksLimit) : filteredTasks;
+  if (tasks.length === 0) {
+    throw new Error("No benchmark tasks matched the requested filters.");
+  }
 
   const commit = safeCommit();
   const agentVersion = await readPackageVersion();
@@ -66,6 +82,8 @@ async function main(): Promise<void> {
       provider: args.agentProvider,
       model: args.agentModel,
       headless: !args.headful,
+      cdpUrl: args.cdpUrl,
+      fingerprintMode: args.fingerprintMode,
     });
     let judgement;
     try {
@@ -121,6 +139,11 @@ async function main(): Promise<void> {
     : resolve(outDir, `peteqian_${commit}_${Date.now()}.json`);
   await writeFile(outFile, JSON.stringify({ bundle, summary: row }, null, 2));
   console.log(`\nwrote ${outFile}`);
+}
+
+function parseFingerprintMode(value: string | undefined): "stealth" | "native" {
+  if (value === "stealth" || value === "native") return value;
+  throw new Error("--fingerprint-mode must be either stealth or native");
 }
 
 function safeCommit(): string {
