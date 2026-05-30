@@ -66,6 +66,8 @@
     "example:downloads": "bun run examples/downloads.ts",
     "example:upload": "bun run examples/upload.ts",
     "example:storage-state": "bun run examples/storage-state.ts",
+    "example:seek-signed-in-task": "bun run examples/seek-signed-in-task.ts",
+    "example:seek-signed-in-session": "bun run examples/seek-signed-in-session.ts",
     "bench": "bun run bench/src/run.ts",
     "bench:smoke": "bun run bench/src/run.ts --tasks 3",
     "docs": "typedoc",

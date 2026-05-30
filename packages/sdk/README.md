@@ -217,6 +217,9 @@ Examples:
 - [`examples/remote-cdp.ts`](./examples/remote-cdp.ts) — attach to an existing DevTools endpoint.
 - [`examples/extraction.ts`](./examples/extraction.ts) — chunk and dedupe extracted page content.
 - [`examples/downloads.ts`](./examples/downloads.ts), [`examples/upload.ts`](./examples/upload.ts), and [`examples/storage-state.ts`](./examples/storage-state.ts) cover local browser workflows.
+- [`examples/seek-apply.ts`](./examples/seek-apply.ts) — search and apply on SEEK with a saved profile.
+- [`examples/seek-signed-in-task.ts`](./examples/seek-signed-in-task.ts) — reuse a signed-in SEEK profile via `runTask`.
+- [`examples/seek-signed-in-session.ts`](./examples/seek-signed-in-session.ts) — low-level `BrowserSession` with a signed-in profile.
 
 The MCP example lives in [`packages/cli/examples/mcp.ts`](../cli/examples/mcp.ts).
 
