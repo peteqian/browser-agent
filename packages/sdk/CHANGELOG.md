@@ -55,6 +55,18 @@ connection closed: initialize response` because the bin never linked.
 
 ### Added
 
+- Add native browser fingerprint mode for owned Chrome launches and CDP
+  attachments. Native mode skips stealth init scripts, fixed user-agent/client
+  hints overrides, and broad automation-tuned Chrome default args so headed
+  profile sessions can preserve the browser's real JS-visible surface.
+- Add `fingerprint_report` diagnostic action for inspecting browser-exposed
+  signals such as `navigator.webdriver`, user agent data, plugins, WebGL,
+  screen, viewport, locale, and timezone.
+- Add `Browser.kill()` and process-tree cleanup for launched Chrome sessions.
+  Owned browsers now launch in a separate process group on non-Windows, use
+  graceful `SIGTERM` on close, and fall back to `SIGKILL` for stuck children.
+- Add CDP URL and native fingerprint options to the benchmark runner so headed
+  real-browser sessions can be measured from the same harness.
 - `createDecide({ provider, ... })` consolidates per-provider factory selection. Replaces duplicated switches in CLI and MCP entry points. Supported providers: `codex`, `openai`, `anthropic`.
 - `AgentEvent` discriminated union and `onEvent` callback. Emits `decision`, `action`, `action_start`, `loop_nudge`, `terminal`, and other events in order. `onStep` retained as a thin shim.
 - `DecisionTelemetry` and `TokenUsage` types. `Decision.telemetry` is filled by built-in OpenAI and Anthropic adapters (latency, model, token counts including cached). Codex CLI adapter leaves it undefined.
