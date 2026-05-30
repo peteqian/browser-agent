@@ -1,0 +1,89 @@
+{
+  "name": "@peteqian/browser-agent-sdk",
+  "version": "0.1.2",
+  "description": "TypeScript browser automation SDK. Raw CDP + LLM loop. Used by @peteqian/browser-agent (CLI + MCP).",
+  "keywords": [
+    "agent",
+    "automation",
+    "browser",
+    "cdp",
+    "chrome-devtools",
+    "llm",
+    "sdk"
+  ],
+  "homepage": "https://github.com/peteqian/browser-agent#readme",
+  "bugs": {
+    "url": "https://github.com/peteqian/browser-agent/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/peteqian/browser-agent.git",
+    "directory": "packages/sdk"
+  },
+  "files": [
+    "dist",
+    "package.json",
+    "README.md",
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./internal": {
+      "types": "./dist/internal.d.ts",
+      "import": "./dist/internal.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc -p tsconfig.build.json --noEmit",
+    "lint": "oxlint --report-unused-disable-directives",
+    "lint:fix": "oxlint --fix",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check --ignore-path .gitignore",
+    "test": "bun test",
+    "typecheck:examples": "tsc -p tsconfig.examples.json --noEmit",
+    "example:goto": "bun run examples/goto.ts",
+    "example:agent": "bun run examples/agent.ts",
+    "example:simple-agent": "bun run examples/simple-agent.ts",
+    "example:typed-output": "bun run examples/typed-output.ts",
+    "example:custom-action": "bun run examples/custom-action.ts",
+    "example:remote-cdp": "bun run examples/remote-cdp.ts",
+    "example:openai": "bun run examples/openai-agent.ts",
+    "example:claude-sdk": "bun run examples/claude-sdk.ts",
+    "example:codex-sdk": "bun run examples/codex-sdk.ts",
+    "example:events": "bun run examples/events.ts",
+    "example:extraction": "bun run examples/extraction.ts",
+    "example:downloads": "bun run examples/downloads.ts",
+    "example:upload": "bun run examples/upload.ts",
+    "example:storage-state": "bun run examples/storage-state.ts",
+    "bench": "bun run bench/src/run.ts",
+    "bench:smoke": "bun run bench/src/run.ts --tasks 3",
+    "docs": "typedoc",
+    "docs:watch": "typedoc --watch"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.126",
+    "@anthropic-ai/sdk": "^0.92.0",
+    "@openai/codex-sdk": "^0.128.0",
+    "devtools-protocol": "^0.0.1617013",
+    "openai": "^6.35.0",
+    "ws": "^8.20.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "typedoc": "^0.28.19"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

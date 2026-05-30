@@ -43,6 +43,6 @@ jobs:
       - uses: actions/upload-artifact@v5
         with:
           name: dist
-          path: dist
+          path: packages/*/dist
           if-no-files-found: error
           retention-days: 7

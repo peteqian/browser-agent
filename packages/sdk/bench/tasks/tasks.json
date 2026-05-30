@@ -1,0 +1,56 @@
+[
+  {
+    "task_id": "custom-001",
+    "category": "custom",
+    "confirmed_task": "Go to https://example.com and report the exact text of the H1 heading.",
+    "answer": "Example Domain"
+  },
+  {
+    "task_id": "custom-002",
+    "category": "custom",
+    "confirmed_task": "Open https://www.iana.org/help/example-domains and report the registered example second-level domains (the .com, .net, .org ones).",
+    "answer": "example.com, example.net, example.org"
+  },
+  {
+    "task_id": "qa-001",
+    "category": "qa",
+    "confirmed_task": "On https://en.wikipedia.org/wiki/HTTP_404 what year was the 404 status code introduced according to the page's history / explanation? Report the year only.",
+    "answer": "1992"
+  },
+  {
+    "task_id": "qa-002",
+    "category": "qa",
+    "confirmed_task": "Open https://httpbin.org/status/200 and report the HTTP status displayed or returned. Use the page response.",
+    "answer": "200"
+  },
+  {
+    "task_id": "multi-001",
+    "category": "multi-step",
+    "confirmed_task": "Go to https://news.ycombinator.com, find the link to the page that lists the past front-page stories ('past'), open it, and report the title of the link at the very top of that list."
+  },
+  {
+    "task_id": "multi-002",
+    "category": "multi-step",
+    "confirmed_task": "Open https://www.wikipedia.org, click the link for the English Wikipedia, then search for the article 'Chrome DevTools Protocol' and report the first sentence of that article."
+  },
+  {
+    "task_id": "form-001",
+    "category": "form",
+    "confirmed_task": "Go to https://duckduckgo.com, type the query 'site:example.com' into the search box and submit it. Report the title of the first organic result."
+  },
+  {
+    "task_id": "form-002",
+    "category": "form",
+    "confirmed_task": "Open https://httpbin.org/forms/post. Fill the customer name field with 'Bench User', pick pizza size 'medium', check 'cheese' as a topping, then submit. Report the JSON 'form' object echoed back."
+  },
+  {
+    "task_id": "stealth-001",
+    "category": "stealth",
+    "confirmed_task": "Open https://nowsecure.nl/. Wait for the page to finish its bot check and report the success message text shown after the check passes."
+  },
+  {
+    "task_id": "stealth-002",
+    "category": "stealth",
+    "confirmed_task": "Open https://bot.sannysoft.com/ and report whether the WebDriver test row shows 'passed' or 'failed' (the cell value)."
+  }
+]

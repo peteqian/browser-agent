@@ -1,6 +1,6 @@
 # MCP
 
-Status: PARTIAL. Core session and direct browser tools exist; cleanup, artifact listing, and timeout hardening remain.
+Status: DONE. Core session tools, direct browser tools, cleanup, artifact listing, and dashboard-daemon bridge tools are implemented and verified.
 
 ## Goal
 
@@ -17,6 +17,10 @@ Expose browser-agent capabilities to MCP clients without stdout/logging interfer
 
 - MCP server exposes session launch/close, tab management, direct browser actions, extraction, screenshots, PDFs, and autonomous `run_agent`.
 - MCP direct tools share the same action/browser runtime as the agent loop.
+- MCP sessions are swept after idle timeouts and can be shut down cleanly in tests.
+- Screenshot/PDF tools record filesystem artifact paths, and `list_artifacts` returns them in creation order.
+- Dashboard-owned sessions are reachable from fresh MCP processes through `daemon_*` tools, including session launch/attach/list, snapshot, extraction, screenshot/PDF, artifact listing, action execution, events, and close.
+- The HTTP dashboard exposes session events, snapshots, artifacts, and action execution without stdout interference.
 
 ## Rules
 
@@ -26,7 +30,7 @@ Expose browser-agent capabilities to MCP clients without stdout/logging interfer
 
 ## Acceptance Criteria
 
-- `bun run mcp` starts cleanly.
+- [x] `bun run mcp` starts cleanly.
 - [x] MCP direct tools and agent tools share the same action/browser runtime.
-- Sessions have cleanup/timeouts that prevent stale browser processes.
-- Artifact-producing tools return explicit local paths.
+- [x] Sessions have cleanup/timeouts that prevent stale browser processes.
+- [x] Artifact-producing tools return explicit local paths.

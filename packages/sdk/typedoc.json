@@ -1,0 +1,21 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts", "src/internal.ts"],
+  "entryPointStrategy": "expand",
+  "out": "docs/api",
+  "tsconfig": "tsconfig.json",
+  "name": "@peteqian/browser-agent-sdk",
+  "includeVersion": true,
+  "readme": "docs/index.md",
+  "excludePrivate": true,
+  "excludeInternal": false,
+  "excludeExternals": true,
+  "categorizeByGroup": true,
+  "navigation": {
+    "includeCategories": true,
+    "includeGroups": true
+  },
+  "sort": ["source-order"],
+  "githubPages": false,
+  "hideGenerator": true
+}

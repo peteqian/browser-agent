@@ -6,8 +6,12 @@ dist/
 .env
 .env.local
 .agents/
-docs/api/
+packages/*/docs/api/
+apps/*/docs/api/
 .tsbuildinfo
 .tsbuildinfo.build
-bench/results/*.json
-!bench/results/*.published.json
+packages/*/bench/results/*.json
+apps/*/bench/results/*.json
+!packages/*/bench/results/*.published.json
+!apps/*/bench/results/*.published.json
+booking-annotated.png
