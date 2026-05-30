@@ -148,11 +148,13 @@ export async function enableDomains(
       sessionId,
     );
   }
-  await client.send(
-    "Page.addScriptToEvaluateOnNewDocument",
-    { source: STEALTH_INIT_SCRIPT },
-    sessionId,
-  );
+  if (profile.fingerprintMode === "stealth") {
+    await client.send(
+      "Page.addScriptToEvaluateOnNewDocument",
+      { source: STEALTH_INIT_SCRIPT },
+      sessionId,
+    );
+  }
   if (profile.autoConsent) {
     await client.send(
       "Page.addScriptToEvaluateOnNewDocument",
@@ -164,42 +166,44 @@ export async function enableDomains(
     if (source.length === 0) continue;
     await client.send("Page.addScriptToEvaluateOnNewDocument", { source }, sessionId);
   }
-  // Always override UA + UA-Client-Hints so we don't ship "HeadlessChrome"
-  // when running headless. Bot detectors compare UA against
-  // Sec-CH-UA headers and any inconsistency flips us to degraded layouts.
-  const defaultUserAgent =
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-  const userAgent = profile.userAgent ?? defaultUserAgent;
-  await client
-    .send(
-      "Emulation.setUserAgentOverride",
-      {
-        userAgent,
-        acceptLanguage: profile.acceptLanguage ?? "en-US,en;q=0.9",
-        platform: "MacIntel",
-        userAgentMetadata: {
-          brands: [
-            { brand: "Google Chrome", version: "131" },
-            { brand: "Chromium", version: "131" },
-            { brand: "Not_A Brand", version: "24" },
-          ],
-          fullVersionList: [
-            { brand: "Google Chrome", version: "131.0.6778.86" },
-            { brand: "Chromium", version: "131.0.6778.86" },
-            { brand: "Not_A Brand", version: "24.0.0.0" },
-          ],
-          platform: "macOS",
-          platformVersion: "14.5.0",
-          architecture: "arm",
-          model: "",
-          mobile: false,
-          bitness: "64",
-          wow64: false,
+  if (profile.fingerprintMode === "stealth") {
+    // Override UA + UA-Client-Hints so headless mode does not ship
+    // "HeadlessChrome". Native mode intentionally skips this so a real
+    // browser/profile keeps its own coherent fingerprint.
+    const defaultUserAgent =
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+    const userAgent = profile.userAgent ?? defaultUserAgent;
+    await client
+      .send(
+        "Emulation.setUserAgentOverride",
+        {
+          userAgent,
+          acceptLanguage: profile.acceptLanguage ?? "en-US,en;q=0.9",
+          platform: "MacIntel",
+          userAgentMetadata: {
+            brands: [
+              { brand: "Google Chrome", version: "131" },
+              { brand: "Chromium", version: "131" },
+              { brand: "Not_A Brand", version: "24" },
+            ],
+            fullVersionList: [
+              { brand: "Google Chrome", version: "131.0.6778.86" },
+              { brand: "Chromium", version: "131.0.6778.86" },
+              { brand: "Not_A Brand", version: "24.0.0.0" },
+            ],
+            platform: "macOS",
+            platformVersion: "14.5.0",
+            architecture: "arm",
+            model: "",
+            mobile: false,
+            bitness: "64",
+            wow64: false,
+          },
         },
-      },
-      sessionId,
-    )
-    .catch(() => {});
+        sessionId,
+      )
+      .catch(() => {});
+  }
   if (profile.locale) {
     await client
       .send("Emulation.setLocaleOverride", { locale: profile.locale }, sessionId)
@@ -212,6 +216,11 @@ export async function enableDomains(
   }
   await client.send("Runtime.enable", {}, sessionId);
   await client.send("DOM.enable", {}, sessionId);
+  // Chrome 144+ pauses auto-attached targets "waiting for the debugger" even
+  // with waitForDebuggerOnStart:false. If we never resume them the tab freezes
+  // (Chrome shows "Debugger paused in another tab"). Resume here — last, after
+  // all init scripts/overrides are registered — so the target proceeds.
+  await client.send("Runtime.runIfWaitingForDebugger", {}, sessionId).catch(() => {});
 }
 
 export async function saveStorageState(

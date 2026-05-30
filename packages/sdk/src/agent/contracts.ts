@@ -358,6 +358,8 @@ export interface AgentOptions<TData = unknown> {
    */
   control?: AgentControl;
   signal?: AbortSignal;
+  /** Existing Chrome DevTools endpoint when the loop owns a remote/real browser connection. */
+  cdpUrl?: string;
   /** Browser launch options when the loop owns the session (no `page`/`session` given). */
   launch?: LaunchOptions;
   /** URL to navigate to before the first decision. */

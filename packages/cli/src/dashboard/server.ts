@@ -278,6 +278,7 @@ function removeDashboardManifest(pid: number, expected?: DashboardManifest): voi
 async function launchSession(input: unknown) {
   const body = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
   const profile = typeof body.profile === "string" ? body.profile : undefined;
+  const cdpUrl = typeof body.cdpUrl === "string" ? body.cdpUrl : undefined;
   const userDataDir = typeof body.userDataDir === "string" ? body.userDataDir : undefined;
   const storageStatePath =
     typeof body.storageStatePath === "string" ? body.storageStatePath : undefined;
@@ -286,6 +287,10 @@ async function launchSession(input: unknown) {
   const startUrl = typeof body.startUrl === "string" ? body.startUrl : undefined;
   const headless = typeof body.headless === "boolean" ? body.headless : true;
   const autoConsent = typeof body.autoConsent === "boolean" ? body.autoConsent : true;
+  const fingerprintMode: "stealth" | "native" =
+    body.fingerprintMode === "native" || body.fingerprintMode === "stealth"
+      ? body.fingerprintMode
+      : "stealth";
   const executablePath = typeof body.executablePath === "string" ? body.executablePath : undefined;
   const channel = parseBrowserChannel(body.channel);
   const locale = typeof body.locale === "string" ? body.locale : undefined;
@@ -293,9 +298,10 @@ async function launchSession(input: unknown) {
   const acceptLanguage = typeof body.acceptLanguage === "string" ? body.acceptLanguage : undefined;
   const allowedDomains = parseAllowedDomainsInput(body.allowedDomains);
   const paths = resolveBrowserPaths({ profile, userDataDir, storageStatePath });
-  const session = await BrowserSession.launch({
+  const profileOptions = {
     headless,
     autoConsent,
+    fingerprintMode,
     userDataDir: paths.userDataDir,
     storageStatePath: paths.storageStatePath,
     saveStorageStateOnClose,
@@ -304,7 +310,10 @@ async function launchSession(input: unknown) {
     locale,
     timezoneId,
     acceptLanguage,
-  });
+  };
+  const session = cdpUrl
+    ? await BrowserSession.connect(cdpUrl, { profile: profileOptions })
+    : await BrowserSession.launch(profileOptions);
   const page = await session.newPage();
   const sessionId = nextSessionId();
   const now = Date.now();

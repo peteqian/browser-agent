@@ -1,3 +1,5 @@
+import type { BrowserFingerprintMode } from "../browser/profile";
+
 // These flags suppress anti-automation fingerprints, reduce background noise,
 // and keep the browser stable under aggressive CDP use.
 
@@ -115,6 +117,7 @@ export interface BuildChromeArgsOptions {
   headless?: boolean;
   docker?: boolean;
   disableSecurity?: boolean;
+  fingerprintMode?: BrowserFingerprintMode;
   remoteDebuggingPort: number;
   userDataDir: string;
   proxyServer?: string;
@@ -142,11 +145,15 @@ function sandboxMustBeDisabled(docker: boolean | undefined): boolean {
 }
 
 export function buildChromeArgs(options: BuildChromeArgsOptions): string[] {
+  const fingerprintMode = options.fingerprintMode ?? "stealth";
   const args = [
     `--remote-debugging-port=${options.remoteDebuggingPort}`,
     `--user-data-dir=${options.userDataDir}`,
-    ...CHROME_DEFAULT_ARGS,
   ];
+
+  if (fingerprintMode === "stealth") {
+    args.push(...CHROME_DEFAULT_ARGS);
+  }
 
   if (options.headless) {
     args.push(...CHROME_HEADLESS_ARGS);
@@ -185,6 +192,5 @@ export function buildChromeArgs(options: BuildChromeArgsOptions): string[] {
   if (options.extra) {
     args.push(...options.extra);
   }
-
   return args;
 }

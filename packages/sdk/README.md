@@ -61,6 +61,9 @@ try {
 ```
 
 That's it. Default provider auto-resolves to whatever's signed in locally (Codex → Claude → OpenAI/Anthropic by API key).
+Use `browser.close()` for normal cleanup. If the browser is wedged or an
+external challenge flow leaves Chrome hanging, use `browser.kill()` to force
+kill the launched browser process tree.
 
 Chrome launches in CDP debug mode by default. For authenticated one-shot tasks,
 use a named profile and keep the task as the only thing the agent has to solve:
@@ -75,6 +78,28 @@ const result = await runTask({
 
 The profile is stored under `~/.browser-agent/profiles/gmail/` and reuses
 cookies/localStorage on later runs.
+
+For real-browser challenge diagnostics, attach to an existing Chrome DevTools
+endpoint and preserve the browser's native fingerprint:
+
+```ts
+const browser = new Browser({
+  cdpUrl: process.env.BROWSER_AGENT_CDP_URL, // http://127.0.0.1:9222 or ws://...
+  fingerprintMode: "native",
+});
+
+const result = await runTask({
+  task: "Run fingerprint_report and summarize the exposed browser signals.",
+  browser,
+});
+```
+
+`native` mode skips the stealth init script and the fixed user-agent/client-hints
+override. For owned Chrome launches, it also avoids the broad automation-tuned
+default arg set and keeps only the essential DevTools/profile flags plus caller
+provided options. It is intended for user-controlled headed/profile browsers
+where cookies, storage, IP, and manual interaction need to stay tied to the same
+browser identity.
 
 ### Pin a provider
 

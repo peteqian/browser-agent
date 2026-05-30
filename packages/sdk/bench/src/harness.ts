@@ -1,6 +1,8 @@
 import { Browser, runTask } from "../../src/index";
 import type { BenchTask } from "./types";
 
+type FingerprintMode = "stealth" | "native";
+
 export interface HarnessRunResult {
   reason: string;
   summary: string;
@@ -12,9 +14,19 @@ export interface HarnessRunResult {
 
 export async function runPeteqianAgent(
   task: BenchTask,
-  options: { model?: string; provider?: string; headless?: boolean } = {},
+  options: {
+    model?: string;
+    provider?: string;
+    headless?: boolean;
+    cdpUrl?: string;
+    fingerprintMode?: FingerprintMode;
+  } = {},
 ): Promise<HarnessRunResult> {
-  const browser = new Browser();
+  const browser = new Browser({
+    headless: options.headless ?? true,
+    cdpUrl: options.cdpUrl,
+    fingerprintMode: options.fingerprintMode ?? "stealth",
+  });
   const started = Date.now();
 
   const trajectory: string[] = [];
@@ -24,7 +36,6 @@ export async function runPeteqianAgent(
       task: task.confirmed_task,
       browser,
       startUrl: "about:blank",
-      headless: options.headless ?? true,
       ...(options.provider
         ? { llm: { provider: options.provider as never, model: options.model } }
         : {}),

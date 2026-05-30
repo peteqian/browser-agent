@@ -23,7 +23,12 @@ export function dashboardHtml(): string {
   <h1>browser-agent dashboard</h1>
   <form id="launch">
     <input name="profile" placeholder="profile" />
+    <input name="cdpUrl" placeholder="http://127.0.0.1:9222" />
     <input name="startUrl" placeholder="https://example.com" />
+    <select name="fingerprintMode">
+      <option value="stealth">stealth</option>
+      <option value="native">native</option>
+    </select>
     <label><input name="headless" type="checkbox" checked /> headless</label>
     <button>Launch</button>
   </form>
@@ -155,7 +160,9 @@ export function dashboardHtml(): string {
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           profile: form.get("profile") || undefined,
+          cdpUrl: form.get("cdpUrl") || undefined,
           startUrl: form.get("startUrl") || undefined,
+          fingerprintMode: form.get("fingerprintMode") || "stealth",
           headless: form.get("headless") === "on"
         })
       });

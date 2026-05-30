@@ -21,6 +21,10 @@ export interface BrowserOptions extends LaunchOptions {
  *
  * It starts lazily, so users can create `new Browser()` and pass it to an
  * `Agent` without learning the lower-level session lifecycle first.
+ *
+ * For a real user-controlled browser, pass `cdpUrl` and
+ * `fingerprintMode: "native"` so the session preserves the browser's real
+ * JS-visible surface instead of installing stealth patches.
  */
 export class Browser {
   private readonly options: BrowserOptions;
@@ -47,6 +51,14 @@ export class Browser {
 
     const session = await this.sessionPromise;
     await session.close();
+    this.sessionPromise = null;
+  }
+
+  async kill(): Promise<void> {
+    if (!this.sessionPromise) return;
+
+    const session = await this.sessionPromise;
+    await session.kill();
     this.sessionPromise = null;
   }
 

@@ -47,9 +47,11 @@ export function registerDaemonTools(server: McpServer): void {
         "Launch a new session in the running dashboard daemon and return its first observation.",
       inputSchema: {
         profile: z.string().min(1).optional(),
+        cdpUrl: z.string().min(1).optional(),
         startUrl: z.string().optional(),
         headless: z.boolean().optional(),
         autoConsent: z.boolean().optional(),
+        fingerprintMode: z.enum(["stealth", "native"]).optional(),
         userDataDir: z.string().min(1).optional(),
         storageStatePath: z.string().min(1).optional(),
         saveStorageStateOnClose: z.boolean().optional(),

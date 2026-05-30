@@ -344,6 +344,8 @@ export const evalAction = z.object({
   awaitPromise: z.boolean().optional(),
 });
 
+export const fingerprintReportAction = z.object({});
+
 export const findByRoleAction = z.object({
   role: z.string().min(1).max(40),
   name: z.string().min(1).max(200).optional(),
@@ -423,6 +425,7 @@ export const actionSchemas = {
   hover: hoverAction,
   dblclick: dblclickAction,
   eval: evalAction,
+  fingerprint_report: fingerprintReportAction,
   find_by_role: findByRoleAction,
   find_by_text: findByTextAction,
   find_by_testid: findByTestidAction,
@@ -481,6 +484,7 @@ export type Action =
   | { name: "hover"; params: z.infer<typeof hoverAction> }
   | { name: "dblclick"; params: z.infer<typeof dblclickAction> }
   | { name: "eval"; params: z.infer<typeof evalAction> }
+  | { name: "fingerprint_report"; params: z.infer<typeof fingerprintReportAction> }
   | { name: "find_by_role"; params: z.infer<typeof findByRoleAction> }
   | { name: "find_by_text"; params: z.infer<typeof findByTextAction> }
   | { name: "find_by_testid"; params: z.infer<typeof findByTestidAction> }
