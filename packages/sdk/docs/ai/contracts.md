@@ -24,6 +24,30 @@ Exported from the main entry (`@peteqian/browser-agent-sdk`):
 - `JudgeFn`, `ExtractionLLMFn`
 - `EnvId`, `TransportId`, `TransportResolution`
 - `runTask`, `Agent`, `Browser`, `BrowserOptions`, `SimpleAgentOptions`, `AgentProviderOptions`
+- `AgentBudget` (token/cost ceiling; adds `TerminalReason` `"budget_exceeded"`)
+
+### Anti-bot / human-like navigation
+
+- `FingerprintInit`, `FingerprintPreset`, `FingerprintProfile`, `ResolvedFingerprint`, `resolveFingerprint`, `buildFingerprintInitScript`, `buildUserAgentOverride`
+- `HumanizeInit`, `HumanizeConfig`
+- `ChallengeWatchdog`, `detectChallenge`, `challengeObservationNote`, `ChallengeWatchdogOptions`, `ChallengeEncounter`, `ChallengeDetection`, `ChallengeVendor`
+- `CaptchaSolver`, `CaptchaSolveRequest`, `CaptchaSolveResult`
+- `ProxyPool`, `resolveProxyLaunch`, `ProxyEntry`, `ProxyPoolOptions`, `ProxyRotationStrategy`
+- `RateLimiter`, `RateLimitConfig`
+
+### Job-application / forms
+
+- `planAutofill`, `autofillActions`, `AnswerBank`, `ApplicantProfile`, `AutofillSuggestion`, `AutofillFieldKind`
+- `ElementInfo.crossOriginIframe` (set on cross-origin iframe elements whose OOPIF content is merged into the snapshot under `framePath: "oopif:<targetId>"`)
+
+### Observability / CI-CD
+
+- `RunReportCollector`, `toJUnitXml`, `RunReport`, `RunReportStep`, `RunReportCollectorOptions`
+- `reportToOtel`, `OtelExport`, `OtelSpan`, `OtelMetric`, `OtelSpanStatus`
+- `TraceRecorder`, `renderTimelineHtml`, `TraceRecorderOptions`, `TraceManifest`
+- `estimateCostUsd`, `resolveModelPricing`, `DEFAULT_MODEL_PRICING`, `ModelPricing`
+- `redactString`, `redactValue`, `redactReport`, `RedactOptions`
+- `checkPostCondition`, `PostCondition`, `PostConditionResult`
 
 ## Internal types (no stability guarantee)
 

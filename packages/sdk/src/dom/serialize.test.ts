@@ -359,3 +359,27 @@ describe("formatSnapshotDiff", () => {
     expect(out.text).toContain("more truncated");
   });
 });
+
+describe("cross-origin iframe rendering", () => {
+  test("flags the iframe with its src and a how-to hint", () => {
+    const snapshot: PageSnapshot = {
+      url: "https://jobs.example.com",
+      title: "Job",
+      elements: [
+        makeElement(0, "", {
+          tag: "iframe",
+          role: null,
+          axRole: null,
+          axName: null,
+          href: "https://boards.greenhouse.io/embed/job_app",
+          crossOriginIframe: true,
+        }),
+      ],
+      stability: { readyState: "complete", pendingRequestCount: 0 },
+    };
+    const out = formatSnapshotForLLM(snapshot);
+    expect(out).toContain('src="https://boards.greenhouse.io/embed/job_app"');
+    expect(out).toContain("cross-origin iframe");
+    expect(out).toContain("coordinate clicks");
+  });
+});

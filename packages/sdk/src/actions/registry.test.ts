@@ -93,6 +93,42 @@ describe("ActionRegistry", () => {
     ]);
   });
 
+  test("catalog and tool defs keep stable identity while the visible set is unchanged", () => {
+    const registry = createActionRegistry([
+      {
+        name: "always",
+        description: "Always available.",
+        schema: z.object({}),
+        run: async () => ({ ok: true, message: "" }),
+      },
+      {
+        name: "only_example",
+        description: "Only on example.com.",
+        schema: z.object({}),
+        run: async () => ({ ok: true, message: "" }),
+        appliesTo: (state) => state.url.includes("example.com"),
+      },
+    ]);
+
+    // Different state objects, same visible set → same string/array instance,
+    // so provider prompt caches see a byte-identical prefix every step.
+    const a = registry.describeForPrompt(fakeState("https://other.com/1"));
+    const b = registry.describeForPrompt(fakeState("https://other.com/2"));
+    expect(b).toBe(a);
+    const toolsA = registry.toolDefsFor(fakeState("https://other.com/1"));
+    const toolsB = registry.toolDefsFor(fakeState("https://other.com/2"));
+    expect(toolsB).toBe(toolsA);
+
+    // Visible set changes → fresh catalog.
+    const c = registry.describeForPrompt(fakeState("https://example.com/"));
+    expect(c).not.toBe(a);
+    expect(c).toContain("only_example");
+    // And flipping back recomputes correctly.
+    expect(registry.describeForPrompt(fakeState("https://other.com/3"))).toBe(
+      registry.describeForPrompt(fakeState("https://other.com/4")),
+    );
+  });
+
   test("type action defaults mode to replace when omitted", () => {
     const registry = createDefaultActionRegistry();
     const parsed = registry.parse("type", { index: 0, text: "x" });

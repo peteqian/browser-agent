@@ -11,6 +11,11 @@ This monorepo ships two npm packages:
 
 Library consumers depend on `-sdk`. CLI / MCP users install the unsuffixed package.
 
+> **For AI agents (Codex, Claude Code, Cursor):** read the AI manual in
+> [`packages/sdk/docs/ai/`](./packages/sdk/docs/ai/README.md) — architecture,
+> contracts, commands, conventions, and troubleshooting. `packages/sdk/AGENTS.md`
+> is a thin pointer to the same folder.
+
 ## Development
 
 ```bash

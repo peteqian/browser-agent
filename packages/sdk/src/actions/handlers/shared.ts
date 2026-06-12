@@ -55,7 +55,7 @@ export function requireSession(
 export function resolveBackendId(
   selectorMap: SelectorMap | undefined,
   index: number,
-): { ok: true; backendNodeId: number } | { ok: false; message: string } {
+): { ok: true; backendNodeId: number; targetId?: string } | { ok: false; message: string } {
   if (!selectorMap) {
     return { ok: false, message: `Index [${index}] is not present in the current snapshot` };
   }
@@ -63,7 +63,21 @@ export function resolveBackendId(
   if (!entry) {
     return { ok: false, message: `Index [${index}] is not present in the current snapshot` };
   }
-  return { ok: true, backendNodeId: entry.backendNodeId };
+  return {
+    ok: true,
+    backendNodeId: entry.backendNodeId,
+    ...(entry.targetId ? { targetId: entry.targetId } : {}),
+  };
+}
+
+/**
+ * Page to execute an element action on. Elements merged from an
+ * out-of-process iframe carry a `targetId` — their backendNodeIds only
+ * resolve on that target's session.
+ */
+export function resolveActionPage(ctx: HandlerContext, targetId?: string): Page {
+  if (!targetId || targetId === ctx.page.targetId || !ctx.session) return ctx.page;
+  return ctx.session.getPage(targetId);
 }
 
 export function staleMessage(index: number): string {

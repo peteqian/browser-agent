@@ -1,5 +1,6 @@
 import type { LaunchOptions } from "../cdp/launch";
 import { resolveBrowserPaths } from "./profile-paths";
+import { ProxyPool } from "./proxy-pool";
 import { BrowserSession, type Page } from "./session";
 
 export interface BrowserOptions extends LaunchOptions {
@@ -14,6 +15,12 @@ export interface BrowserOptions extends LaunchOptions {
    * CDP debug mode.
    */
   profile?: string;
+  /**
+   * Rotate the launch proxy from a pool. When set, the next proxy is picked
+   * at session start and overrides `proxyServer`/`proxyBypass`. Ignored when
+   * connecting to an existing `cdpUrl` (no launch happens). See ProxyPool.
+   */
+  proxyPool?: ProxyPool;
 }
 
 /**
@@ -63,12 +70,17 @@ export class Browser {
   }
 
   private async start(): Promise<BrowserSession> {
-    const { cdpUrl, profile, userDataDir, storageStatePath, ...launchOptions } = this.options;
+    const { cdpUrl, profile, userDataDir, storageStatePath, proxyPool, ...launchOptions } =
+      this.options;
     const paths = resolveBrowserPaths({ profile, userDataDir, storageStatePath });
+    // Pick a proxy from the pool for this launch (overrides any static
+    // proxyServer). No-op when attaching to an existing cdpUrl.
+    const proxy = proxyPool && !cdpUrl ? ProxyPool.toLaunchOptions(proxyPool.next()) : {};
     const session = new BrowserSession({
       cdpUrl,
       launch: {
         ...launchOptions,
+        ...proxy,
         userDataDir: paths.userDataDir,
         storageStatePath: paths.storageStatePath,
       },

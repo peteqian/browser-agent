@@ -17,6 +17,8 @@ import {
   type RuntimeAction,
 } from "./executor";
 import { observePage, refreshPageState, type ObservePageOptions } from "./observer";
+import { checkPostCondition, type PostCondition } from "./post-condition";
+import { RateLimiter, hostOf, type RateLimitConfig } from "./rate-limit";
 
 export interface SessionRunnerOptions {
   session?: BrowserSession;
@@ -25,6 +27,17 @@ export interface SessionRunnerOptions {
   latestState?: BrowserStateSummary;
   allowedDomains?: readonly string[];
   domBudgets?: DomBudgetOptions;
+  /**
+   * When an index-targeted action fails because the element went stale
+   * (re-render between snapshot and action), re-observe the page, re-locate
+   * the element by its stable identity, and retry once. Default: true.
+   */
+  selfHealing?: boolean;
+  /**
+   * Politeness delays between actions (global and/or per host) to avoid
+   * volume-based bot heuristics. Default: off.
+   */
+  rateLimit?: RateLimitConfig | RateLimiter;
 }
 
 export interface RunActionOptions {
@@ -38,6 +51,12 @@ export interface RunActionOptions {
   focusState?: FocusState;
   currentStep?: number;
   currentUrl?: string;
+  /**
+   * Assertion verified after a successful action. On mismatch the result is
+   * downgraded to a failure so silent no-ops surface. Caller-supplied
+   * (autofill/custom harnesses) — the model does not emit these.
+   */
+  postCondition?: PostCondition;
 }
 
 export interface RunActionsOptions extends RunActionOptions {
@@ -51,6 +70,14 @@ export interface RunActionsOptions extends RunActionOptions {
   }) => void | Promise<void>;
 }
 
+/** Failure messages produced by index-based handlers when the DOM moved on. */
+function isStaleElementFailure(message: string): boolean {
+  return (
+    message.includes("no longer exists in the DOM") ||
+    message.includes("is not present in the current snapshot")
+  );
+}
+
 export class SessionRunner {
   readonly session?: BrowserSession;
   readonly actionRegistry: ActionRegistry;
@@ -59,6 +86,8 @@ export class SessionRunner {
 
   private currentPage: Page;
   private state?: BrowserStateSummary;
+  private readonly selfHealing: boolean;
+  private readonly rateLimiter?: RateLimiter;
 
   constructor(options: SessionRunnerOptions) {
     this.session = options.session;
@@ -67,6 +96,13 @@ export class SessionRunner {
     this.state = options.latestState;
     this.allowedDomains = options.allowedDomains;
     this.domBudgets = options.domBudgets;
+    this.selfHealing = options.selfHealing ?? true;
+    if (options.rateLimit instanceof RateLimiter) {
+      this.rateLimiter = options.rateLimit;
+    } else if (options.rateLimit) {
+      const limiter = new RateLimiter(options.rateLimit);
+      this.rateLimiter = limiter.enabled ? limiter : undefined;
+    }
   }
 
   get page(): Page {
@@ -114,7 +150,52 @@ export class SessionRunner {
   }
 
   async runAction(action: Action | RegisteredAction, options: RunActionOptions = {}) {
-    const executed = await executeRuntimeAction({
+    const beforeUrl = options.currentUrl ?? this.state?.url;
+    if (this.rateLimiter) await this.rateLimiter.acquire(hostOf(beforeUrl));
+
+    let executed = await this.executeOnce(action, options);
+
+    if (
+      this.selfHealing &&
+      !executed.result.ok &&
+      isStaleElementFailure(executed.result.message) &&
+      executed.page === this.currentPage
+    ) {
+      const healed = await this.healStaleIndexAction(action, options);
+      if (healed) executed = healed;
+    }
+
+    this.currentPage = executed.page;
+    if (executed.result.activeTargetId || shouldReobserve(action, executed.result)) {
+      this.state = undefined;
+    }
+
+    // Post-condition: verify the page reached the expected state. Only checked
+    // for actions that otherwise succeeded — a failure already speaks for itself.
+    if (options.postCondition && executed.result.ok) {
+      const verdict = await checkPostCondition(
+        this.currentPage,
+        options.postCondition,
+        beforeUrl,
+      ).catch((error) => ({ ok: false, message: `post-condition check threw: ${String(error)}` }));
+      if (!verdict.ok) {
+        executed = {
+          page: executed.page,
+          result: {
+            ...executed.result,
+            ok: false,
+            message: `${executed.result.message} — post-condition failed: ${verdict.message}`,
+          },
+        };
+      }
+    }
+
+    if (options.observe === true) await this.refresh({ previousUrl: options.previousUrl });
+    return executed.result;
+  }
+
+  private async executeOnce(action: Action | RegisteredAction, options: RunActionOptions) {
+    return executeRuntimeAction({
       page: this.currentPage,
       action,
       actionRegistry: this.actionRegistry,
@@ -131,12 +212,62 @@ export class SessionRunner {
       allowedDomains: this.allowedDomains,
       timeoutMs: options.timeoutMs,
     });
-    this.currentPage = executed.page;
-    if (executed.result.activeTargetId || shouldReobserve(action, executed.result)) {
-      this.state = undefined;
-    }
-    if (options.observe === true) await this.refresh({ previousUrl: options.previousUrl });
-    return executed.result;
+  }
+
+  /**
+   * Stale-element self-healing: the snapshot the model acted on described an
+   * element that the page re-rendered away. Re-observe, find the element that
+   * carries the same stable identity (or the same semantic tuple), and retry
+   * the action once against its new index.
+   */
+  private async healStaleIndexAction(
+    action: Action | RegisteredAction,
+    options: RunActionOptions,
+  ): Promise<{ page: Page; result: ActionResult } | null> {
+    const params = (action as { params?: { index?: unknown } }).params;
+    const staleIndex = typeof params?.index === "number" ? params.index : null;
+    if (staleIndex === null) return null;
+    const before = this.state?.elements?.find((el) => el.index === staleIndex);
+    if (!before) return null;
+
+    const refreshed = await this.refresh().catch(() => null);
+    if (!refreshed) return null;
+
+    const match =
+      refreshed.elements.find((el) => el.stableId === before.stableId) ??
+      refreshed.elements.find(
+        (el) =>
+          el.tag === before.tag &&
+          (el.axRole ?? el.role) === (before.axRole ?? before.role) &&
+          (el.axName ?? "") === (before.axName ?? "") &&
+          (el.testId ?? "") === (before.testId ?? ""),
+      );
+    if (!match) return null;
+
+    const healedAction = {
+      ...action,
+      params: { ...(params as Record<string, unknown>), index: match.index },
+    } as Action;
+    const retried = await this.executeOnce(healedAction, options);
+    if (!retried.result.ok) return null;
+
+    await this.session?.eventBus?.emit({
+      type: "browser_event",
+      name: "self_heal",
+      data: {
+        action: action.name,
+        staleIndex,
+        healedIndex: match.index,
+        stableId: before.stableId,
+      },
+    });
+    return {
+      page: retried.page,
+      result: {
+        ...retried.result,
+        message: `${retried.result.message} (self-healed: element re-located after DOM change)`,
+      },
+    };
   }
 
   async runActions(actions: readonly RuntimeAction[], options: RunActionsOptions = {}) {

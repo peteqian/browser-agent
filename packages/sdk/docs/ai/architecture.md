@@ -2,12 +2,13 @@
 
 ## Directory map
 
-- `src/agent/` LLM decision loop, prompts, contracts, decision adapters, `Agent` facade.
-- `src/llm/` provider adapters (OpenAI, Anthropic) and transport resolution.
-- `src/actions/` browser action types and execution.
-- `src/browser/` `Browser` facade, sessions, profiles, runtime watchdogs.
+- `src/agent/` LLM decision loop, prompts, contracts, decision adapters, `Agent` facade. Also the run-artifact helpers that consume the `AgentEvent` stream: `report.ts` (RunReport + JUnit), `otel.ts` (OpenTelemetry export), `trace.ts` (replay bundle), `redact.ts` (PII redaction), `autofill.ts` (applicant form fills).
+- `src/llm/` provider adapters (OpenAI, Anthropic) and transport resolution. `pricing.ts` holds the model price table + `estimateCostUsd` (drives `budget` enforcement).
+- `src/actions/` browser action types and execution. Index-based handlers resolve through `selectorMap`; entries carrying a `targetId` route to an out-of-process iframe session.
+- `src/browser/` `Browser` facade, sessions, profiles, and watchdogs in `watchdogs/` (`challenge.ts` bot-protection + `CaptchaSolver`, `login-wall.ts`, `captcha.ts`). Also `fingerprint.ts`, `humanize.ts`, `proxy-pool.ts`.
+- `src/runtime/` `SessionRunner` (action execution, self-healing, rate limiting), `post-condition.ts`, `rate-limit.ts`.
 - `src/cdp/` raw Chrome DevTools Protocol launch, discovery, WS client, Chrome args.
-- `src/dom/` DOM serialization and DOM-facing types.
+- `src/dom/` DOM serialization and DOM-facing types. `cdp-snapshot.ts` expands cross-origin iframes (OOPIF) and tags merged elements with `crossOriginIframe` + `framePath: "oopif:<targetId>"`.
 - `src/mcp/` MCP server integration and tool handlers.
 - `bin/cli.ts` command-line entry point.
 - `bin/mcp.ts` MCP server entry point.

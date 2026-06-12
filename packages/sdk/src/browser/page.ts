@@ -27,6 +27,7 @@ import {
   clickAtCoordinates,
   clickByBackendNodeId,
   findNearestFileInputBackendNodeId,
+  findSoleFileInputBackendNodeId,
   focusByBackendNodeId,
   getDropdownOptionsByBackendNodeId,
   keyboardType,
@@ -264,6 +265,9 @@ export class Page {
   }
   findNearestFileInputBackendNodeId(backendNodeId: number) {
     return findNearestFileInputBackendNodeId(this, backendNodeId);
+  }
+  findSoleFileInputBackendNodeId() {
+    return findSoleFileInputBackendNodeId(this);
   }
   uploadFilesByBackendNodeId(backendNodeId: number, filePaths: string[]) {
     return uploadFilesByBackendNodeId(this, backendNodeId, filePaths);

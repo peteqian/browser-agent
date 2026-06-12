@@ -13,6 +13,12 @@ export interface DomBudgetOptions {
 export interface SelectorMapEntry {
   backendNodeId: number;
   frameId?: string;
+  /**
+   * Set when the element lives in an out-of-process iframe (cross-origin
+   * embed). Actions must execute against this target's session, not the
+   * main page's — `backendNodeId` is only meaningful there.
+   */
+  targetId?: string;
 }
 
 export interface SelectorMap {
@@ -45,6 +51,7 @@ export const DEFAULT_DOM_BUDGETS: RequiredDomBudgets = {
     "data-qa",
     "data-action",
     "data-component",
+    "data-automation-id",
   ],
   maxTotalChars: 12_000,
 };
@@ -240,7 +247,14 @@ function parseAttributes(attrs: number[] | undefined, strings: string[]): Record
   return out;
 }
 
-const TESTID_KEYS = ["data-testid", "data-test", "data-cy", "data-qa"] as const;
+const TESTID_KEYS = [
+  "data-testid",
+  "data-test",
+  "data-cy",
+  "data-qa",
+  // Workday renders its entire application flow with these.
+  "data-automation-id",
+] as const;
 const DATA_PREFIX = "data-";
 
 function extractTestId(attrs: Record<string, string>): string | null {
@@ -602,6 +616,118 @@ interface DocumentAggregate {
   parentFrameId: string | undefined;
 }
 
+/** Out-of-process iframes expanded per snapshot. Keeps step latency bounded. */
+const MAX_OOPIF_EXPANSIONS = 3;
+
+interface IframeTargetInfo {
+  targetId: string;
+  type: string;
+  url: string;
+}
+
+/** Minimal session surface the expansion needs — Page.session satisfies it. */
+interface SessionLike {
+  send<TResult>(method: string, params?: Record<string, unknown>): Promise<TResult>;
+  getPage(targetId: string): Page;
+}
+
+function normalizeFrameUrl(url: string): string {
+  return url.split("?")[0] ?? url;
+}
+
+/**
+ * Cross-origin iframes (Greenhouse/Workday embeds and friends) live in
+ * separate out-of-process targets that DOMSnapshot cannot pierce. Capture
+ * each matching iframe target with the same pipeline, translate the element
+ * bounds into main-page coordinates, and merge the results. Selector-map
+ * entries carry the iframe `targetId` so actions execute on the right
+ * session.
+ */
+async function expandCrossOriginIframes(
+  page: Page,
+  elements: ElementInfo[],
+  selectorMap: SelectorMap,
+  budgets: RequiredDomBudgets,
+): Promise<void> {
+  const flagged = elements.filter((el) => el.crossOriginIframe);
+  if (flagged.length === 0) return;
+  const session = (page as { session?: SessionLike }).session;
+  if (!session || typeof session.send !== "function" || typeof session.getPage !== "function") {
+    return;
+  }
+
+  const response = await session.send<{ targetInfos?: IframeTargetInfo[] }>("Target.getTargets");
+  const iframeTargets = (response.targetInfos ?? []).filter((t) => t.type === "iframe");
+  if (iframeTargets.length === 0) return;
+
+  const usedTargets = new Set<string>();
+  let expansions = 0;
+
+  for (const iframeEl of flagged) {
+    if (expansions >= MAX_OOPIF_EXPANSIONS) break;
+    if (elements.length >= budgets.maxElements) break;
+
+    const src = iframeEl.href ?? "";
+    const available = iframeTargets.filter((t) => !usedTargets.has(t.targetId));
+    const target =
+      available.find((t) => t.url === src) ??
+      available.find((t) => src && normalizeFrameUrl(t.url) === normalizeFrameUrl(src)) ??
+      (flagged.length === 1 && available.length === 1 ? available[0] : undefined);
+    if (!target) continue;
+    usedTargets.add(target.targetId);
+    expansions += 1;
+
+    const childBudgets: RequiredDomBudgets = {
+      ...budgets,
+      maxElements: budgets.maxElements - elements.length,
+    };
+    let child: Awaited<ReturnType<typeof captureCdpSnapshot>>;
+    try {
+      child = await captureCdpSnapshot(session.getPage(target.targetId), childBudgets, {
+        expandCrossOriginIframes: false,
+      });
+    } catch {
+      continue;
+    }
+    if (child.snapshot.elements.length === 0) continue;
+
+    for (const childEl of child.snapshot.elements) {
+      if (elements.length >= budgets.maxElements) break;
+      const index = elements.length;
+      const childEntry = child.selectorMap.byIndex.get(childEl.index);
+      elements.push({
+        ...childEl,
+        index,
+        framePath: `oopif:${target.targetId}`,
+        bbox: {
+          x: childEl.bbox.x + iframeEl.bbox.x,
+          y: childEl.bbox.y + iframeEl.bbox.y,
+          w: childEl.bbox.w,
+          h: childEl.bbox.h,
+        },
+      });
+      selectorMap.byIndex.set(index, {
+        backendNodeId: childEl.backendNodeId,
+        targetId: target.targetId,
+        ...(childEntry?.frameId ? { frameId: childEntry.frameId } : {}),
+      });
+    }
+
+    // Content is now listed — drop the "content not listed" hint from the
+    // iframe element itself.
+    delete (iframeEl as { crossOriginIframe?: boolean }).crossOriginIframe;
+  }
+}
+
+export interface CaptureSnapshotOptions {
+  /**
+   * Expand cross-origin iframes by capturing their out-of-process targets
+   * and merging the elements into the snapshot (coordinates translated to
+   * main-page space). Default: true. Disabled on the recursive child pass.
+   */
+  expandCrossOriginIframes?: boolean;
+}
+
 /**
  * Capture a CDP-driven page snapshot with merged accessibility info and an
  * index → backendNodeId selector map. Caller passes computed budgets.
@@ -609,6 +735,7 @@ interface DocumentAggregate {
 export async function captureCdpSnapshot(
   page: Page,
   budgets: RequiredDomBudgets,
+  options: CaptureSnapshotOptions = {},
 ): Promise<{ snapshot: PageSnapshot; selectorMap: SelectorMap }> {
   await page.sendCDP("DOM.enable", {}).catch(() => {});
   const ax = await fetchAxTree(page);
@@ -653,6 +780,7 @@ export async function captureCdpSnapshot(
     frameId: string | undefined;
     paintOrder: number;
     ax?: AXNode;
+    crossOriginIframe: boolean;
   };
 
   const candidates: Candidate[] = [];
@@ -670,6 +798,9 @@ export async function captureCdpSnapshot(
     const clickableSet = buildRareBooleanSet(nodes.isClickable);
     const textValueMap = buildRareStringIndex(nodes.textValue, strings);
     const inputValueMap = buildRareStringIndex(nodes.inputValue, strings);
+    // Iframes with a captured child document are same-process; the rest are
+    // cross-origin/OOPIF — their content is invisible to this snapshot.
+    const capturedContentDocs = buildRareIntegerMap(nodes.contentDocumentIndex);
 
     const layoutNodeIndex = layout.nodeIndex ?? [];
     const layoutBounds = layout.bounds ?? [];
@@ -714,7 +845,13 @@ export async function captureCdpSnapshot(
       const axIgnored = axNode?.ignored === true;
       const axRole = axIgnored ? null : usefulAxRole(axStringValue(axNode?.role?.value));
       const axName = axIgnored ? null : (axStringValue(axNode?.name?.value) ?? null);
-      if (!isObservableCandidate({ tag, attrs, isClickable, axRole, axName })) continue;
+      const crossOriginIframe = tag === "iframe" && !capturedContentDocs.has(nodeIdx);
+      if (
+        !crossOriginIframe &&
+        !isObservableCandidate({ tag, attrs, isClickable, axRole, axName })
+      ) {
+        continue;
+      }
 
       const inlineText = stringAt(strings, layoutText[i]);
       const rawText =
@@ -736,6 +873,7 @@ export async function captureCdpSnapshot(
         frameId: docFrameId,
         paintOrder: paintOrders[i] ?? 0,
         ax: axNode,
+        crossOriginIframe,
       });
       candidateBackendIds.add(backendNodeId);
     }
@@ -785,6 +923,7 @@ export async function captureCdpSnapshot(
         frameId: undefined,
         paintOrder: candidates.length,
         ax: entry.axNode,
+        crossOriginIframe: false,
       });
     }
   }
@@ -835,7 +974,13 @@ export async function captureCdpSnapshot(
       axRole &&
       axNameForHitTest &&
       (INTERACTIVE_ROLES.has(axRole.toLowerCase()) || CONTENT_ROLES.has(axRole.toLowerCase()));
-    if (actionableByBackendId.get(c.backendNodeId) === false && !semanticAxNode) continue;
+    if (
+      actionableByBackendId.get(c.backendNodeId) === false &&
+      !semanticAxNode &&
+      !c.crossOriginIframe
+    ) {
+      continue;
+    }
     const live = shouldReadLiveLabel(c) ? await readLiveElementLabel(page, c.backendNodeId) : null;
     const liveText = live?.text ? clean(live.text, budgets.maxTextChars) : "";
     const liveValue = live?.value ? clean(live.value, budgets.maxTextChars) : "";
@@ -854,7 +999,9 @@ export async function captureCdpSnapshot(
       : live?.ariaLabel
         ? clean(live.ariaLabel, fieldLimit)
         : null;
-    const href = c.attrs.href ?? null;
+    // For cross-origin iframes, expose the frame src so the agent can
+    // navigate straight into the embedded document (job-board forms etc.).
+    const href = c.attrs.href ?? (c.crossOriginIframe ? (c.attrs.src ?? null) : null);
     const text = liveText || c.text;
     const value = liveValue || (c.attrs.value ? clean(c.attrs.value, budgets.maxTextChars) : null);
     const stableHandle = pickStableHandle({
@@ -867,7 +1014,10 @@ export async function captureCdpSnapshot(
       text,
       placeholder,
     });
-    if (isLowSignalElement(c.tag, axRole, axName, text, placeholder, ariaLabel, href, testId)) {
+    if (
+      !c.crossOriginIframe &&
+      isLowSignalElement(c.tag, axRole, axName, text, placeholder, ariaLabel, href, testId)
+    ) {
       continue;
     }
     const index = elements.length;
@@ -904,11 +1054,19 @@ export async function captureCdpSnapshot(
       labelText,
       stableHandle,
       stableId,
+      ...(c.crossOriginIframe ? { crossOriginIframe: true } : {}),
     };
     elements.push(element);
     const entry: SelectorMapEntry = { backendNodeId: c.backendNodeId };
     if (c.frameId) entry.frameId = c.frameId;
     selectorMap.byIndex.set(element.index, entry);
+  }
+
+  if (options.expandCrossOriginIframes !== false) {
+    await expandCrossOriginIframes(page, elements, selectorMap, budgets).catch(() => {
+      // Expansion is best-effort: the iframe element keeps its
+      // crossOriginIframe flag and the serialized hint when it fails.
+    });
   }
 
   const pendingRequestCount = 0;

@@ -427,6 +427,8 @@ function createProfile(options: BrowserSessionOptions): BrowserProfile {
           locale: launch.locale,
           timezoneId: launch.timezoneId,
           fingerprintMode: launch.fingerprintMode,
+          fingerprint: launch.fingerprint ?? options.profile?.fingerprint,
+          humanize: launch.humanize ?? options.profile?.humanize,
           extensionPaths: launch.extensionPaths,
           remoteDebuggingPort: launch.port,
           docker: launch.docker,

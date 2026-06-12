@@ -1,5 +1,7 @@
 import type { BrowserChannel } from "../cdp/discovery";
 import type Protocol from "devtools-protocol";
+import type { FingerprintInit } from "./fingerprint";
+import type { HumanizeInit } from "./humanize";
 
 export type BrowserPermission = Protocol.Browser.PermissionType;
 
@@ -31,6 +33,17 @@ export interface BrowserProfileInit {
    *   site checks manually.
    */
   fingerprintMode?: BrowserFingerprintMode;
+  /**
+   * How the browser presents itself when `fingerprintMode` is "stealth":
+   * a preset name ("macos-chrome" | "windows-chrome" | "linux-chrome") or a
+   * partial FingerprintProfile merged over a preset. Ignored in "native" mode.
+   */
+  fingerprint?: FingerprintInit;
+  /**
+   * Human-like input synthesis (curved mouse paths, typing cadence).
+   * `true` or a HumanizeConfig enables it for all clicks/typing. Default: off.
+   */
+  humanize?: HumanizeInit;
   extensionPaths?: string[];
   remoteDebuggingPort?: number;
   docker?: boolean;
@@ -75,6 +88,8 @@ export class BrowserProfile {
   locale: string | undefined;
   timezoneId: string | undefined;
   fingerprintMode: BrowserFingerprintMode;
+  fingerprint: FingerprintInit | undefined;
+  humanize: HumanizeInit | undefined;
   extensionPaths: string[];
   remoteDebuggingPort: number | undefined;
   docker: boolean;
@@ -109,6 +124,8 @@ export class BrowserProfile {
     this.locale = init.locale;
     this.timezoneId = init.timezoneId;
     this.fingerprintMode = init.fingerprintMode ?? "stealth";
+    this.fingerprint = init.fingerprint;
+    this.humanize = init.humanize;
     this.extensionPaths = init.extensionPaths ?? [];
     this.remoteDebuggingPort = init.remoteDebuggingPort;
     this.docker = init.docker ?? false;

@@ -32,9 +32,9 @@
     "@changesets/cli": "^2.27.0",
     "@types/node": "^25.1.0",
     "oxfmt": "^0.50.0",
-    "oxlint": "^1.65.0",
+    "oxlint": "^1.68.0",
     "tsup": "^8.5.1",
-    "turbo": "^2.9.14",
+    "turbo": "^2.9.16",
     "typescript": "^5.9.3"
   },
   "engines": {

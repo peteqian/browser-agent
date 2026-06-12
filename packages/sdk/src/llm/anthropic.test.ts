@@ -79,6 +79,27 @@ describe("createAnthropicDecide", () => {
     expect(first.text).toContain("- done: finish");
   });
 
+  test("promptCaching: false omits the cache_control marker", async () => {
+    const { createAnthropicDecide } = await import("./anthropic");
+    const decide = createAnthropicDecide({
+      apiKey: "test",
+      model: "claude-sonnet-4-5",
+      promptCaching: false,
+    });
+    await decide(makeInput());
+
+    const args = captured.args as
+      | {
+          system: Array<{ type: string; text: string; cache_control?: { type: string } }>;
+        }
+      | undefined;
+    expect(args).toBeDefined();
+    const first = args!.system[0]!;
+    expect(first.cache_control).toBeUndefined();
+    // Prefix content is unchanged — only the cache marker is dropped.
+    expect(first.text).toContain("- done: finish");
+  });
+
   test("surfaces cache_read_input_tokens / cache_creation_input_tokens in telemetry", async () => {
     const { createAnthropicDecide } = await import("./anthropic");
     const decide = createAnthropicDecide({ apiKey: "test", model: "claude-sonnet-4-5" });

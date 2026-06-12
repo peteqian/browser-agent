@@ -103,6 +103,13 @@ function renderElementLine(el: ElementInfo, fieldChars: number): string {
   if (role === "link" && !rawName && el.href) {
     line += ` href="${truncate(el.href, 80)}"`;
   }
+  // Cross-origin frames hide their content from the snapshot — tell the
+  // model how to proceed instead of letting it conclude the page is empty.
+  if (el.crossOriginIframe) {
+    line += el.href ? ` src="${truncate(el.href, 100)}"` : "";
+    line +=
+      " [cross-origin iframe: content not listed — navigate to its src, or use screenshot + coordinate clicks]";
+  }
   return line;
 }
 
