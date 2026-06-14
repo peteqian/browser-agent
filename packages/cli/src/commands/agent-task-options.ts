@@ -54,6 +54,13 @@ export interface CliOptions {
   fullSnapshots: boolean;
   allowedDomains?: string[];
   initScripts?: string[];
+  rateLimitMs?: number;
+  rateLimitHostMs?: number;
+  proxy?: string;
+  proxyBypass?: string;
+  reportJson?: string;
+  traceDir?: string;
+  redact: boolean;
 }
 
 interface ConfigFile {
@@ -79,6 +86,13 @@ interface ConfigFile {
   storageStatePath?: string;
   allowedDomains?: string[];
   initScripts?: string[];
+  rateLimitMs?: number;
+  rateLimitHostMs?: number;
+  proxy?: string;
+  proxyBypass?: string;
+  reportJson?: string;
+  traceDir?: string;
+  redact?: boolean;
 }
 
 function loadConfig(path: string): ConfigFile {
@@ -161,6 +175,13 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
       "storage-state": { type: "string" },
       "allowed-domains": { type: "string" },
       "init-script": { type: "string", multiple: true },
+      "rate-limit-ms": { type: "string" },
+      "rate-limit-host-ms": { type: "string" },
+      proxy: { type: "string" },
+      "proxy-bypass": { type: "string" },
+      "report-json": { type: "string" },
+      "trace-dir": { type: "string" },
+      redact: { type: "boolean" },
       config: { type: "string" },
       stdin: { type: "boolean" },
       json: { type: "boolean" },
@@ -238,6 +259,12 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
   const maxFailures = values["max-failures"]
     ? parseInt(values["max-failures"] as string, "--max-failures")
     : config.maxFailures;
+  const rateLimitMs = values["rate-limit-ms"]
+    ? parseInt(values["rate-limit-ms"] as string, "--rate-limit-ms")
+    : config.rateLimitMs;
+  const rateLimitHostMs = values["rate-limit-host-ms"]
+    ? parseInt(values["rate-limit-host-ms"] as string, "--rate-limit-host-ms")
+    : config.rateLimitHostMs;
 
   return {
     task,
@@ -276,5 +303,12 @@ export async function buildOptions(argv: string[]): Promise<CliOptions> {
     initScripts: loadInitScripts(
       (values["init-script"] as string[] | undefined) ?? config.initScripts,
     ),
+    rateLimitMs,
+    rateLimitHostMs,
+    proxy: (values.proxy as string | undefined) ?? config.proxy,
+    proxyBypass: (values["proxy-bypass"] as string | undefined) ?? config.proxyBypass,
+    reportJson: (values["report-json"] as string | undefined) ?? config.reportJson,
+    traceDir: (values["trace-dir"] as string | undefined) ?? config.traceDir,
+    redact: values.redact !== undefined ? Boolean(values.redact) : (config.redact ?? false),
   };
 }

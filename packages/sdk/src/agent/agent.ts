@@ -108,6 +108,18 @@ export interface SimpleAgentOptions<TData = unknown> extends Partial<AgentProvid
   extractionLLM?: ExtractionLLMFn;
   allowedDomains?: readonly string[];
   transportResolution?: TransportResolution;
+  /** Bot-challenge watchdog config; default enabled. See AgentOptions.challengeWatchdog. */
+  challengeWatchdog?: boolean | import("../browser/watchdogs/challenge").ChallengeWatchdogOptions;
+  /** Login-wall detection; default enabled. See AgentOptions.loginWallWatchdog. */
+  loginWallWatchdog?: boolean;
+  /** Reuse the prior snapshot when the page is unchanged; default true. See AgentOptions.snapshotReuse. */
+  snapshotReuse?: boolean;
+  /** Stale-element self-healing; default true. See AgentOptions.selfHealing. */
+  selfHealing?: boolean;
+  /** Politeness rate limiting between actions. See AgentOptions.rateLimit. */
+  rateLimit?: import("../runtime/rate-limit").RateLimitConfig;
+  /** Token/cost ceiling for the run. See AgentBudget. */
+  budget?: import("./contracts").AgentBudget;
 }
 
 /**

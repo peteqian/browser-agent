@@ -116,24 +116,46 @@ export class ActionRegistry {
     return this.list().filter((def) => !def.appliesTo || def.appliesTo(state));
   }
 
+  /**
+   * Catalog text for the prompt prefix. Memoized per visible-action set so
+   * the loop gets the *same string* back every step while the set is
+   * unchanged — a byte-stable prefix is what lets provider prompt caches
+   * (Anthropic ephemeral blocks, OpenAI implicit caching) hit on step 2+.
+   */
   describeForPrompt(state?: BrowserStateSummary): string {
     const defs = state ? this.listFor(state) : this.list();
-    return defs.map((definition) => `- ${definition.name}: ${definition.description}`).join("\n");
+    const key = defs.map((definition) => definition.name).join("\n");
+    if (this.catalogCache?.key === key) return this.catalogCache.text;
+    const text = defs
+      .map((definition) => `- ${definition.name}: ${definition.description}`)
+      .join("\n");
+    this.catalogCache = { key, text };
+    return text;
   }
+
+  private catalogCache: { key: string; text: string } | null = null;
 
   /**
    * Tool definitions for native tool-calling transports. Each action becomes a
    * callable tool whose `parameters` is the JSON Schema of its zod params.
-   * JSON Schemas are cached per definition (schemas are static).
+   * JSON Schemas are cached per definition (schemas are static), and the
+   * resulting array is memoized per visible-action set for the same
+   * prompt-cache stability reason as `describeForPrompt`.
    */
   toolDefsFor(state?: BrowserStateSummary): ToolDef[] {
     const defs = state ? this.listFor(state) : this.list();
-    return defs.map((definition) => ({
+    const key = defs.map((definition) => definition.name).join("\n");
+    if (this.toolDefsCache?.key === key) return this.toolDefsCache.defs;
+    const toolDefs = defs.map((definition) => ({
       name: definition.name,
       description: definition.description,
       parameters: this.jsonSchemaFor(definition),
     }));
+    this.toolDefsCache = { key, defs: toolDefs };
+    return toolDefs;
   }
+
+  private toolDefsCache: { key: string; defs: ToolDef[] } | null = null;
 
   private schemaCache = new WeakMap<AnyActionDefinition, Record<string, unknown>>();
 

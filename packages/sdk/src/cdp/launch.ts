@@ -9,6 +9,8 @@ import {
   type BrowserFingerprintMode,
   type BrowserPermissionGrant,
 } from "../browser/profile";
+import type { FingerprintInit } from "../browser/fingerprint";
+import type { HumanizeInit } from "../browser/humanize";
 import { discoverBrowserExecutable, installBrowser, type BrowserChannel } from "./discovery";
 import { buildChromeArgs, buildLightpandaArgs } from "./chrome-args";
 
@@ -24,6 +26,10 @@ export interface LaunchOptions {
   locale?: string;
   timezoneId?: string;
   fingerprintMode?: BrowserFingerprintMode;
+  /** Fingerprint preset or partial profile applied in "stealth" mode. */
+  fingerprint?: FingerprintInit;
+  /** Human-like input synthesis for clicks and typing. */
+  humanize?: HumanizeInit;
   extensionPaths?: string[];
   port?: number;
   docker?: boolean;

@@ -2,6 +2,22 @@ import { setTimeout as delay } from "node:timers/promises";
 
 import type { Page } from "./page";
 import type { RuntimeExceptionDetails } from "./session-types";
+import {
+  clickHoldDelayMs,
+  mousePathPoints,
+  mouseStepDelayMs,
+  resolveHumanize,
+  typingDelaysMs,
+  type ResolvedHumanize,
+} from "./humanize";
+
+// Last synthetic cursor position per page, so consecutive humanized clicks
+// start their path where the previous one landed.
+const lastMousePosition = new WeakMap<Page, { x: number; y: number }>();
+
+function pageHumanize(page: Page): ResolvedHumanize | null {
+  return resolveHumanize(page.session.profile.humanize);
+}
 
 export async function clickByBackendNodeId(
   page: Page,
@@ -101,6 +117,11 @@ async function clickPointForBackendNode(
 }
 
 export async function clickAtCoordinates(page: Page, x: number, y: number): Promise<void> {
+  const humanize = pageHumanize(page);
+  if (humanize?.mouse) {
+    await humanClickAtCoordinates(page, x, y, humanize);
+    return;
+  }
   await page.sendCDP("Input.dispatchMouseEvent", {
     type: "mouseMoved",
     x,
@@ -122,6 +143,55 @@ export async function clickAtCoordinates(page: Page, x: number, y: number): Prom
     button: "left",
     clickCount: 1,
   });
+  lastMousePosition.set(page, { x, y });
+}
+
+/**
+ * Click via a curved mouse path with eased step timing and a held press.
+ * Used by `clickAtCoordinates` when the profile opts into humanize, and
+ * directly by the challenge watchdog (which always humanizes).
+ */
+export async function humanClickAtCoordinates(
+  page: Page,
+  x: number,
+  y: number,
+  humanize?: ResolvedHumanize,
+): Promise<void> {
+  const resolved = humanize ?? resolveHumanize(true)!;
+  const from = lastMousePosition.get(page) ?? {
+    x: x + (resolved.rng() - 0.5) * 400,
+    y: Math.max(0, y - 200 - resolved.rng() * 200),
+  };
+  const points = mousePathPoints(from, { x, y }, resolved.rng);
+  for (let i = 0; i < points.length; i++) {
+    const point = points[i]!;
+    await page.sendCDP("Input.dispatchMouseEvent", {
+      type: "mouseMoved",
+      x: point.x,
+      y: point.y,
+      button: "none",
+      clickCount: 0,
+    });
+    const stepDelay = mouseStepDelayMs(i + 1, points.length, resolved.speed, resolved.rng);
+    if (stepDelay > 0) await delay(stepDelay);
+  }
+  await page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mousePressed",
+    x,
+    y,
+    button: "left",
+    clickCount: 1,
+  });
+  const hold = clickHoldDelayMs(resolved.speed, resolved.rng);
+  if (hold > 0) await delay(hold);
+  await page.sendCDP("Input.dispatchMouseEvent", {
+    type: "mouseReleased",
+    x,
+    y,
+    button: "left",
+    clickCount: 1,
+  });
+  lastMousePosition.set(page, { x, y });
 }
 
 export async function focusByBackendNodeId(
@@ -336,12 +406,18 @@ export async function pressKey(page: Page, key: string): Promise<void> {
 }
 
 export async function keyboardType(page: Page, text: string): Promise<void> {
-  for (const char of Array.from(text)) {
+  const humanize = pageHumanize(page);
+  const delays = humanize?.typing ? typingDelaysMs(text, humanize.speed, humanize.rng) : null;
+  const chars = Array.from(text);
+  for (let i = 0; i < chars.length; i++) {
+    const char = chars[i]!;
     await page.sendCDP("Input.dispatchKeyEvent", {
       type: "char",
       text: char,
       unmodifiedText: char,
     });
+    const wait = delays?.[i] ?? 0;
+    if (wait > 0) await delay(wait);
   }
 }
 
@@ -426,6 +502,39 @@ export async function findNearestFileInputBackendNodeId(
     } finally {
       await page.releaseObject(foundObjectId);
     }
+  } finally {
+    await page.releaseObject(objectId);
+  }
+}
+
+/**
+ * Document-wide fallback for `findNearestFileInputBackendNodeId`: when the
+ * proximity walk finds nothing, look for `input[type="file"]` anywhere in the
+ * document (visible or hidden — upload widgets routinely hide the real
+ * input). Only succeeds when exactly one exists, so we never guess between
+ * multiple unrelated inputs.
+ */
+export async function findSoleFileInputBackendNodeId(
+  page: Page,
+): Promise<{ ok: true; backendNodeId: number } | { ok: false; reason: "no_file_input" }> {
+  let objectId: string;
+  try {
+    objectId = await page.evaluateHandle(`(() => {
+      const inputs = document.querySelectorAll('input[type="file"]');
+      return inputs.length === 1 ? inputs[0] : null;
+    })()`);
+  } catch {
+    return { ok: false, reason: "no_file_input" };
+  }
+  try {
+    const desc = await page.sendCDP<{ node?: { backendNodeId?: number } }>("DOM.describeNode", {
+      objectId,
+    });
+    const found = desc.node?.backendNodeId;
+    if (typeof found !== "number") return { ok: false, reason: "no_file_input" };
+    return { ok: true, backendNodeId: found };
+  } catch {
+    return { ok: false, reason: "no_file_input" };
   } finally {
     await page.releaseObject(objectId);
   }

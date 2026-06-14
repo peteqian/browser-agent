@@ -28,10 +28,11 @@ function buildUserContent(input: AgentInput, suffix: string): ContentBlockParam[
  * Create a decide adapter backed by the Anthropic Messages API.
  *
  * Uses the official `@anthropic-ai/sdk` with native structured output
- * (`jsonSchemaOutputFormat`) for reliable AgentOutput parsing. The system
- * prompt + action catalog (the prefix) is sent as a single text block with
- * `cache_control: { type: "ephemeral" }`, so step 2+ pays ~zero input tokens
- * for the (~4-5 KB) prefix.
+ * (`jsonSchemaOutputFormat`) for reliable AgentOutput parsing. Prompt caching
+ * is on by default: the system prompt + action catalog (the prefix) is sent
+ * as a single text block with `cache_control: { type: "ephemeral" }`, so
+ * step 2+ pays ~zero input tokens for the (~4-5 KB) prefix. Pass
+ * `promptCaching: false` to opt out.
  */
 export function createAnthropicDecide(
   options: LLMAdapterOptions,
@@ -49,6 +50,7 @@ export function createAnthropicDecide(
 
   const model = options.model;
   const maxTokens = options.maxTokens ?? 4096;
+  const promptCaching = options.promptCaching ?? true;
 
   return async (input: AgentInput, signal?: AbortSignal): Promise<AgentOutput> => {
     const startedAt = Date.now();
@@ -58,7 +60,7 @@ export function createAnthropicDecide(
       {
         type: "text",
         text: prefix,
-        cache_control: { type: "ephemeral" },
+        ...(promptCaching ? { cache_control: { type: "ephemeral" as const } } : {}),
       },
     ];
 

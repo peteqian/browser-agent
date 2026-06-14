@@ -5,6 +5,8 @@ import type { BrowserSession, Page } from "../browser/session";
 import type { BrowserEvent } from "../browser/events";
 import type { BrowserStateSummary } from "../browser/state";
 import type { DomBudgetOptions } from "../dom/cdp-snapshot";
+import type { ChallengeEncounter, ChallengeWatchdogOptions } from "../browser/watchdogs/challenge";
+import type { LoginWallEncounter } from "../browser/watchdogs/login-wall";
 import type { RetryOptions } from "./retry";
 import type { z } from "zod/v4";
 
@@ -128,6 +130,8 @@ export type AgentEvent<TData = unknown> =
       /** Tokens written into provider cache on this request. */
       cacheCreationTokens?: number;
     }
+  | { type: "challenge"; step: number; encounter: ChallengeEncounter }
+  | { type: "login_wall"; step: number; encounter: LoginWallEncounter }
   | { type: "snapshot_started"; stepIndex: number }
   | {
       type: "snapshot_captured";
@@ -135,6 +139,8 @@ export type AgentEvent<TData = unknown> =
       durationMs: number;
       elementCount: number;
       bytes: number;
+      /** True when the previous step's snapshot was reused (page unchanged). */
+      reused?: boolean;
     }
   | { type: "action_started"; stepIndex: number; action: string }
   | {
@@ -186,7 +192,24 @@ export type TerminalReason =
   | "decision_timeout"
   | "schema_violation"
   | "decide_error"
+  | "budget_exceeded"
   | "judge_failed";
+
+/**
+ * Hard spend ceiling for one run. The loop accumulates token usage (and,
+ * when pricing is known for the model, estimated USD cost) across decisions
+ * and terminates with `reason: "budget_exceeded"` once a limit is crossed.
+ * The decision that crosses the limit still executes if it was terminal
+ * (`done`), since that costs nothing further.
+ */
+export interface AgentBudget {
+  /** Max estimated spend in USD (requires a pricing entry for the model). */
+  maxCostUsd?: number;
+  /** Max total tokens (input + output) across all decisions. */
+  maxTokens?: number;
+  /** Custom price table; defaults to the built-in one. */
+  pricing?: Record<string, import("../llm/pricing").ModelPricing>;
+}
 
 /**
  * Final-validation hook. When the Agent `judge` option is set, the loop
@@ -274,6 +297,14 @@ export interface AgentOptions<TData = unknown> {
    * snapshot when the URL is unchanged and churn is below 50%.
    */
   fullSnapshots?: boolean;
+  /**
+   * Reuse the previous step's snapshot when the page provably did not change
+   * (lookup-style custom actions, failed actions, empty decisions), verified
+   * by a cheap page fingerprint. Any navigation, click, type, scroll, or DOM
+   * mutation signal forces a fresh capture. Default: true; set false to
+   * re-capture every step.
+   */
+  snapshotReuse?: boolean;
   /** Include planning/memory fields in prompts and events. Default: true. */
   planning?: boolean;
   /** Override or extend the action catalog used by the model and executor. */
@@ -413,6 +444,38 @@ export interface AgentOptions<TData = unknown> {
    * `result.data.structured`. Without this hook, `schemaJson` is ignored.
    */
   extractionLLM?: ExtractionLLMFn;
+  /**
+   * Bot-protection challenge watchdog. Before each step the loop checks the
+   * page for Cloudflare interstitials / Turnstile / reCAPTCHA / hCaptcha,
+   * waits for auto-pass, and clicks interactive Turnstile checkboxes with
+   * humanized input. Unresolved challenges surface as a `challenge` event
+   * and an observation note. Default: enabled; pass `false` to disable or
+   * an options object to tune timeouts.
+   */
+  challengeWatchdog?: boolean | ChallengeWatchdogOptions;
+  /**
+   * Login-wall detection. Before each step the loop checks the page for
+   * common login walls (visible password form with sign-in copy, login-style
+   * URL paths, bare 401/403 error documents) and surfaces a structured
+   * `login_wall` event plus an observation note — mirror of the challenge
+   * watchdog so callers can pause for a human. Default: enabled; pass
+   * `false` to disable.
+   */
+  loginWallWatchdog?: boolean;
+  /**
+   * Stale-element self-healing. When an index-targeted action fails because
+   * the page re-rendered, the runner re-observes, re-locates the element by
+   * stable identity, and retries once before surfacing the failure to the
+   * model. Default: true.
+   */
+  selfHealing?: boolean;
+  /**
+   * Politeness rate limiting between actions (global and/or per host) to
+   * avoid volume-based bot heuristics. Default: off.
+   */
+  rateLimit?: import("../runtime/rate-limit").RateLimitConfig;
+  /** Token/cost ceiling for the run. See AgentBudget. */
+  budget?: AgentBudget;
   /**
    * Restrict `navigate` and `new_tab` actions to URLs whose host matches
    * one of these patterns. Each pattern is either an exact host

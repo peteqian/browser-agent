@@ -40,4 +40,12 @@ export interface LLMAdapterOptions {
   temperature?: number;
   /** Max completion tokens (default: 4096). */
   maxTokens?: number;
+  /**
+   * Provider prompt caching for the stable prompt prefix (system prompt +
+   * action catalog). Default: true. Anthropic pins the prefix with
+   * `cache_control: { type: "ephemeral" }` so step 2+ reads it from cache at
+   * ~10% of the input price; set false to opt out (e.g. proxies that reject
+   * cache_control). OpenAI caches the prefix implicitly — no flag involved.
+   */
+  promptCaching?: boolean;
 }

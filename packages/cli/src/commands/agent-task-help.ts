@@ -36,6 +36,12 @@ Flags:
   --init-script <path>       Path to a JS file injected via Page.addScriptToEvaluateOnNewDocument
                              before every navigation. Repeatable.
 
+Anti-bot / pacing:
+  --proxy <server>           Launch proxy, e.g. http://1.2.3.4:8080 or socks5://...
+  --proxy-bypass <list>      Comma-separated proxy bypass list.
+  --rate-limit-ms <ms>       Min delay between any two actions (politeness).
+  --rate-limit-host-ms <ms>  Min delay between actions targeting the same host.
+
 Provider:
   --provider <p>             ${PROVIDERS.join(" | ")}  (default: codex)
   --model <id>               Override the default model for the provider.
@@ -63,6 +69,11 @@ Output:
                              timestamped JSONL on stderr. Composes with --json.
   --summary                  After the run, print a per-step timing table to stdout
                              (decision / snapshot / action breakdown).
+  --report-json <path>       Write a structured RunReport (steps, tokens, cost,
+                             challenges) to file — for CI artifacts / dashboards.
+  --trace-dir <path>         Write a replay bundle (per-step screenshots + index.html)
+                             to this directory for debugging failed runs.
+  --redact                   Scrub emails/phones/task text from the report JSON.
   --full-snapshots           Always send the full DOM snapshot instead of a per-step diff.
 
 Other:

@@ -2,8 +2,11 @@ import { writeFileSync } from "node:fs";
 
 import {
   createDecide,
+  redactReport,
   resolveTransport,
   runTask,
+  RunReportCollector,
+  TraceRecorder,
   type AgentEvent,
   type StepInfo,
 } from "@peteqian/browser-agent-sdk";
@@ -57,9 +60,15 @@ export async function runTaskCommand(argv: string[]): Promise<number> {
   const summaryOnEvent: ((event: AgentEvent) => void) | undefined = summaryCollector
     ? (event) => summaryCollector.observe(event)
     : undefined;
-  const handlers = [jsonlOnEvent, verboseOnEvent, summaryOnEvent].filter(
-    (h): h is (event: AgentEvent) => void => Boolean(h),
-  );
+  const reportCollector = opts.reportJson ? new RunReportCollector({ task: opts.task }) : undefined;
+  const traceRecorder = opts.traceDir ? new TraceRecorder({ dir: opts.traceDir }) : undefined;
+  const handlers = [
+    jsonlOnEvent,
+    verboseOnEvent,
+    summaryOnEvent,
+    reportCollector?.onEvent,
+    traceRecorder?.onEvent,
+  ].filter((h): h is (event: AgentEvent) => void => Boolean(h));
   const onEvent: ((event: AgentEvent) => void) | undefined =
     handlers.length === 0
       ? undefined
@@ -100,6 +109,14 @@ export async function runTaskCommand(argv: string[]): Promise<number> {
     actionTimeoutMs: opts.actionTimeoutMs,
     maxFailures: opts.maxFailures,
     cdpUrl: opts.cdpUrl,
+    ...(opts.rateLimitMs || opts.rateLimitHostMs
+      ? {
+          rateLimit: {
+            ...(opts.rateLimitMs ? { perActionMs: opts.rateLimitMs } : {}),
+            ...(opts.rateLimitHostMs ? { perHostMs: opts.rateLimitHostMs } : {}),
+          },
+        }
+      : {}),
     launch: {
       headless: opts.headless,
       autoConsent: opts.autoConsent,
@@ -107,6 +124,8 @@ export async function runTaskCommand(argv: string[]): Promise<number> {
       userDataDir: browserPaths.userDataDir,
       storageStatePath: browserPaths.storageStatePath,
       initScripts: opts.initScripts,
+      ...(opts.proxy ? { proxyServer: opts.proxy } : {}),
+      ...(opts.proxyBypass ? { proxyBypass: opts.proxyBypass } : {}),
       ...(opts.engine === "lightpanda" ? { channel: "lightpanda" as const } : {}),
     },
     getNextAction: decide,
@@ -140,6 +159,16 @@ export async function runTaskCommand(argv: string[]): Promise<number> {
   const resultJson = JSON.stringify(result, null, 2);
   if (opts.outputFile) {
     writeFileSync(opts.outputFile, resultJson);
+  }
+  if (reportCollector && opts.reportJson) {
+    const report = reportCollector.build();
+    const finalReport = opts.redact
+      ? redactReport(report, { values: opts.task ? [opts.task] : [] })
+      : report;
+    writeFileSync(opts.reportJson, JSON.stringify(finalReport, null, 2));
+  }
+  if (traceRecorder) {
+    traceRecorder.finalize();
   }
   if (!opts.json) {
     console.log(resultJson);

@@ -469,3 +469,164 @@ describe("captureCdpSnapshot", () => {
     expect(out.elements[0]?.stableHandle.value).toBe('href="/listings/123"');
   });
 });
+
+describe("cross-origin iframes", () => {
+  test("iframe without captured content document is flagged and keeps its src", async () => {
+    const snapshot = buildSnapshot([
+      {
+        tag: "iframe",
+        backendNodeId: 30,
+        attributes: [
+          ["src", "https://boards.greenhouse.io/embed/job_app?token=123"],
+          ["title", "Application form"],
+        ],
+        bounds: [0, 100, 800, 900],
+      },
+      { tag: "button", backendNodeId: 31, attributes: [["aria-label", "Apply"]] },
+    ]);
+
+    const page = makePage({
+      "Accessibility.getFullAXTree": { nodes: [] },
+      "DOMSnapshot.captureSnapshot": snapshot,
+    });
+
+    const { snapshot: out } = await captureCdpSnapshot(page, withBudgetDefaults());
+
+    const iframe = out.elements.find((el) => el.tag === "iframe");
+    expect(iframe).toBeDefined();
+    expect(iframe?.crossOriginIframe).toBe(true);
+    expect(iframe?.href).toBe("https://boards.greenhouse.io/embed/job_app?token=123");
+  });
+
+  test("iframe with a captured content document is not flagged", async () => {
+    const snapshot = buildSnapshot([
+      { tag: "iframe", backendNodeId: 40, attributes: [["src", "/same-origin"]] },
+      { tag: "button", backendNodeId: 41, attributes: [["aria-label", "Go"]] },
+    ]) as {
+      documents: Array<{ nodes: Record<string, unknown> }>;
+      strings: string[];
+    };
+    // Same-process iframes carry a contentDocumentIndex entry for the node.
+    snapshot.documents[0]!.nodes.contentDocumentIndex = { index: [0], value: [0] };
+
+    const page = makePage({
+      "Accessibility.getFullAXTree": { nodes: [] },
+      "DOMSnapshot.captureSnapshot": snapshot,
+    });
+
+    const { snapshot: out } = await captureCdpSnapshot(page, withBudgetDefaults());
+    const iframe = out.elements.find((el) => el.tag === "iframe");
+    expect(iframe?.crossOriginIframe).toBeUndefined();
+  });
+});
+
+describe("OOPIF expansion", () => {
+  test("merges cross-origin iframe content with translated coordinates and targetId routing", async () => {
+    const mainSnapshot = buildSnapshot([
+      {
+        tag: "iframe",
+        backendNodeId: 50,
+        attributes: [["src", "https://job-boards.greenhouse.io/embed/job_app?for=acme&token=1"]],
+        bounds: [100, 200, 800, 900],
+      },
+      { tag: "button", backendNodeId: 51, attributes: [["aria-label", "Home"]] },
+    ]);
+    const childSnapshot = buildSnapshot(
+      [
+        {
+          tag: "input",
+          backendNodeId: 7,
+          attributes: [
+            ["aria-label", "First Name"],
+            ["type", "text"],
+          ],
+          bounds: [10, 20, 300, 40],
+        },
+      ],
+      { url: "https://job-boards.greenhouse.io/embed/job_app", title: "Application" },
+    );
+
+    const childPage = makePage({
+      "Accessibility.getFullAXTree": { nodes: [] },
+      "DOMSnapshot.captureSnapshot": childSnapshot,
+    });
+    const mainPage = makePage({
+      "Accessibility.getFullAXTree": { nodes: [] },
+      "DOMSnapshot.captureSnapshot": mainSnapshot,
+    }) as unknown as Record<string, unknown>;
+    mainPage.session = {
+      send: async (method: string) => {
+        if (method === "Target.getTargets") {
+          return {
+            targetInfos: [
+              { targetId: "page-1", type: "page", url: "https://acme.com/jobs" },
+              {
+                targetId: "oopif-1",
+                type: "iframe",
+                url: "https://job-boards.greenhouse.io/embed/job_app?for=acme&token=1",
+              },
+            ],
+          };
+        }
+        return {};
+      },
+      getPage: (targetId: string) => {
+        expect(targetId).toBe("oopif-1");
+        return childPage;
+      },
+    };
+
+    const { snapshot: out, selectorMap } = await captureCdpSnapshot(
+      mainPage as unknown as Page,
+      withBudgetDefaults(),
+    );
+
+    const merged = out.elements.find((el) => el.framePath === "oopif:oopif-1");
+    expect(merged).toBeDefined();
+    expect(merged?.tag).toBe("input");
+    // bbox translated by the iframe's origin (100, 200)
+    expect(merged?.bbox).toEqual({ x: 110, y: 220, w: 300, h: 40 });
+
+    const entry = selectorMap.byIndex.get(merged!.index);
+    expect(entry).toMatchObject({ backendNodeId: 7, targetId: "oopif-1" });
+
+    // The iframe element itself no longer claims its content is hidden.
+    const iframe = out.elements.find((el) => el.tag === "iframe");
+    expect(iframe?.crossOriginIframe).toBeUndefined();
+  });
+
+  test("keeps the hidden-content flag when no iframe target matches", async () => {
+    const mainSnapshot = buildSnapshot([
+      {
+        tag: "iframe",
+        backendNodeId: 60,
+        attributes: [["src", "https://unmatched.example.com/embed"]],
+        bounds: [0, 0, 500, 500],
+      },
+      { tag: "button", backendNodeId: 61, attributes: [["aria-label", "Go"]] },
+      {
+        tag: "iframe",
+        backendNodeId: 62,
+        attributes: [["src", "https://other.example.com/x"]],
+        bounds: [0, 600, 500, 100],
+      },
+    ]);
+    const mainPage = makePage({
+      "Accessibility.getFullAXTree": { nodes: [] },
+      "DOMSnapshot.captureSnapshot": mainSnapshot,
+    }) as unknown as Record<string, unknown>;
+    mainPage.session = {
+      send: async () => ({ targetInfos: [] }),
+      getPage: () => {
+        throw new Error("should not attach");
+      },
+    };
+
+    const { snapshot: out } = await captureCdpSnapshot(
+      mainPage as unknown as Page,
+      withBudgetDefaults(),
+    );
+    const iframes = out.elements.filter((el) => el.tag === "iframe");
+    expect(iframes.every((el) => el.crossOriginIframe === true)).toBe(true);
+  });
+});

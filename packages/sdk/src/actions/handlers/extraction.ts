@@ -1,5 +1,12 @@
 import type { Action } from "../types";
-import { fail, ok, resolveBackendId, type ActionResult, type HandlerContext } from "./shared";
+import {
+  fail,
+  ok,
+  resolveActionPage,
+  resolveBackendId,
+  type ActionResult,
+  type HandlerContext,
+} from "./shared";
 
 type ByName<N extends Action["name"]> = Extract<Action, { name: N }>;
 
@@ -124,7 +131,9 @@ export async function handleGetDropdownOptions(
 ): Promise<ActionResult> {
   const resolved = resolveBackendId(ctx.selectorMap, action.params.index);
   if (!resolved.ok) return fail(resolved.message);
-  const options = await ctx.page.getDropdownOptionsByBackendNodeId(resolved.backendNodeId);
+  const options = await resolveActionPage(ctx, resolved.targetId).getDropdownOptionsByBackendNodeId(
+    resolved.backendNodeId,
+  );
   const optionsText =
     options.length === 0
       ? `No dropdown options found at [${action.params.index}]`

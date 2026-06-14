@@ -1,4 +1,6 @@
 import { BrowserSession } from "../browser/session";
+import { ChallengeWatchdog, challengeObservationNote } from "../browser/watchdogs/challenge";
+import { LoginWallWatchdog, loginWallObservationNote } from "../browser/watchdogs/login-wall";
 import type { PageSnapshot } from "../dom/types";
 import { SessionRunner } from "../runtime/session-runner";
 import type { AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
@@ -22,6 +24,12 @@ import {
 } from "./options";
 import { resolveActionRegistry, tryFinalFailureRecovery } from "./recovery";
 import { withRetry } from "./retry";
+import { estimateCostUsd } from "../llm/pricing";
+import {
+  canReuseSnapshot,
+  capturePageFingerprint,
+  type ExecutedStepAction,
+} from "./snapshot-reuse";
 import { buildStepContext, type StepContext } from "./step-context";
 import { checkInterrupt, runActions, type StepOutcome } from "./step-runner";
 import { buildMaxFailuresResult } from "./terminal-result";
@@ -96,6 +104,22 @@ async function runLoopInner<TData = unknown>(
   let currentMemory: string | undefined = options.memory;
   let prevSnapshot: PageSnapshot | null = null;
   const fullSnapshots = options.fullSnapshots === true;
+  const snapshotReuse = options.snapshotReuse !== false;
+  // Previous step's context + the page fingerprint taken right after it was
+  // captured. When the next step provably didn't change the page, the loop
+  // reuses these instead of re-capturing and re-serializing the DOM.
+  let reusableContext: StepContext | null = null;
+  let pageFingerprint: string | null = null;
+  let lastStepActions: ExecutedStepAction[] = [];
+  const challengeWatchdog =
+    options.challengeWatchdog === false
+      ? null
+      : new ChallengeWatchdog(
+          typeof options.challengeWatchdog === "object" ? options.challengeWatchdog : {},
+        );
+  const loginWallWatchdog = options.loginWallWatchdog === false ? null : new LoginWallWatchdog();
+  let spentTokens = 0;
+  let spentCostUsd = 0;
 
   try {
     const initialPage = options.page ?? (session ? await session.newPage() : undefined);
@@ -108,6 +132,8 @@ async function runLoopInner<TData = unknown>(
       actionRegistry,
       allowedDomains: options.allowedDomains,
       domBudgets: options.domBudgets,
+      selfHealing: options.selfHealing,
+      ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}),
     });
 
     unsubscribeBrowserEvents = session?.eventBus?.on((event) =>
@@ -140,32 +166,92 @@ async function runLoopInner<TData = unknown>(
       const beforeStepInterrupt = await checkInterrupt(options, step - 1);
       if (beforeStepInterrupt) return beforeStepInterrupt;
 
-      await emitEvent(options, { type: "snapshot_started", stepIndex: step });
-      const snapshotStartedAt = Date.now();
-      let context: StepContext;
-      try {
-        context = await withRejectingTimeout(
-          buildStepContext(
-            runner,
-            cfg.vision,
-            options.domBudgets,
-            focusState,
-            fullSnapshots ? null : prevSnapshot,
-          ),
-          cfg.stepTimeoutMs,
-          `Step context preparation timed out after ${cfg.stepTimeoutMs}ms`,
-        );
-      } catch (error) {
-        return {
-          success: false,
-          reason: "step_timeout",
-          summary: error instanceof Error ? error.message : String(error),
-          data: null,
-          steps: step,
-        };
+      // Clear (or at least report) bot-protection challenges before spending
+      // a snapshot + decision on a gated page. Detection failures (e.g. fake
+      // pages in tests, mid-navigation evaluate errors) are non-fatal.
+      let challengeNote: string | null = null;
+      if (challengeWatchdog) {
+        const encounter = await challengeWatchdog.check(runner.page).catch(() => null);
+        if (encounter) {
+          await emitEvent(options, { type: "challenge", step, encounter });
+          await session?.eventBus?.emit({
+            type: "browser_event",
+            name: encounter.resolved ? "challenge_resolved" : "challenge_unresolved",
+            data: encounter,
+          });
+          if (!encounter.resolved) challengeNote = challengeObservationNote(encounter);
+        }
       }
 
-      const { browserState, observation, tabs } = context;
+      // Login-wall detection mirrors the challenge path: emit a structured
+      // event so callers can pause for a human, and note it in the
+      // observation so the model can route around it.
+      let loginWallNote: string | null = null;
+      if (loginWallWatchdog) {
+        const encounter = await loginWallWatchdog.check(runner.page).catch(() => null);
+        if (encounter) {
+          await emitEvent(options, { type: "login_wall", step, encounter });
+          await session?.eventBus?.emit({
+            type: "browser_event",
+            name: "login_wall",
+            data: encounter,
+          });
+          loginWallNote = loginWallObservationNote(encounter);
+        }
+      }
+
+      await emitEvent(options, { type: "snapshot_started", stepIndex: step });
+      const snapshotStartedAt = Date.now();
+      // Snapshot reuse: when the previous step's actions provably left the
+      // page untouched (lookup-style custom actions, failed actions) AND the
+      // cheap page fingerprint still matches, skip the full DOM re-capture.
+      // Any invalidation signal (runner cleared its state after a mutating
+      // action or tab switch) or fingerprint drift forces a fresh capture.
+      let context: StepContext | null = null;
+      let snapshotReused = false;
+      if (
+        snapshotReuse &&
+        reusableContext &&
+        pageFingerprint !== null &&
+        runner.latestState &&
+        runner.page.targetId === reusableContext.browserState.activeTab &&
+        canReuseSnapshot(lastStepActions)
+      ) {
+        const currentFingerprint = await capturePageFingerprint(runner.page);
+        if (currentFingerprint !== null && currentFingerprint === pageFingerprint) {
+          context = reusableContext;
+          snapshotReused = true;
+        }
+      }
+      if (!context) {
+        try {
+          context = await withRejectingTimeout(
+            buildStepContext(
+              runner,
+              cfg.vision,
+              options.domBudgets,
+              focusState,
+              fullSnapshots ? null : prevSnapshot,
+            ),
+            cfg.stepTimeoutMs,
+            `Step context preparation timed out after ${cfg.stepTimeoutMs}ms`,
+          );
+        } catch (error) {
+          return {
+            success: false,
+            reason: "step_timeout",
+            summary: error instanceof Error ? error.message : String(error),
+            data: null,
+            steps: step,
+          };
+        }
+        pageFingerprint = snapshotReuse ? await capturePageFingerprint(runner.page) : null;
+      }
+      reusableContext = context;
+
+      // Explicit annotation: CFA otherwise sees a type cycle through
+      // reusableContext → context → browserState across loop iterations.
+      const { browserState, observation, tabs }: StepContext = context;
       prevSnapshot = browserState.snapshot;
       const snapshotDurationMs = Date.now() - snapshotStartedAt;
       const snapshotBytes = observation.length;
@@ -176,6 +262,7 @@ async function runLoopInner<TData = unknown>(
         durationMs: snapshotDurationMs,
         elementCount: snapshotElementCount,
         bytes: snapshotBytes,
+        reused: snapshotReused,
       });
       await session?.eventBus?.emit({ type: "browser_state", state: browserState });
       await emitEvent(options, { type: "browser_state", step, state: browserState });
@@ -200,6 +287,8 @@ async function runLoopInner<TData = unknown>(
       const effectiveObservation = applyObservationPrefix(observation, {
         loopNotice: composedNotice,
         latestExtraction: surfacedExtraction,
+        challengeNote,
+        loginWallNote,
       });
       pendingLoopNotice = null;
 
@@ -250,6 +339,33 @@ async function runLoopInner<TData = unknown>(
         cacheCreationTokens: decision.telemetry?.usage?.cacheCreationTokens,
       });
 
+      // Budget accounting — the decision is already paid for, so a crossed
+      // limit lets a terminal `done` finish (no further spend) but otherwise
+      // stops before more actions/decisions are bought.
+      if (options.budget) {
+        const usage = decision.telemetry?.usage;
+        if (usage) {
+          spentTokens += usage.inputTokens + usage.outputTokens;
+          const cost = estimateCostUsd(usage, decision.telemetry?.model, options.budget.pricing);
+          if (cost !== null) spentCostUsd += cost;
+        }
+        const overTokens =
+          typeof options.budget.maxTokens === "number" && spentTokens > options.budget.maxTokens;
+        const overCost =
+          typeof options.budget.maxCostUsd === "number" && spentCostUsd > options.budget.maxCostUsd;
+        if ((overTokens || overCost) && !decision.done) {
+          return {
+            success: false,
+            reason: "budget_exceeded",
+            summary: overTokens
+              ? `Stopped: token budget exceeded (${spentTokens} > ${options.budget.maxTokens}).`
+              : `Stopped: cost budget exceeded ($${spentCostUsd.toFixed(4)} > $${options.budget.maxCostUsd?.toFixed(4)}).`,
+            data: null,
+            steps: step,
+          };
+        }
+      }
+
       if (typeof decision.memory === "string") currentMemory = decision.memory;
       if (cfg.planning && (decision.plan || decision.memory || decision.nextGoal)) {
         await emitEvent(options, {
@@ -274,6 +390,14 @@ async function runLoopInner<TData = unknown>(
         actionHistory,
         focusState,
       });
+
+      // Record what just ran for the next step's snapshot-reuse decision.
+      // Actions the batch never reached (early break for re-observation)
+      // map to ok=false, which keeps the check conservative.
+      lastStepActions = (decision.actions ?? []).map((action, index) => ({
+        name: action.name,
+        ok: stepOutcome.actionResults[index]?.ok ?? false,
+      }));
 
       const decidedActionCount = (decision.actions ?? []).length;
       if (decidedActionCount === 0) {
@@ -496,9 +620,13 @@ function applyObservationPrefix(
   opts: {
     loopNotice: string | null;
     latestExtraction: string | null;
+    challengeNote?: string | null;
+    loginWallNote?: string | null;
   },
 ): string {
   const prefixes: string[] = [];
+  if (opts.challengeNote) prefixes.push(opts.challengeNote);
+  if (opts.loginWallNote) prefixes.push(opts.loginWallNote);
   if (opts.loopNotice) prefixes.push(opts.loopNotice);
   if (opts.latestExtraction) {
     prefixes.push(

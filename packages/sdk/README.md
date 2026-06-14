@@ -101,6 +101,166 @@ provided options. It is intended for user-controlled headed/profile browsers
 where cookies, storage, IP, and manual interaction need to stay tied to the same
 browser identity.
 
+### Fingerprint and humanized input
+
+Pick how the browser presents itself (`stealth` mode only) and make input
+trajectories human-like — curved mouse paths, variable typing cadence:
+
+```ts
+const browser = new Browser({
+  fingerprint: "windows-chrome", // or a partial FingerprintProfile merged over a preset
+  humanize: true, // or { mouse: true, typing: true, speed: 1 }
+});
+```
+
+Presets: `macos-chrome` (default) · `windows-chrome` · `linux-chrome`. A custom
+profile can override UA, client hints, languages, timezone, hardware
+concurrency, device memory, WebGL vendor/renderer, and screen dimensions — the
+init script and `Emulation.setUserAgentOverride` are generated from the same
+resolved profile so JS-visible and header-visible signals stay coherent.
+
+### Bot-challenge watchdog
+
+Enabled by default in the agent loop. Before each step the loop detects
+Cloudflare interstitials, Turnstile widgets, reCAPTCHA, and hCaptcha; waits for
+managed challenges to auto-pass; clicks interactive Turnstile checkboxes with
+humanized input; and surfaces unresolved challenges as a `challenge` event plus
+an observation note so the model can route around them. Tune or disable via
+`challengeWatchdog: { timeoutMs, clickTurnstile } | false`.
+
+### Embedded forms (cross-origin iframes)
+
+Job boards and similar embeds (Greenhouse `job_app`, Workday company-site
+embeds) render their forms in out-of-process iframes that plain DOM snapshots
+cannot see. The snapshot pipeline detects those iframes, captures their
+targets through CDP, translates coordinates into main-page space, and merges
+the elements into the observation (`framePath: "oopif:<targetId>"`). Actions
+(`click`, `type`, `select_option`, `upload_file`, locator variants) route to
+the owning target automatically — verified live against a Greenhouse-embedded
+application form. When an iframe target can't be matched, the element keeps a
+hint telling the model to navigate to the frame's `src` or use screenshot +
+coordinate clicks. Workday's `data-automation-id` attributes are captured as
+test ids for durable locators.
+
+### Self-healing actions
+
+When an index-targeted action fails because the page re-rendered between
+snapshot and click, the runner re-observes, re-locates the element by stable
+identity, and retries once before surfacing the failure. Disable with
+`selfHealing: false`.
+
+### OpenTelemetry export
+
+`reportToOtel(report)` maps a `RunReport` to dependency-free OTel-shaped spans
+(`run → step → snapshot/decision/action`) and metrics (tokens, cost, duration,
+challenges). Forward to any backend (Datadog, Tempo, Honeycomb) without this
+package pulling in `@opentelemetry/*`:
+
+```ts
+import { RunReportCollector, reportToOtel } from "@peteqian/browser-agent-sdk";
+
+const collector = new RunReportCollector({ task });
+await runTask({ task, browser, onEvent: collector.onEvent });
+const { spans, metrics } = reportToOtel(collector.build());
+// hand spans/metrics to your exporter
+```
+
+### Applicant autofill + answer bank
+
+Job-application forms repeat the same fields. `planAutofill` matches a
+declarative `ApplicantProfile` (name, email, phone, resume path, links, custom
+Q&A) against the snapshot's form elements and returns deterministic fills —
+turning most of an application into cheap typed actions instead of LLM
+reasoning. `AnswerBank` caches free-form answers (keyed by question text) so
+repeated applications reuse them.
+
+```ts
+import { planAutofill, autofillActions, AnswerBank } from "@peteqian/browser-agent-sdk";
+
+const bank = new AnswerBank(savedAnswers);
+const fills = planAutofill(
+  { firstName: "Ada", email: "ada@x.com", resumePath: "/cv.pdf" },
+  state.elements,
+  bank,
+);
+const actions = autofillActions(fills); // type / select_option / upload_file
+```
+
+### Trace / replay bundle
+
+`TraceRecorder` writes per-step screenshot + observation + decision + action
+result to a directory plus a self-contained `index.html` timeline — replay
+exactly what the agent saw when a CI run fails, no live browser needed.
+
+```ts
+const tracer = new TraceRecorder({ dir: "./traces/run-1" });
+await runTask({ task, browser, onEvent: tracer.onEvent });
+tracer.finalize(); // writes trace.json + index.html
+```
+
+### Captcha solver plugin
+
+The challenge watchdog auto-passes Cloudflare and clicks Turnstile; for
+reCAPTCHA / hCaptcha that need a real solve, plug in a `CaptchaSolver`
+(2captcha, CapSolver, or a human handoff). The watchdog parses the site key,
+calls your solver, injects the returned token, and re-checks.
+
+```ts
+await runTask({
+  task,
+  browser,
+  challengeWatchdog: {
+    solver: {
+      async solve({ vendor, siteKey, url }) {
+        /* ... */ return { solved: true, token };
+      },
+    },
+  },
+});
+```
+
+### Proxy rotation
+
+`ProxyPool` rotates egress IPs across launches (round-robin, random,
+sticky-per-host) for high-volume scraping. Note this rotates the network IP,
+not Chrome's TLS/JA3 fingerprint — point pool entries at a uTLS-style proxy if
+you need that layer.
+
+### PII redaction
+
+`redactReport` / `redactString` / `redactValue` scrub emails, phones, and
+caller-supplied secret values from reports, logs, and events before you ship
+them as CI artifacts.
+
+### Rate limiting and post-conditions
+
+`rateLimit: { perActionMs, perHostMs }` adds politeness delays between actions
+to avoid volume bot heuristics. Per-action `postCondition` assertions
+(`url_changed`, `element_gone`, `text_present`, …) verify the page reached the
+expected state and downgrade silent no-ops to failures without a full
+re-observe.
+
+### CI/CD run reports and cost budgets
+
+```ts
+import { RunReportCollector, toJUnitXml, runTask } from "@peteqian/browser-agent-sdk";
+
+const collector = new RunReportCollector({ task });
+const result = await runTask({
+  task,
+  browser,
+  onEvent: collector.onEvent,
+  budget: { maxCostUsd: 0.5, maxTokens: 500_000 }, // optional hard ceiling → reason: "budget_exceeded"
+});
+
+const report = collector.build(); // stable JSON: steps, actions, tokens, cost, challenges
+await Bun.write("report.json", JSON.stringify(report, null, 2));
+await Bun.write("report.junit.xml", toJUnitXml(report)); // for CI test-report ingestion
+```
+
+`report.usage` aggregates tokens (incl. cache reads/writes) and `report.costUsd`
+prices them per model (`DEFAULT_MODEL_PRICING`, overridable via `pricing`).
+
 ### Pin a provider
 
 ```ts
@@ -152,6 +312,21 @@ await browser.close();
 
 The CLI (`browser-agent`) and MCP server (`browser-agent-mcp`) ship in the sibling runtime package `@peteqian/browser-agent` — install that package if you want the bins.
 
+The anti-bot, pacing, and observability features above are surfaced on both:
+
+```bash
+browser-agent "Apply to the job at this URL" --url https://jobs.example.com/apply \
+  --proxy http://1.2.3.4:8080 \
+  --rate-limit-ms 250 --rate-limit-host-ms 1000 \
+  --report-json ./run-report.json --trace-dir ./trace --redact
+```
+
+`--report-json` writes a structured `RunReport` (steps, tokens, cost, challenges) for CI;
+`--trace-dir` writes a replayable screenshot timeline (`index.html`); `--redact` scrubs
+PII from the report. The MCP `run_agent` tool takes the same knobs as params
+(`proxy`, `proxyBypass`, `rateLimitMs`, `rateLimitHostMs`, `includeReport`, `redact`) —
+with `includeReport: true` it returns the `RunReport` inline in the tool result.
+
 ## Providers
 
 | Flag                           | Backend                                       | Auth                                     |
@@ -175,7 +350,7 @@ See [`examples/custom-action.ts`](./examples/custom-action.ts).
 ## `AgentResult`
 
 - `success` — `true` only when `reason === "completed"`.
-- `reason` — branch on this in production: `completed`, `failed`, `max_failures`, `loop_detected`, `aborted`, `stopped`, `step_timeout`, `decision_timeout`, `schema_violation`, `decide_error`.
+- `reason` — branch on this in production: `completed`, `failed`, `max_failures`, `loop_detected`, `aborted`, `stopped`, `step_timeout`, `decision_timeout`, `schema_violation`, `decide_error`, `budget_exceeded`.
 - `summary` — human-readable, not for control flow.
 - `data` — `TData | null`, validated against `outputSchema`.
 - `steps` — iterations executed.

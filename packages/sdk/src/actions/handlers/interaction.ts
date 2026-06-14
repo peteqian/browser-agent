@@ -4,6 +4,7 @@ import type { Action } from "../types";
 import {
   fail,
   ok,
+  resolveActionPage,
   resolveBackendId,
   resolveByLocator,
   staleMessage,
@@ -57,7 +58,8 @@ export async function handleClick(
 
   const resolved = resolveBackendId(ctx.selectorMap, action.params.index);
   if (!resolved.ok) return fail(resolved.message);
-  const result = await ctx.page.clickByBackendNodeId(resolved.backendNodeId);
+  const targetPage = resolveActionPage(ctx, resolved.targetId);
+  const result = await targetPage.clickByBackendNodeId(resolved.backendNodeId);
   if (!result.ok) return fail(staleMessage(action.params.index));
   return finalizeOk();
 }
@@ -68,7 +70,9 @@ export async function handleFocus(
 ): Promise<ActionResult> {
   const resolved = resolveBackendId(ctx.selectorMap, action.params.index);
   if (!resolved.ok) return fail(resolved.message);
-  const result = await ctx.page.focusByBackendNodeId(resolved.backendNodeId);
+  const result = await resolveActionPage(ctx, resolved.targetId).focusByBackendNodeId(
+    resolved.backendNodeId,
+  );
   if (result.ok) return ok(`Focused [${action.params.index}]`);
   if (result.reason === "index_stale") return fail(staleMessage(action.params.index));
   return fail(`Element [${action.params.index}] not focusable`);
@@ -157,7 +161,7 @@ export async function handleType(
     return fail(`Type aborted: unknown secret placeholder <secret>${sub.key}</secret>`);
   }
 
-  const result = await ctx.page.typeByBackendNodeId(
+  const result = await resolveActionPage(ctx, resolved.targetId).typeByBackendNodeId(
     resolved.backendNodeId,
     sub.value,
     action.params.submit ?? false,
@@ -199,12 +203,14 @@ export async function handleScroll(
 ): Promise<ActionResult> {
   const pages = action.params.pages ?? (action.params.amount ? action.params.amount / 1000 : 1.0);
   let backendNodeId: number | undefined;
+  let scrollPage = ctx.page;
   if (typeof action.params.index === "number") {
     const resolved = resolveBackendId(ctx.selectorMap, action.params.index);
     if (!resolved.ok) return fail(resolved.message);
     backendNodeId = resolved.backendNodeId;
+    scrollPage = resolveActionPage(ctx, resolved.targetId);
   }
-  const result = await ctx.page.scrollByPages(action.params.direction, pages, backendNodeId);
+  const result = await scrollPage.scrollByPages(action.params.direction, pages, backendNodeId);
   if (!result.ok) return fail(staleMessage(action.params.index ?? -1));
   return ok(
     `Scrolled ${action.params.direction}${action.params.index !== undefined ? ` on [${action.params.index}]` : ""}`,
@@ -245,7 +251,7 @@ export async function handleSelectOption(
 ): Promise<ActionResult> {
   const resolved = resolveBackendId(ctx.selectorMap, action.params.index);
   if (!resolved.ok) return fail(resolved.message);
-  const result = await ctx.page.selectOptionByBackendNodeId(
+  const result = await resolveActionPage(ctx, resolved.targetId).selectOptionByBackendNodeId(
     resolved.backendNodeId,
     action.params.value,
   );
@@ -259,6 +265,12 @@ export async function handleSelectOption(
       ? staleMessage(action.params.index)
       : `Could not select option on [${action.params.index}]`,
   );
+}
+
+/** Route locator-resolved elements to their owning target (OOPIF support). */
+function pageForElement(ctx: HandlerContext, element: ElementInfo) {
+  const entry = ctx.selectorMap?.byIndex.get(element.index);
+  return resolveActionPage(ctx, entry?.targetId);
 }
 
 function resolveLocatorForAction(
@@ -290,7 +302,9 @@ export async function handleClickBy(
     ctx.session && detectMs > 0
       ? ctx.session.waitForNewPageTarget(detectMs, ctx.page.targetId)
       : null;
-  const result = await ctx.page.clickByBackendNodeId(resolved.element.backendNodeId);
+  const result = await pageForElement(ctx, resolved.element).clickByBackendNodeId(
+    resolved.element.backendNodeId,
+  );
   if (!result.ok) return fail(staleMessage(resolved.element.index));
   const target = tabWatch ? await tabWatch : null;
   const subject = `${resolved.matchedBy} ([${resolved.element.index}])`;
@@ -313,7 +327,7 @@ export async function handleTypeBy(
   if (!sub.ok) {
     return fail(`Type aborted: unknown secret placeholder <secret>${sub.key}</secret>`);
   }
-  const result = await ctx.page.typeByBackendNodeId(
+  const result = await pageForElement(ctx, resolved.element).typeByBackendNodeId(
     resolved.element.backendNodeId,
     sub.value,
     action.params.submit ?? false,
@@ -337,7 +351,7 @@ export async function handleSelectBy(
 ): Promise<ActionResult> {
   const resolved = resolveLocatorForAction(ctx, action.params.locator);
   if (!resolved.ok) return resolved.result;
-  const result = await ctx.page.selectOptionByBackendNodeId(
+  const result = await pageForElement(ctx, resolved.element).selectOptionByBackendNodeId(
     resolved.element.backendNodeId,
     action.params.value,
   );
@@ -369,20 +383,35 @@ export async function handleUploadFile(
 
   const resolved = resolveBackendId(ctx.selectorMap, action.params.index);
   if (!resolved.ok) return fail(resolved.message);
+  const targetPage = resolveActionPage(ctx, resolved.targetId);
 
-  const nearest = await ctx.page.findNearestFileInputBackendNodeId(resolved.backendNodeId);
-  if (!nearest.ok) {
+  const nearest = await targetPage.findNearestFileInputBackendNodeId(resolved.backendNodeId);
+  let inputBackendNodeId: number;
+  let viaFallback = false;
+  if (nearest.ok) {
+    inputBackendNodeId = nearest.backendNodeId;
+  } else {
     if (nearest.reason === "index_stale") return fail(staleMessage(action.params.index));
-    return fail(`Could not find a file input near element [${action.params.index}]`);
+    // Proximity walk found nothing — fall back to the document's sole
+    // file input (visible or hidden). Skipped when zero or multiple exist.
+    const sole = await targetPage.findSoleFileInputBackendNodeId();
+    if (!sole.ok) {
+      return fail(`Could not find a file input near element [${action.params.index}]`);
+    }
+    inputBackendNodeId = sole.backendNodeId;
+    viaFallback = true;
   }
 
-  const result = await ctx.page.uploadFilesByBackendNodeId(
-    nearest.backendNodeId,
+  const result = await targetPage.uploadFilesByBackendNodeId(
+    inputBackendNodeId,
     action.params.paths,
   );
+  const target = viaFallback
+    ? `the page's only file input (none found near [${action.params.index}])`
+    : `[${action.params.index}]`;
   return result.ok
-    ? ok(`Uploaded ${action.params.paths.length} file(s) to [${action.params.index}]`, {
-        longTermMemory: `Uploaded file(s) to [${action.params.index}]`,
+    ? ok(`Uploaded ${action.params.paths.length} file(s) to ${target}`, {
+        longTermMemory: `Uploaded file(s) to ${target}`,
       })
     : fail(staleMessage(action.params.index));
 }

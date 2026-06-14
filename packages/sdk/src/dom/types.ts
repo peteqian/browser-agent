@@ -50,6 +50,14 @@ export interface ElementInfo {
    * volatile numeric index when no stable identity is computable.
    */
   stableId: string;
+  /**
+   * True for <iframe> elements whose document was NOT captured in the
+   * snapshot (cross-origin / out-of-process frames — e.g. embedded job
+   * application forms). Their content is invisible to index-based actions;
+   * the agent must use screenshots + coordinate clicks, or navigate to the
+   * frame's src URL directly (kept in `href`).
+   */
+  crossOriginIframe?: boolean;
 }
 
 export interface PageStabilityInfo {

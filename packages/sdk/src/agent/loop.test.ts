@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { z } from "zod/v4";
 
 import type { BrowserSession, Page } from "../browser/session";
 import type { AgentEvent, AgentInput, StepInfo } from "./contracts";
@@ -408,6 +409,199 @@ describe("runLoop snapshot diff", () => {
     });
     expect(inputs[1]!.observation).not.toContain("SNAPSHOT DIFF");
     expect(inputs[1]!.observation).toContain("INTERACTIVE ELEMENTS");
+  });
+});
+
+describe("runLoop snapshot reuse", () => {
+  const lookupAction = {
+    name: "lookup_profile",
+    description: "Custom lookup with no page side effects.",
+    schema: z.object({}),
+    run: async () => ({ ok: true, message: "profile data" }),
+  };
+
+  function createCountingPage(): { page: Page; captures: () => number } {
+    let captureCount = 0;
+    const page = createFakePage({
+      waitForTimeout: async () => {},
+      sendCDP: (async (method: string) => {
+        if (method === "Accessibility.getFullAXTree") return { nodes: [] };
+        if (method === "DOMSnapshot.captureSnapshot") {
+          captureCount += 1;
+          return makeFakeCdpSnapshot();
+        }
+        return {};
+      }) as unknown as Page["sendCDP"],
+    });
+    return { page, captures: () => captureCount };
+  }
+
+  test("reuses the snapshot after a no-side-effect custom action", async () => {
+    const inputs: AgentInput[] = [];
+    const events: AgentEvent[] = [];
+    const { page, captures } = createCountingPage();
+
+    await runLoop({
+      task: "look up data without touching the page",
+      page,
+      loopDetectionMode: "off",
+      actions: [lookupAction],
+      onEvent: (event) => void events.push(event),
+      decide: async (input) => {
+        inputs.push(input);
+        if (input.step === 1) {
+          return { actions: [{ name: "lookup_profile", params: {} }], done: false };
+        }
+        return {
+          actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+          done: false,
+        };
+      },
+    });
+
+    expect(inputs).toHaveLength(2);
+    // Step 2 reused the snapshot: one capture, identical observation.
+    expect(captures()).toBe(1);
+    expect(inputs[1]!.observation).toBe(inputs[0]!.observation);
+    const captured = events.filter((e) => e.type === "snapshot_captured");
+    expect(captured[0]).toMatchObject({ stepIndex: 1, reused: false });
+    expect(captured[1]).toMatchObject({ stepIndex: 2, reused: true });
+  });
+
+  test("a successful built-in mutating action forces re-capture", async () => {
+    const { page, captures } = createCountingPage();
+
+    await runLoop({
+      task: "wait must re-capture",
+      page,
+      loopDetectionMode: "off",
+      decide: async (input) => {
+        if (input.step === 1) {
+          return { actions: [{ name: "wait", params: { ms: 1 } }], done: false };
+        }
+        return {
+          actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+          done: false,
+        };
+      },
+    });
+
+    expect(captures()).toBe(2);
+  });
+
+  test("snapshotReuse=false re-captures even after no-side-effect actions", async () => {
+    const { page, captures } = createCountingPage();
+
+    await runLoop({
+      task: "opt out of reuse",
+      page,
+      loopDetectionMode: "off",
+      snapshotReuse: false,
+      actions: [lookupAction],
+      decide: async (input) => {
+        if (input.step === 1) {
+          return { actions: [{ name: "lookup_profile", params: {} }], done: false };
+        }
+        return {
+          actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+          done: false,
+        };
+      },
+    });
+
+    expect(captures()).toBe(2);
+  });
+
+  test("a changed page fingerprint forces re-capture despite safe actions", async () => {
+    let nodes = 0;
+    const { page, captures } = createCountingPage();
+    // Fingerprint expression goes through evaluate; everything else in the
+    // fake page ignores it. Drift between steps must force a fresh capture.
+    (page as { evaluate: () => Promise<unknown> }).evaluate = async () =>
+      JSON.stringify({ nodes: nodes++ });
+
+    await runLoop({
+      task: "fingerprint drift",
+      page,
+      loopDetectionMode: "off",
+      actions: [lookupAction],
+      decide: async (input) => {
+        if (input.step === 1) {
+          return { actions: [{ name: "lookup_profile", params: {} }], done: false };
+        }
+        return {
+          actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+          done: false,
+        };
+      },
+    });
+
+    expect(captures()).toBe(2);
+  });
+});
+
+describe("runLoop login-wall watchdog", () => {
+  test("emits a login_wall event and prefixes the observation", async () => {
+    const events: AgentEvent[] = [];
+    const inputs: AgentInput[] = [];
+    const page = createFakePage({
+      evaluate: (async () => ({
+        detected: true,
+        signals: ["password_form", "login_url"],
+      })) as unknown as Page["evaluate"],
+      currentUrl: async () => "https://example.com/login",
+    });
+
+    await runLoop({
+      task: "hit a login wall",
+      page,
+      challengeWatchdog: false,
+      onEvent: (event) => void events.push(event),
+      decide: async (input) => {
+        inputs.push(input);
+        return {
+          actions: [{ name: "done", params: { success: false, summary: "needs sign-in" } }],
+          done: false,
+        };
+      },
+    });
+
+    const loginEvents = events.filter((e) => e.type === "login_wall");
+    expect(loginEvents).toHaveLength(1);
+    expect(loginEvents[0]).toMatchObject({
+      step: 1,
+      encounter: {
+        url: "https://example.com/login",
+        signals: ["password_form", "login_url"],
+        firstSighting: true,
+      },
+    });
+    expect(inputs[0]!.observation).toContain("LOGIN WALL");
+    expect(inputs[0]!.observation).toContain("Do not guess");
+  });
+
+  test("loginWallWatchdog=false disables detection", async () => {
+    const events: AgentEvent[] = [];
+    const page = createFakePage({
+      evaluate: (async () => ({
+        detected: true,
+        signals: ["password_form"],
+      })) as unknown as Page["evaluate"],
+    });
+
+    await runLoop({
+      task: "ignore login walls",
+      page,
+      challengeWatchdog: false,
+      loginWallWatchdog: false,
+      onEvent: (event) => void events.push(event),
+      decide: async () => ({
+        actions: [{ name: "done", params: { success: true, summary: "ok" } }],
+        done: false,
+      }),
+    });
+
+    expect(events.some((e) => e.type === "login_wall")).toBe(false);
   });
 });
 
