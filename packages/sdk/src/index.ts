@@ -81,27 +81,27 @@ export type { ActionContext, ActionDefinition } from "./actions/registry";
 export type { RegisteredAction } from "./actions/registry";
 export type { ActionResult } from "./actions/execute";
 
-export { AgentController } from "./agent/loop";
-export { createCodexCliDecide } from "./agent/codexCliDecide";
-export type { CodexCliOptions } from "./agent/codexCliDecide";
-export { createCodexSdkDecide } from "./agent/codexSdkDecide";
-export type { CodexSdkOptions } from "./agent/codexSdkDecide";
-export { createClaudeCliDecide } from "./agent/claudeCliDecide";
-export type { ClaudeCliOptions } from "./agent/claudeCliDecide";
-export { createClaudeSdkDecide } from "./agent/claudeSdkDecide";
-export type { ClaudeSdkOptions } from "./agent/claudeSdkDecide";
+export { AgentController } from "./agent/core/loop";
+export { createCodexCliDecide } from "./llm/providers/codexCliDecide";
+export type { CodexCliOptions } from "./llm/providers/codexCliDecide";
+export { createCodexSdkDecide } from "./llm/providers/codexSdkDecide";
+export type { CodexSdkOptions } from "./llm/providers/codexSdkDecide";
+export { createClaudeCliDecide } from "./llm/providers/claudeCliDecide";
+export type { ClaudeCliOptions } from "./llm/providers/claudeCliDecide";
+export { createClaudeSdkDecide } from "./llm/providers/claudeSdkDecide";
+export type { ClaudeSdkOptions } from "./llm/providers/claudeSdkDecide";
 export type { DomBudgetOptions, SelectorMap } from "./dom/cdp-snapshot";
 export type { ElementInfo, ElementBBox, PageSnapshot } from "./dom/types";
-export { RunReportCollector, toJUnitXml } from "./agent/report";
-export type { RunReport, RunReportStep, RunReportCollectorOptions } from "./agent/report";
-export { reportToOtel } from "./agent/otel";
-export type { OtelExport, OtelSpan, OtelMetric, OtelSpanStatus } from "./agent/otel";
-export { TraceRecorder, renderTimelineHtml } from "./agent/trace";
-export type { TraceRecorderOptions, TraceManifest } from "./agent/trace";
-export { planAutofill, autofillActions, AnswerBank } from "./agent/autofill";
-export type { ApplicantProfile, AutofillSuggestion, AutofillFieldKind } from "./agent/autofill";
-export { redactString, redactValue, redactReport } from "./agent/redact";
-export type { RedactOptions } from "./agent/redact";
+export { RunReportCollector, toJUnitXml } from "./agent/observe/report";
+export type { RunReport, RunReportStep, RunReportCollectorOptions } from "./agent/observe/report";
+export { reportToOtel } from "./agent/observe/otel";
+export type { OtelExport, OtelSpan, OtelMetric, OtelSpanStatus } from "./agent/observe/otel";
+export { TraceRecorder, renderTimelineHtml } from "./agent/observe/trace";
+export type { TraceRecorderOptions, TraceManifest } from "./agent/observe/trace";
+export { planAutofill, autofillActions, AnswerBank } from "./agent/features/autofill";
+export type { ApplicantProfile, AutofillSuggestion, AutofillFieldKind } from "./agent/features/autofill";
+export { redactString, redactValue, redactReport } from "./agent/observe/redact";
+export type { RedactOptions } from "./agent/observe/redact";
 export { ProxyPool, resolveProxyLaunch } from "./browser/proxy-pool";
 export type { ProxyEntry, ProxyPoolOptions, ProxyRotationStrategy } from "./browser/proxy-pool";
 export { RateLimiter } from "./runtime/rate-limit";
@@ -128,12 +128,12 @@ export type {
   PlanItem,
   JudgeFn,
   ExtractionLLMFn,
-} from "./agent/contracts";
+} from "./agent/decide/contracts";
 
 export { Browser } from "./browser/browser";
 export type { BrowserOptions } from "./browser/browser";
-export { Agent, runTask } from "./agent/agent";
-export type { AgentProviderOptions, SimpleAgentOptions } from "./agent/agent";
+export { Agent, runTask } from "./agent/core/agent";
+export type { AgentProviderOptions, SimpleAgentOptions } from "./agent/core/agent";
 
 export {
   createOpenAIDecide,
@@ -157,5 +157,5 @@ export { VERSION, PACKAGE_NAME } from "./version";
 export { createDefaultLogger, noopLogger } from "./logger";
 export type { Logger, LogLevel } from "./logger";
 
-export { withRetry, defaultShouldRetry, DEFAULT_RETRY } from "./agent/retry";
-export type { RetryOptions } from "./agent/retry";
+export { withRetry, defaultShouldRetry, DEFAULT_RETRY } from "./agent/core/retry";
+export type { RetryOptions } from "./agent/core/retry";

@@ -1,4 +1,4 @@
-import type { EnvId } from "../agent/contracts";
+import type { EnvId } from "../../agent/decide/contracts";
 
 /**
  * Detect which environment the agent is running in.

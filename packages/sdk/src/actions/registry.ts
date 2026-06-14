@@ -1,13 +1,13 @@
 import { z } from "zod/v4";
 
 import { executeAction, type ActionResult } from "./execute";
-import type { ToolDef } from "../agent/contracts";
+import type { ToolDef } from "../agent/decide/contracts";
 import { actionSchemas, type Action, type ActionName } from "./types";
 import type { BrowserSession, Page } from "../browser/session";
 import type { BrowserStateSummary } from "../browser/state";
 import type { SelectorMap } from "../dom/cdp-snapshot";
-import type { ExtractionLLMFn } from "../agent/contracts";
-import type { FocusState } from "../agent/focus-state";
+import type { ExtractionLLMFn } from "../agent/decide/contracts";
+import type { FocusState } from "../agent/features/focus-state";
 import type { ElementInfo } from "../dom/types";
 
 type AnyActionDefinition = ActionDefinition<string, any>;

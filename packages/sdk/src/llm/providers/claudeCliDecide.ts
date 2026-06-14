@@ -1,7 +1,7 @@
-import type { AgentInput, AgentOutput } from "./decide/contracts";
-import { SYSTEM_PROMPT } from "./decide/prompts";
-import { buildFreeformDecisionPrompt, parseDecision } from "./decide/parseDecision";
-import { spawnChildWithSignal } from "./features/spawnChild";
+import type { AgentInput, AgentOutput } from "../../agent/decide/contracts";
+import { SYSTEM_PROMPT } from "../../agent/decide/prompts";
+import { buildFreeformDecisionPrompt, parseDecision } from "../../agent/decide/parseDecision";
+import { spawnChildWithSignal } from "../../agent/features/spawnChild";
 
 export interface ClaudeCliOptions {
   binaryPath?: string;

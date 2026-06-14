@@ -2,11 +2,11 @@ import Anthropic from "@anthropic-ai/sdk";
 import { jsonSchemaOutputFormat } from "@anthropic-ai/sdk/helpers/json-schema";
 import type { ContentBlockParam, TextBlockParam } from "@anthropic-ai/sdk/resources/messages";
 
-import { buildDecisionPromptParts } from "../agent/decision-prompt";
-import type { AgentInput, AgentOutput } from "../agent/contracts";
-import type { LLMAdapterOptions } from "./types";
-import { buildTelemetry } from "./telemetry";
-import { decisionJsonSchema, validateDecision } from "./decisionSchema";
+import { buildDecisionPromptParts } from "../../agent/decide/decision-prompt";
+import type { AgentInput, AgentOutput } from "../../agent/decide/contracts";
+import type { LLMAdapterOptions } from "../decision/types";
+import { buildTelemetry } from "../telemetry";
+import { decisionJsonSchema, validateDecision } from "../decision/decisionSchema";
 
 function buildUserContent(input: AgentInput, suffix: string): ContentBlockParam[] {
   const screenshot = input.browserState?.screenshot;

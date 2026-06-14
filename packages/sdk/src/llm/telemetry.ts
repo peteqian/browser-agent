@@ -1,4 +1,4 @@
-import type { DecisionTelemetry, TokenUsage } from "./types";
+import type { DecisionTelemetry, TokenUsage } from "./decision/types";
 
 /**
  * Build a DecisionTelemetry record from a startedAt timestamp, the model

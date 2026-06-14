@@ -2,16 +2,16 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import type { EnvId, GetNextActionFn, TransportId, TransportResolution } from "../agent/contracts";
+import type { EnvId, GetNextActionFn, TransportId, TransportResolution } from "../../agent/decide/contracts";
 import { detectEnv } from "./env";
-import { createDefaultLogger, type Logger } from "../logger";
-import { createOpenAIDecide } from "./openai";
-import { createOpenAIToolDecide } from "./openaiTools";
-import { createAnthropicDecide } from "./anthropic";
-import { createCodexCliDecide } from "../agent/codexCliDecide";
-import { createCodexSdkDecide } from "../agent/codexSdkDecide";
-import { createClaudeCliDecide } from "../agent/claudeCliDecide";
-import { createClaudeSdkDecide } from "../agent/claudeSdkDecide";
+import { createDefaultLogger, type Logger } from "../../logger";
+import { createOpenAIDecide } from "../providers/openai";
+import { createOpenAIToolDecide } from "../providers/openaiTools";
+import { createAnthropicDecide } from "../providers/anthropic";
+import { createCodexCliDecide } from "../providers/codexCliDecide";
+import { createCodexSdkDecide } from "../providers/codexSdkDecide";
+import { createClaudeCliDecide } from "../providers/claudeCliDecide";
+import { createClaudeSdkDecide } from "../providers/claudeSdkDecide";
 
 export type ProviderKind = "codex" | "claude" | "openai" | "anthropic";
 
