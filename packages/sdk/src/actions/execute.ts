@@ -1,4 +1,4 @@
-import type { BrowserSession, Page } from "../browser/session";
+import type { BrowserSession, Page } from "../browser/session/session";
 import type { SelectorMap } from "../dom/cdp-snapshot";
 import type { Action } from "./types";
 import type { ExtractionLLMFn } from "../agent/decide/contracts";

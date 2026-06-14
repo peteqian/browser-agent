@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { z } from "zod/v4";
 
 import { createActionRegistry, createDefaultActionRegistry } from "./registry";
-import type { Page } from "../browser/session";
+import type { Page } from "../browser/session/session";
 import type { BrowserStateSummary } from "../browser/state";
 
 function fakeState(url: string): BrowserStateSummary {

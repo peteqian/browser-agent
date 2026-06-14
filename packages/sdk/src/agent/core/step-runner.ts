@@ -1,7 +1,7 @@
 import type { ActionResult } from "../../actions/handlers/shared";
 import type { ActionRegistry } from "../../actions/registry";
 import type { Action } from "../../actions/types";
-import type { Page } from "../../browser/session";
+import type { Page } from "../../browser/session/session";
 import type { BrowserStateSummary } from "../../browser/state";
 import { shouldReobserve } from "../../runtime/executor";
 import type { SessionRunner } from "../../runtime/session-runner";

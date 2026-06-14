@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Page } from "../browser/session";
+import type { Page } from "../browser/session/session";
 import { captureCdpSnapshot, withBudgetDefaults } from "./cdp-snapshot";
 
 interface FakeCdpResponses {

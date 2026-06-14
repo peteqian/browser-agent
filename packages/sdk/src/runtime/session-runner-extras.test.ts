@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Page } from "../browser/session";
+import type { Page } from "../browser/session/session";
 import type { BrowserStateSummary } from "../browser/state";
 import { SessionRunner } from "./session-runner";
 import { RateLimiter } from "./rate-limit";

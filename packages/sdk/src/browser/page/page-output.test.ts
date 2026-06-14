@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { ElementInfo, PageSnapshot } from "../dom/types";
+import type { ElementInfo, PageSnapshot } from "../../dom/types";
 import type { Page } from "./page";
 import { screenshot } from "./page-output";
 

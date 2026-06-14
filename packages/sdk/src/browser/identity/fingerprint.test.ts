@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import type { CDPClient } from "../cdp/client";
+import type { CDPClient } from "../../cdp/client";
 import { BrowserProfile } from "./profile";
-import { enableDomains } from "./session-setup";
+import { enableDomains } from "../session/session-setup";
 import {
   buildFingerprintInitScript,
   buildUserAgentOverride,

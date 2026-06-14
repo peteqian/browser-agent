@@ -16,8 +16,8 @@ import type {
   TransportResolution,
 } from "../decide/contracts";
 import type { ActionDefinition, ActionRegistry } from "../../actions/registry";
-import type { BrowserSession, Page } from "../../browser/session";
-import { resolveBrowserPaths } from "../../browser/profile-paths";
+import type { BrowserSession, Page } from "../../browser/session/session";
+import { resolveBrowserPaths } from "../../browser/identity/profile-paths";
 import type { DomBudgetOptions } from "../../dom/cdp-snapshot";
 import type { RetryOptions } from "./retry";
 

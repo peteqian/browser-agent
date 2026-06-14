@@ -1,4 +1,4 @@
-import type { BrowserFingerprintMode } from "../browser/profile";
+import type { BrowserFingerprintMode } from "../browser/identity/profile";
 
 // These flags suppress anti-automation fingerprints, reduce background noise,
 // and keep the browser stable under aggressive CDP use.

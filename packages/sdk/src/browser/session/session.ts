@@ -1,11 +1,11 @@
-import { CDPClient } from "../cdp/client";
-import { launchBrowserFromProfile, type LaunchOptions, type LaunchedBrowser } from "../cdp/launch";
-import { BrowserProfile } from "./profile";
-import { CaptchaWatchdog, type CaptchaWaitResult } from "./watchdogs/captcha";
-import { BrowserEventBus } from "./events";
-import type { BrowserStorageState } from "./storage-state";
+import { CDPClient } from "../../cdp/client";
+import { launchBrowserFromProfile, type LaunchOptions, type LaunchedBrowser } from "../../cdp/launch";
+import { BrowserProfile } from "../identity/profile";
+import { CaptchaWatchdog, type CaptchaWaitResult } from "../watchdogs/captcha";
+import { BrowserEventBus } from "../events";
+import type { BrowserStorageState } from "../storage-state";
 
-import { Page } from "./page";
+import { Page } from "../page/page";
 import {
   configureDownloads,
   configurePermissions,
@@ -23,7 +23,7 @@ import type {
   DownloadInfo,
 } from "./session-types";
 
-export { Page } from "./page";
+export { Page } from "../page/page";
 export type {
   BrowserSessionState,
   BrowserSessionOptions,

@@ -1,5 +1,5 @@
-import type { BrowserSession } from "./session";
-import { formatRuntimeException } from "./session-helpers";
+import type { BrowserSession } from "../session/session";
+import { formatRuntimeException } from "../session/session-helpers";
 import type {
   ExtractContentParams,
   ExtractContentResult,
@@ -8,7 +8,7 @@ import type {
   PendingNetworkRequest,
   RuntimeExceptionDetails,
   SearchPageParams,
-} from "./session-types";
+} from "../session/session-types";
 
 import {
   currentUrl,

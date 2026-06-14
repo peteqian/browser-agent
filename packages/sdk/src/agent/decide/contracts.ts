@@ -1,7 +1,7 @@
 import type { Action } from "../../actions/types";
 import type { ActionDefinition, ActionRegistry, RegisteredAction } from "../../actions/registry";
 import type { LaunchOptions } from "../../cdp/launch";
-import type { BrowserSession, Page } from "../../browser/session";
+import type { BrowserSession, Page } from "../../browser/session/session";
 import type { BrowserEvent } from "../../browser/events";
 import type { BrowserStateSummary } from "../../browser/state";
 import type { DomBudgetOptions } from "../../dom/cdp-snapshot";

@@ -5,7 +5,7 @@ import {
 } from "../actions/registry";
 import type { ActionResult } from "../actions/handlers/shared";
 import type { Action } from "../actions/types";
-import type { BrowserSession, Page } from "../browser/session";
+import type { BrowserSession, Page } from "../browser/session/session";
 import type { BrowserStateSummary } from "../browser/state";
 import type { DomBudgetOptions } from "../dom/cdp-snapshot";
 import type { ExtractionLLMFn } from "../agent/decide/contracts";

@@ -8,8 +8,8 @@ import {
   resolveHumanize,
   typingDelaysMs,
 } from "./humanize";
-import { clickAtCoordinates, humanClickAtCoordinates, keyboardType } from "./page-input";
-import type { Page } from "./page";
+import { clickAtCoordinates, humanClickAtCoordinates, keyboardType } from "../page/page-input";
+import type { Page } from "../page/page";
 
 describe("resolveHumanize", () => {
   test("off by default", () => {

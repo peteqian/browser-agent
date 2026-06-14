@@ -2,8 +2,8 @@ import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
-import type { Page } from "./page";
-import type { BrowserProfile } from "./profile";
+import type { Page } from "./page/page";
+import type { BrowserProfile } from "./identity/profile";
 import {
   type BrowserOriginStorageState,
   type BrowserStorageState,

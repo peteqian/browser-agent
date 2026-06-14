@@ -1,4 +1,4 @@
-import type { BrowserChannel } from "../cdp/discovery";
+import type { BrowserChannel } from "../../cdp/discovery";
 import type Protocol from "devtools-protocol";
 import type { FingerprintInit } from "./fingerprint";
 import type { HumanizeInit } from "./humanize";

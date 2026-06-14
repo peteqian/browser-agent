@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Page } from "../page";
+import type { Page } from "../page/page";
 import {
   LoginWallWatchdog,
   detectLoginWall,

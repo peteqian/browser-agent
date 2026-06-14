@@ -1,7 +1,7 @@
 import type { DomBudgetOptions, SelectorMap } from "../dom/cdp-snapshot";
 import { formatSnapshotDiff, formatSnapshotForLLM, serializePage } from "../dom/serialize";
 import type { ElementBBox, ElementInfo, PageSnapshot } from "../dom/types";
-import type { BrowserSession, Page, PendingNetworkRequest } from "./session";
+import type { BrowserSession, Page, PendingNetworkRequest } from "./session/session";
 
 export interface ScreenshotState {
   base64: string;

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { z } from "zod/v4";
 
-import type { BrowserSession, Page } from "../../browser/session";
+import type { BrowserSession, Page } from "../../browser/session/session";
 import type { AgentEvent, AgentInput, StepInfo } from "../decide/contracts";
 import { SYSTEM_PROMPT } from "../decide/prompts";
 import { AgentController, buildDecisionPrompt, buildDecisionUserPrompt, runLoop } from "./loop";

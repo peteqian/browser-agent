@@ -1,4 +1,4 @@
-import { BrowserSession } from "../../browser/session";
+import { BrowserSession } from "../../browser/session/session";
 import { ChallengeWatchdog, challengeObservationNote } from "../../browser/watchdogs/challenge";
 import { LoginWallWatchdog, loginWallObservationNote } from "../../browser/watchdogs/login-wall";
 import type { PageSnapshot } from "../../dom/types";
