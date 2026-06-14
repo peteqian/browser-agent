@@ -1,0 +1,97 @@
+---
+title: Overview
+description: How the browser-agent decision loop works end to end — task to DOM snapshot to LLM decision to action, the runtime topology, and the guardrails that bound a run.
+---
+
+The agent is a loop. You give it a task in natural language; it drives real Chrome over the Chrome DevTools Protocol (CDP), and at every step it asks an LLM which named action to run next. There is no scripted flow — the model reads a structured view of the live page and chooses from a fixed action vocabulary until it emits `done` or a guardrail stops the run.
+
+## The decision loop
+
+Each step is one pass through capture → decide → act → re-capture. The loop owns the session lifecycle when no page or session was supplied; otherwise cleanup stays with the caller.
+
+```
+ task ("find pricing on stripe.com")  + optional startUrl
+              │
+              ▼
+   ┌──────────────────────────────────────────────┐
+   │  STEP N                                        │
+   │                                                │
+   │  1. watchdogs    challenge / login-wall check  │
+   │        │            (note injected, non-fatal) │
+   │        ▼                                        │
+   │  2. snapshot     CDP DOMSnapshot + AX tree      │
+   │        │            → indexed ElementInfo[]     │
+   │        │            → serialized for the model  │
+   │        ▼                                        │
+   │  3. decide       DecisionInput → LLM adapter    │
+   │        │            → { actions: [{name,params}]}│
+   │        ▼                                        │
+   │  4. act          ActionRegistry resolves each   │
+   │        │            named action; index params  │
+   │        │            map through the selectorMap │
+   │        ▼                                        │
+   │  5. bookkeep     history, loop detection,       │
+   │        │            failure count, budget       │
+   │        └────────────► terminal? ──── no ───┐    │
+   └────────────────────────│──────────────────│────┘
+                            │ yes               │
+                            ▼                   └──► STEP N+1
+                  AgentResult { success, reason, summary, data, steps }
+```
+
+The loop builds a `DecisionInput` (task, step number, `BrowserStateSummary`, the serialized observation, tab list, compacted history, and the action catalog) from the current page state plus prior history. It calls the model, parses the chosen actions, and executes them through the action registry against the active `Page`. A `done` action — or any guardrail — ends the run.
+
+<Callout type="info">
+The serialized page the model sees is not raw HTML. It is a compact, AX-tree-flavored line per interactive element (`@e<index> [role] "name"[state]`). See [DOM snapshot](/docs/architecture/dom-snapshot) for how that view is built, and [Action vocabulary](/docs/guides/actions) for the action names.
+</Callout>
+
+## Runtime topology
+
+Three integration surfaces share one core. The CLI, the SDK, and the MCP server all drive the same `Agent` + `Browser` pair; everything below `BrowserSession` is transport plumbing.
+
+```
+        CLI            SDK             MCP server
+   (browser-agent)  (import …)   (browser-agent-mcp)
+         │              │               │
+         └──────────────┼───────────────┘
+                        ▼
+            Agent (high-level)  ────  Browser (high-level)
+                        │                     │
+                        ▼                     ▼
+                  Agent loop  ──── BrowserSession ──── CDPClient (WebSocket → Chrome)
+                        │
+                        ▼
+            DecideFn / GetNextActionFn
+                        │
+                        ▼
+       LLM adapter  (OpenAI · Anthropic · Codex · Claude CLI/SDK)
+```
+
+- **Agent** drives the loop; **Browser** is the high-level facade over a `BrowserSession`.
+- **BrowserSession** manages targets/pages and speaks to Chrome through **CDPClient** over a WebSocket.
+- The model is reached through a **DecideFn** produced by transport resolution — a local signed-in CLI/SDK or an API-key provider. See [Transport resolution](/docs/guides/transports).
+- The MCP server itself lives in `packages/cli` (`bin/mcp.ts`), not the SDK.
+
+## Guardrails
+
+A model can stall, thrash, or run up cost without ever failing outright. The loop terminates with a typed `TerminalReason` when any of these fire:
+
+| Guardrail | Mechanism | Terminal reason |
+| --- | --- | --- |
+| Step timeout | Snapshot/context build exceeds `stepTimeoutMs` | `step_timeout` |
+| Decision timeout | Model call exceeds `decisionTimeoutMs` (with retry) | `decision_timeout` |
+| Consecutive failures | `maxFailures` steps in a row where every action failed | `max_failures` |
+| Loop detection | Repeated action + same page state past the nudge budget | `loop_detected` |
+| Budget | Token or USD spend crosses `budget.maxTokens` / `maxCostUsd` | `budget_exceeded` |
+| Empty decisions | Model returns zero actions for 2 turns running | `failed` |
+| Runaway ceiling | Hard internal cap of 250 steps of non-repeating "progress" | `failed` |
+| Abort / stop | Caller signal or interrupt | `aborted` / `stopped` |
+
+A few details worth knowing as a contributor:
+
+- **Loop detection is graduated.** Before hard-stopping, the loop emits *nudges* — observation prefixes that tell the model it is repeating itself and suggest alternatives. Only after the nudge budget (`loopDetectionNudgeBudget`, default 2) is spent does it terminate with `loop_detected`. Set `loopDetectionMode: "strict"` to skip nudges, or `"off"` to disable.
+- **Budget is checked after the decision is paid for.** A crossed limit lets a terminal `done` finish (no further spend) but stops before buying more actions or decisions. USD accounting requires a pricing entry for the model.
+- **Failure recovery.** When `maxFailures` is hit and `finalResponseAfterFailure` is on (default), the loop gives the model one last chance to summarize before returning the failure result.
+- **Watchdog notes are non-fatal.** Bot-challenge and login-wall detection inject a note into the next observation and emit a structured event so a caller can pause for a human, but they do not stop the loop themselves.
+
+The result is always an `AgentResult` carrying `success`, the `reason`, a `summary`, optional `data`, and the step count.

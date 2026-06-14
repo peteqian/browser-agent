@@ -1,0 +1,114 @@
+---
+title: Errors and recovery
+description: Terminal reasons, the "no transport available" failure, decision parse errors, action timeouts, loop detection, cancellation, browser launch failures, and reading the verbose log.
+---
+
+## Terminal reasons
+
+Every run ends with an `AgentResult` whose `reason` tells you why. Branch on `reason` rather than parsing `summary`.
+
+| Reason             | Meaning                                                                  | Common cause                                                                       |
+| ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `completed`        | Model emitted a successful terminal `done`. `success` is `true`.         | Normal termination.                                                               |
+| `failed`           | Model emitted `done` with `success: false`, or the loop failed a step.   | The model decided the task could not be completed. Inspect the last `action` events. |
+| `max_failures`     | Consecutive failures hit `maxFailures` (default 5).                      | Bad selectors, broken page, missing auth. Inspect the last few `action` events.   |
+| `loop_detected`    | The same action+result fingerprint repeated `loopDetectionWindow` times. | Model stuck. Check the page or refine the task.                                    |
+| `step_timeout`     | DOM serialization / page-context prep exceeded `stepTimeoutMs`.          | Slow page, infinite redirects, heavy JS. Raise `--step-timeout`.                  |
+| `decision_timeout` | The model took longer than `decisionTimeoutMs` to respond.               | Slow provider, large context. Raise `--llm-timeout`.                              |
+| `schema_violation` | Terminal `done` payload didn't match `outputSchema`. `data` is `null`.   | Model returned an unexpected data shape.                                          |
+| `aborted`          | `signal` aborted.                                                        | User cancellation / external timeout.                                             |
+| `stopped`          | `control.stop()` was called.                                            | Cooperative shutdown from the caller.                                             |
+| `decide_error`     | The decide function threw and could not recover.                         | Adapter / transport error mid-run.                                               |
+| `budget_exceeded`  | A configured token or USD `budget` limit was crossed.                    | Run hit its spend ceiling.                                                        |
+| `judge_failed`     | The `judge` hook rejected the model's terminal claim.                    | Final validation said the task wasn't actually done.                              |
+
+## "No transport available"
+
+```
+No transport available for provider=claude in env=local. Tried: sdk-agent, cli, sdk-api.
+```
+
+Every transport probe failed. Each rejected attempt is logged to stderr first as `transport_unavailable` — read those reasons:
+
+```sh
+browser-agent --probe --provider claude
+```
+
+Common fixes:
+
+- `sdk-agent: no ANTHROPIC_API_KEY or ~/.claude/.credentials.json` → run `claude login` or set `ANTHROPIC_API_KEY`.
+- `cli: \`claude\` not found on PATH` → install the Claude CLI or set `CLAUDE_BIN`.
+- `sdk-api: ANTHROPIC_API_KEY not set` → export the env var.
+
+See [Transports](/docs/guides/transports) for the full resolution flow.
+
+## Decision parse failures
+
+The adapter throws `Decision response missing action name` or similar when the model returns text that isn't valid JSON or omits `name`.
+
+- Temperature is already low (0.2) for the `openai` / `anthropic` providers.
+- For freeform CLI / SDK adapters, the prompt asks for raw JSON. The parser tolerates code fences and balanced JSON embedded in prose, but completely off-script output throws.
+- Use `--verbose` (or the `onCodexRaw` hook) to log the raw model output and see exactly what it said.
+
+## Action timeouts
+
+```
+Action timed out after 30000ms
+```
+
+The action ran longer than `actionTimeoutMs`. Common when:
+
+- Navigating to a slow site — raise `--action-timeout`.
+- `wait_for_text` is hunting text that never appears.
+- The page is in an infinite redirect.
+
+This is recoverable: the next decision sees the timeout in history and the model can try a different action.
+
+## Loop detection
+
+The loop tracks an action+result fingerprint per step. If the same fingerprint repeats `loopDetectionWindow` times in a row (default 4), the run terminates with `loop_detected`.
+
+The default `loopDetectionMode` is `"nudge"` — before terminating, the loop injects a notice (a `loop_nudge` event) prompting the model to change course. Set `loopDetectionMode: "off"` to disable detection entirely.
+
+## Cancellation
+
+Two cooperative mechanisms:
+
+```ts
+const controller = new AbortController();
+runTask({ /* ... */, signal: controller.signal });
+
+// Later:
+controller.abort(); // ends with reason: "aborted"
+```
+
+```ts
+import { AgentController } from "@peteqian/browser-agent-sdk";
+
+const control = new AgentController();
+runTask({ /* ... */, control });
+
+control.pause();      // freeze between steps
+control.resume();
+control.stop("user"); // ends with reason: "stopped", summary: "user"
+```
+
+In both cases the loop terminates at the next safe point. If the loop owns the browser session it closes it; otherwise the session stays open for the caller to clean up.
+
+## Browser launch failures
+
+Chrome for Testing must be discoverable or installable. The launcher tries `BROWSER_AGENT_CHROME`, then the managed Chrome for Testing cache, then installs it when auto-install is enabled. If you see "Chrome not found":
+
+- Set `BROWSER_AGENT_CHROME=/full/path/to/chrome`, or
+- Pass `launch: { executablePath: "..." }` to `runTask(...)`.
+
+## Reading the verbose log
+
+`--verbose` writes JSONL to stderr:
+
+```
+{"event":"agent.step","data":{...}}
+{"event":"model.raw","data":{"step":3,"raw":"..."}}
+```
+
+Combine with `--json` to capture the event stream (stdout) and raw model output (stderr) separately.

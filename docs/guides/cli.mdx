@@ -1,0 +1,160 @@
+---
+title: CLI
+description: Run a browser-agent task end-to-end from the terminal with the browser-agent binary.
+---
+
+The `browser-agent` binary runs a single task end-to-end and prints the result as JSON. It ships in the runtime package `@peteqian/browser-agent`.
+
+```bash
+npm install -g @peteqian/browser-agent
+```
+
+## Synopsis
+
+```
+browser-agent "<task>" [flags]
+browser-agent --stdin
+browser-agent --probe --provider <p>
+browser-agent --version
+browser-agent --help
+```
+
+Run `browser-agent --help` for the authoritative flag list.
+
+## Flags
+
+### Task and run shape
+
+| Flag | What |
+| --- | --- |
+| `--url <url>` | Start URL (skips a navigate step). |
+| `--headless` / `--no-headless` | Hide / show the browser window. Default headless. |
+| `--stdin` | Read task from stdin. Combinable with a positional task. |
+| `--config <path>` | Load defaults from a JSON file. CLI flags override config. |
+
+### Provider
+
+| Flag | What |
+| --- | --- |
+| `--provider <p>` | `codex` (default) / `claude` / `openai` / `anthropic`. |
+| `--model <id>` | Override the default model. |
+| `--api-key <k>` | API key. Prefer env vars — flags appear in process listings. |
+| `--base-url <url>` | Base URL for OpenAI-compatible endpoints. |
+| `--effort <e>` | Codex reasoning effort: `minimal` / `low` / `medium` / `high` / `xhigh`. |
+
+For backends and credentials per provider, see [Providers](/docs/getting-started/providers).
+
+### Transport resolution
+
+| Flag | What |
+| --- | --- |
+| `--transport <t>` | Force `auto` / `sdk-agent` / `sdk-api` / `cli`. |
+| `--env <e>` | Force `auto` / `local` / `cloud`. |
+| `--probe` | Resolve transport, print resolution JSON, exit 0. Debug auth without launching a browser. |
+
+### Timeouts
+
+| Flag | Default | What |
+| --- | --- | --- |
+| `--decision-timeout <ms>` | 120000 | One LLM call. |
+| `--step-timeout <ms>` | 180000 | Per-step page-context preparation. |
+| `--action-timeout <ms>` | 30000 | Single action execution. |
+| `--max-failures <n>` | 5 | Consecutive failures before giving up. |
+
+### Output
+
+| Flag | What |
+| --- | --- |
+| `--json` | Stream `AgentEvent`s as JSONL on stdout instead of the result blob. |
+| `--output-file <path>` | Write final result JSON to a file. Stdout still prints unless `--json`. |
+| `--verbose` / `-v` | Print raw model output and step traces to stderr (JSONL). |
+
+### Anti-bot, pacing, and observability
+
+| Flag | What |
+| --- | --- |
+| `--proxy <url>` | Route egress through a proxy. |
+| `--proxy-bypass <list>` | Hosts that skip the proxy. |
+| `--rate-limit-ms <ms>` | Politeness delay between actions. |
+| `--rate-limit-host-ms <ms>` | Politeness delay per host. |
+| `--cdp-url <url>` | Attach to an existing Chrome DevTools endpoint. |
+| `--fingerprint-mode <m>` | `stealth` (default) or `native` to preserve the real browser identity. |
+| `--report-json <path>` | Write a structured `RunReport` (steps, tokens, cost, challenges) for CI. |
+| `--trace-dir <dir>` | Write a replayable screenshot timeline (`index.html`). |
+| `--redact` | Scrub PII from the report. |
+
+## Env vars
+
+| Var | What |
+| --- | --- |
+| `CODEX_BIN` | Path to the codex binary. Default `codex`. |
+| `CLAUDE_BIN` | Path to the claude binary. Default `claude`. |
+| `OPENAI_API_KEY` | Key for the `openai` provider and codex SDK fallback. |
+| `ANTHROPIC_API_KEY` | Key for the `anthropic` and `claude` providers. |
+| `BROWSER_AGENT_ENV` | `local` or `cloud`. Forces transport policy. |
+| `BROWSER_AGENT_CDP_URL` | CDP endpoint to attach to. |
+
+## Subcommands
+
+```bash
+browser-agent browser status      # check the discoverable browser
+browser-agent browser install     # install Playwright-managed Chromium if none found
+browser-agent profile list        # list named profiles
+browser-agent profile show <name>
+browser-agent profile clear <name>
+browser-agent dashboard           # start the local dashboard daemon (http://127.0.0.1:3217)
+browser-agent install             # auto-configure MCP clients (see the MCP guide)
+```
+
+Named profiles live under `~/.browser-agent/profiles/<name>/`.
+
+## Examples
+
+```sh
+# Headed run for debugging.
+browser-agent --no-headless --verbose "Open example.com and report the H1"
+
+# Pipe a task in.
+echo "Find pricing on stripe.com" | browser-agent --stdin --provider claude
+
+# Diagnose why a provider isn't resolving.
+browser-agent --probe --provider claude
+
+# Stream JSONL events for a CI pipeline.
+browser-agent --json "Summarize the homepage" --output-file result.json
+
+# OpenAI-compatible local endpoint.
+browser-agent "..." --provider openai --base-url http://localhost:1234/v1 --api-key local
+
+# Apply to a job with pacing, proxy, and CI artifacts.
+browser-agent "Apply to the job at this URL" --url https://jobs.example.com/apply \
+  --proxy http://1.2.3.4:8080 \
+  --rate-limit-ms 250 --rate-limit-host-ms 1000 \
+  --report-json ./run-report.json --trace-dir ./trace --redact
+
+# Attach to a real headed browser and keep its native fingerprint.
+browser-agent "Run fingerprint_report and summarize it" \
+  --cdp-url http://127.0.0.1:9222 \
+  --fingerprint-mode native
+```
+
+## Exit codes
+
+| Code | Meaning |
+| --- | --- |
+| 0 | Run succeeded (`result.success === true`). |
+| 1 | Run failed for any reason: parse error, no transport, agent gave up, schema violation, bad flag. |
+
+## Config file format
+
+```json
+{
+  "provider": "claude",
+  "decisionTimeoutMs": 60000,
+  "headless": true,
+  "transport": "auto",
+  "env": "auto"
+}
+```
+
+CLI flags override file values.

@@ -1,0 +1,4 @@
+{
+  "title": "Features",
+  "pages": ["anti-bot", "autofill", "observability", "reliability", "proxy"]
+}

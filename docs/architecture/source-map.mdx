@@ -1,0 +1,89 @@
+---
+title: Source map
+description: The layered directory structure of packages/sdk/src — what each layer owns, and the one-way dependency direction from the agent core down to the LLM, browser, and CDP layers.
+---
+
+The SDK source is organized into layers under `packages/sdk/src`. Each top-level directory owns one concern, and dependencies point one way: the agent core orchestrates everything below it but nothing below the core depends back up into it.
+
+```
+packages/sdk/src
+├── agent/                 the agent, layered
+│   ├── core/              decision loop + lifecycle
+│   ├── decide/            decision protocol shared with providers
+│   ├── observe/           run-artifact helpers over the AgentEvent stream
+│   └── features/          optional loop behaviours
+├── llm/                   model adapters + transport
+│   ├── providers/         per-model adapters
+│   ├── transport/         transport resolution
+│   ├── decision/          decision schema + types
+│   ├── pricing.ts         model price table (drives budget)
+│   └── telemetry.ts
+├── browser/               the Browser facade, layered
+│   ├── session/           BrowserSession (targets, pages, reconnect)
+│   ├── page/              Page (input, navigation, output, scripts)
+│   ├── identity/          fingerprint, humanize, proxy, profile
+│   ├── watchdogs/         challenge, login-wall, captcha
+│   └── *.ts               browser.ts, events, state, state-vault, …
+├── actions/               action types + execution registry
+├── dom/                   DOM serialization + DOM-facing types
+├── cdp/                   raw Chrome DevTools Protocol
+└── runtime/               SessionRunner — action execution glue
+```
+
+## Dependency direction
+
+```
+agent/core ──► llm ──► (model)
+     │
+     ├──► runtime ──► actions ──► dom
+     │                  │          │
+     └──► browser ◄─────┘          │
+              │                    │
+              └──► cdp  ◄──────────┘
+```
+
+`agent/core` is the only layer that orchestrates the others. It calls into `llm` for decisions, `runtime`/`actions` to execute them, and `browser`/`cdp` to drive Chrome and capture the page. The lower layers do not import `agent/core`. The one boundary to respect when contributing: **the decision protocol in `agent/decide` is shared with `llm/providers`** — provider adapters import the contracts there, which is why those types live in the agent layer rather than under `llm`.
+
+## What each layer owns
+
+### `agent/`
+
+- **`core/`** — the decision loop and lifecycle. `agent.ts` is the public facade (`Agent`, `runTask`), `loop.ts` is the engine, with `controller.ts`, `step-runner.ts`, `step-context.ts`, `history.ts`, `recovery.ts`, `retry.ts`, `timeouts.ts`, `terminal-result.ts`, and `options.ts`.
+- **`decide/`** — the decision protocol shared with providers: `contracts.ts` (the public agent types), `decision-prompt.ts`, `prompts.ts`, `parseDecision.ts`.
+- **`observe/`** — run-artifact helpers that consume the `AgentEvent` stream: `report.ts` (RunReport + JUnit), `otel.ts` (OpenTelemetry export), `trace.ts` (replay bundle), `redact.ts` (PII redaction), `emit.ts`.
+- **`features/`** — optional loop behaviours: `autofill.ts` (applicant form fills), `snapshot-reuse.ts`, `focus-state.ts`, `loop-detection.ts`, `spawnChild.ts`.
+
+### `llm/`
+
+- **`providers/`** — per-model adapters: `openai.ts`/`openaiTools.ts`, `anthropic.ts`, and the CLI/SDK decide adapters `claudeCliDecide.ts`, `claudeSdkDecide.ts`, `codexCliDecide.ts`, `codexSdkDecide.ts`.
+- **`transport/`** — `createDecide.ts`, `resolveTransport.ts`, `env.ts`. See [Transport resolution](/docs/guides/transports).
+- **`decision/`** — `decisionSchema.ts`, `types.ts`.
+- Root: `pricing.ts` (model price table + `estimateCostUsd`, which drives `budget`), `telemetry.ts`, `index.ts`.
+
+### `browser/`
+
+- **`session/`** — `session.ts` plus `session-{handlers,helpers,reconnect,setup,types}.ts`. `BrowserSession` manages targets, pages, and reconnection.
+- **`page/`** — `page.ts` plus `page-{input,navigation,output,scripts}.ts`.
+- **`identity/`** — anti-bot identity controls: `fingerprint.ts`, `humanize.ts`, `proxy-pool.ts`, `profile.ts`, `profile-paths.ts`.
+- **`watchdogs/`** — `challenge.ts` (bot-protection detection + `CaptchaSolver`), `login-wall.ts`, `captcha.ts`.
+- Root: `browser.ts`, `events.ts`, `state.ts`, `state-vault.ts`, `allowed-domains.ts`, `auto-consent.ts`, `storage-state.ts`.
+
+### `actions/`
+
+Browser action types and execution. `registry.ts` exposes the `ActionRegistry`; handlers live under `handlers/` (interaction, navigation, extraction, find, capture, network, console, cookies, emulation, …). Index-based handlers resolve through the `selectorMap`; entries carrying a `targetId` route to an out-of-process iframe session. See [Action vocabulary](/docs/guides/actions).
+
+### `dom/`
+
+DOM serialization and DOM-facing types. `cdp-snapshot.ts` builds the indexed snapshot, `serialize.ts` renders it for the model, `snapshot-diff.ts` produces step-over-step deltas, `types.ts` holds `ElementInfo` / `PageSnapshot`. See [DOM snapshot](/docs/architecture/dom-snapshot).
+
+### `cdp/`
+
+Raw Chrome DevTools Protocol: `launch.ts`, `discovery.ts`, the WebSocket `client.ts`, and `chrome-args.ts`. Nothing above this layer speaks WebSocket directly.
+
+### `runtime/`
+
+`SessionRunner` (`session-runner.ts`) is the glue between the loop and the action layer — it executes actions, applies self-healing and rate limiting, and tracks page state. Also `post-condition.ts` and `rate-limit.ts`.
+
+<Callout type="info">
+Entry points live outside the SDK src tree: the public surface is `src/index.ts` (published as `@peteqian/browser-agent-sdk`), with the unstable internal surface at `src/internal.ts`. The CLI and MCP runtimes are in `packages/cli` (`bin/cli.ts`, `bin/mcp.ts`).
+</Callout>

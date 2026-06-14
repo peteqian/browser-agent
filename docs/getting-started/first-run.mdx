@@ -1,0 +1,137 @@
+---
+title: First run
+description: Run your first task on the CLI, SDK, and MCP with minimal working examples.
+---
+
+Three surfaces, one engine. Pick the one that fits how you work. All three need a configured provider — see [Providers](/docs/getting-started/providers) — and a managed browser, which auto-installs on first launch.
+
+<Tabs items={['CLI', 'SDK', 'MCP']}>
+<Tab value="CLI">
+
+Run a one-off task straight from your shell. Each invocation launches a fresh browser, runs the task, and exits.
+
+```sh
+browser-agent "Open example.com and report the H1"
+```
+
+Defaults: `provider=codex`, `headless=true`.
+
+Watch the agent work and see what it's thinking:
+
+```sh
+browser-agent --no-headless --verbose "Search for 'TypeScript' on google.com"
+```
+
+For authenticated tasks, use a named profile so cookies and localStorage survive between runs:
+
+```sh
+browser-agent --profile gmail --no-headless \
+  "Check my Gmail inbox and summarize unread messages"
+```
+
+The profile is stored under `~/.browser-agent/profiles/gmail/`. Run `browser-agent --help` for the full flag list.
+
+</Tab>
+<Tab value="SDK">
+
+Drive the agent from your own code. Construct a `Browser`, call `runTask`, and always close the browser when done.
+
+```ts
+import { Browser, runTask } from "@peteqian/browser-agent-sdk";
+
+const browser = new Browser();
+
+try {
+  const result = await runTask({
+    task: "Go to example.com and report the H1 text.",
+    browser,
+    startUrl: "https://example.com",
+  });
+  console.log(result.summary);
+} finally {
+  await browser.close();
+}
+```
+
+`result.summary` is human-readable. For control flow, branch on `result.reason` (`completed`, `failed`, `aborted`, …) — `result.success` is `true` only when `reason === "completed"`.
+
+Stream the loop as it runs with `onEvent`:
+
+```ts
+const result = await runTask({
+  task: "Open example.com and report the H1",
+  browser,
+  onEvent: (event) => console.log(event.type),
+});
+```
+
+Use `browser.close()` for normal cleanup; use `browser.kill()` to force-kill the process tree if Chrome wedges.
+
+</Tab>
+<Tab value="MCP">
+
+Use the MCP server when you want a persistent browser session inside an MCP host (Claude Code, Cursor, Claude Desktop). The server holds one `BrowserSession` open across many tool calls — launch once, then issue many `navigate` / `click` / `type` / `extract` calls against the same tab.
+
+Register it with the installer:
+
+```sh
+browser-agent install
+```
+
+Or add it manually to your client config:
+
+```json
+{
+  "mcpServers": {
+    "browser-agent": {
+      "command": "npx",
+      "args": ["-y", "-p", "@peteqian/browser-agent", "browser-agent-mcp"]
+    }
+  }
+}
+```
+
+Then ask your assistant to launch a session and drive it:
+
+```text
+launch_session → navigate(url) → click(ref) → type(ref, text) → extract(...)
+                                            ↑ same browser, no relaunch
+```
+
+Each action returns the next observation and caches the latest selector map, so you can reuse the visible `@eN` refs (e.g. `click({ ref: "@e4" })`) without calling `get_snapshot` after every step. See the [MCP guide](/docs/guides/mcp) for the full tool list.
+
+</Tab>
+</Tabs>
+
+## Typed output
+
+Validate the agent's terminal result against a Zod schema. The model calls `done(data=...)` and the data is checked against your schema before it reaches you.
+
+```ts
+import { z } from "zod";
+import { Browser, runTask } from "@peteqian/browser-agent-sdk";
+
+const Result = z.object({ heading: z.string() });
+
+const browser = new Browser();
+
+try {
+  const result = await runTask({
+    task: "Report the page heading via done(data=...).",
+    browser,
+    startUrl: "https://example.com",
+    outputSchema: Result,
+  });
+
+  if (result.success) console.log(result.data?.heading);
+} finally {
+  await browser.close();
+}
+```
+
+## Next
+
+<Cards>
+  <Card title="SDK guide" href="/docs/guides/sdk" description="Typed output, custom adapters, event streaming, and cancellation." />
+  <Card title="MCP guide" href="/docs/guides/mcp" description="Persistent sessions, tools, and host setup." />
+</Cards>

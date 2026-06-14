@@ -1,0 +1,75 @@
+---
+title: DOM snapshot
+description: How the live DOM becomes a compact, indexed view for the model — CDP serialization, element indexing for index-based actions, and cross-origin OOPIF iframe expansion.
+---
+
+The model never sees raw HTML. At each step the agent captures the live page over CDP, distills it to a list of interactive elements, assigns each a stable integer index, and serializes that into a compact string the model can reason over. Index-based actions (`click_by`, `type_by`, …) then refer back to those indices, which the runtime resolves to real DOM nodes through a side-table called the **selector map**.
+
+Two files do the work:
+
+- `packages/sdk/src/dom/cdp-snapshot.ts` — captures and builds the indexed `ElementInfo[]` plus the `selectorMap`.
+- `packages/sdk/src/dom/serialize.ts` — renders that snapshot into the lines the model reads.
+
+## Capture and distillation
+
+`captureCdpSnapshot` issues `DOMSnapshot.captureSnapshot` (with computed styles, paint order, and DOM rects) and `Accessibility.getFullAXTree`, then merges them. The raw snapshot is a columnar, string-interned structure; the code walks the layout tree and keeps a node as a **candidate** only when it is genuinely interactive or content-bearing:
+
+- standard interactive tags (`a`, `button`, `input`, `select`, `textarea`, `label`, `details`, `summary`),
+- elements CDP flags clickable, or carrying `onclick` / `tabindex`,
+- elements with an interactive or named content ARIA role.
+
+Nodes hidden by computed style (`display:none`, `visibility:hidden/collapse`, `opacity<=0`) or with a zero-area box are dropped. A second pass picks up named AX nodes the DOM-snapshot pass missed, reading their live DOM info on demand. Candidates are then sorted top-to-bottom, left-to-right (with a role-based tiebreaker), and a `document.elementFromPoint` hit-test prunes elements that are visually occluded — unless they carry a semantic AX role/name or are a cross-origin iframe.
+
+Each surviving element becomes an `ElementInfo` carrying its tag, AX role/name, text, href, placeholder, value, test-id, data-attributes, bounding box, and two identity fields:
+
+- **`stableHandle`** — a human-readable handle (`testid=…`, `role=… name="…"`, `label=…`, `href=…`, `text=…`, or `index`) used by name-based action handlers.
+- **`stableId`** — an FNV-1a hash over frame path, tag, role, name, test-id, label, href, and a 40px-binned Y position, so minor scroll/layout shifts keep the same identity. This drives snapshot diffing.
+
+Budgets (`DomBudgetOptions`) bound the cost: by default up to 1200 captured elements, 100 shown to the model, field/text values clipped to 120 chars, and a 12,000-char total cap on the serialized output. Only a whitelist of attributes is read.
+
+## Element indexing and the selector map
+
+The `index` on each `ElementInfo` is its position in the kept list, starting at 0. That index is the contract between the model and the runtime. Alongside the elements, capture builds:
+
+```ts
+interface SelectorMap {
+  byIndex: Map<number, SelectorMapEntry>;
+}
+
+interface SelectorMapEntry {
+  backendNodeId: number;   // the CDP node to act on
+  frameId?: string;
+  targetId?: string;       // set only for out-of-process iframe elements
+}
+```
+
+When the model returns an index-based action, the handler looks up `selectorMap.byIndex.get(index)` to recover the `backendNodeId` to click or type into. The serialized lines deliberately omit the handle and id to save tokens — they stay on the in-memory `ElementInfo` for the handlers.
+
+## Serialized form
+
+`formatSnapshotForLLM` renders a header (URL, title, page readyState + pending request count, element total) followed by one compact line per element:
+
+```
+@e<index> [<role>] "<name>"<state>
+```
+
+Role prefers the ARIA/AX role and falls back to the tag; name is the first non-empty accessible label; the `[state]` suffix appears only when load-bearing (`[checked]`, `[disabled]`, `[expanded=true]`, `[selected]`). For unnamed links the `href` is appended as the only remaining signal.
+
+There is also a diff-aware variant, `formatSnapshotDiff`, that emits only `+`/`-`/`~` element deltas versus the prior step (with an `(= N unchanged)` tail). It falls back to the full snapshot when the URL changed, when more than half the elements churned, or when the diff would exceed the char cap.
+
+## Cross-origin iframe (OOPIF) expansion
+
+Cross-origin iframes — common on job boards (Greenhouse, Workday) and embedded forms — render in separate **out-of-process** targets that `DOMSnapshot.captureSnapshot` cannot pierce. The main snapshot only sees the empty `<iframe>` shell.
+
+The snapshot detects this case: an `iframe` node with no captured content document is tagged `crossOriginIframe: true`. Then `expandCrossOriginIframes` recovers the content:
+
+1. List iframe targets via `Target.getTargets` and match each flagged `<iframe>` to a target by URL (exact, then normalized; with a single-iframe/single-target fallback).
+2. Re-run the same capture pipeline against the matched target's `Page`.
+3. Translate child element bounding boxes into main-page coordinates (child bbox + iframe bbox) and append them to the parent element list with fresh sequential indices.
+4. Record each merged element's selector-map entry with `framePath: "oopif:<targetId>"` and a `targetId` so the action layer executes against the iframe's own session — its `backendNodeId` is only meaningful there.
+
+Expansion is bounded (at most 3 iframe expansions per snapshot, and never past the element budget) to keep step latency in check, and it is best-effort: if it fails, the `<iframe>` keeps its `crossOriginIframe` flag and the serializer emits a hint telling the model the content is not listed and that it should navigate to the frame's `src` or fall back to screenshot + coordinate clicks.
+
+<Callout type="info">
+`framePath` distinguishes where an element lives: `"main"` for the top document, `"frame:<frameId>"` for a same-process iframe, and `"oopif:<targetId>"` for an expanded cross-origin iframe. Only the last requires routing actions to a different CDP session.
+</Callout>
