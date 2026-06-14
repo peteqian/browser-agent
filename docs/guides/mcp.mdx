@@ -1,0 +1,136 @@
+---
+title: MCP server
+description: Expose browser-agent as an MCP stdio server for Claude Desktop, Cursor, and other MCP clients.
+---
+
+The `@peteqian/browser-agent` package ships an MCP stdio server (`browser-agent-mcp`) that exposes browser primitives plus a high-level `run_agent` tool. Any MCP client can drive the browser directly or hand off whole tasks.
+
+## Install in a client
+
+The fastest path is the bundled auto-installer, which detects your clients (Codex, Claude Code, Cursor), asks for scope and runtime source, then writes the config:
+
+```bash
+npx -y -p @peteqian/browser-agent browser-agent install
+```
+
+Non-interactive forms:
+
+```bash
+browser-agent install --client codex,cursor
+browser-agent install --client claude-code --scope project
+browser-agent install --all-detected          # no prompts
+browser-agent install --client codex --print   # print snippet only
+```
+
+### Manual config
+
+<Tabs items={["Claude Desktop", "Cursor", "Claude Code", "Codex"]}>
+  <Tab value="Claude Desktop">
+    Add to `claude_desktop_config.json`:
+
+    ```json
+    {
+      "mcpServers": {
+        "browser-agent": {
+          "command": "npx",
+          "args": ["-y", "-p", "@peteqian/browser-agent", "browser-agent-mcp"]
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab value="Cursor">
+    `~/.cursor/mcp.json` (user) or `./.cursor/mcp.json` (project):
+
+    ```json
+    {
+      "mcpServers": {
+        "browser-agent": {
+          "command": "npx",
+          "args": ["-y", "-p", "@peteqian/browser-agent", "browser-agent-mcp"]
+        }
+      }
+    }
+    ```
+  </Tab>
+  <Tab value="Claude Code">
+    ```bash
+    claude mcp add --scope user browser-agent -- \
+      npx -y -p @peteqian/browser-agent browser-agent-mcp
+    ```
+  </Tab>
+  <Tab value="Codex">
+    `~/.codex/config.toml`:
+
+    ```toml
+    [mcp_servers.browser-agent]
+    command = "npx"
+    args = ["-y", "-p", "@peteqian/browser-agent", "browser-agent-mcp"]
+    startup_timeout_sec = 20
+    ```
+  </Tab>
+</Tabs>
+
+## Tool surface
+
+The server exposes two layers:
+
+1. **Session primitives** — `launch_session`, `close_session`, `new_tab`, `switch_tab`, `list_tabs`, plus per-action tools (`navigate`, `click`, `type`, `scroll`, …). These give the client direct CDP-level control.
+2. **`run_agent`** — a high-level "do this task" knob; the agent loop runs internally and returns the full `AgentResult`.
+
+### Sessions lifecycle
+
+`launch_session` returns a `sessionId`. Pass it to every subsequent primitive call. Sessions persist across tool calls by design — the client owns the lifecycle. Call `close_session` to release the browser; pass `force: true` to kill the launched process tree when Chrome is stuck.
+
+### run_agent
+
+```json
+{
+  "task": "Find top 5 frontend jobs on seek.com.au",
+  "startUrl": "https://seek.com.au",
+  "provider": "codex",
+  "headless": true
+}
+```
+
+`run_agent` accepts the same anti-bot and observability knobs as the CLI: `proxy`, `proxyBypass`, `rateLimitMs`, `rateLimitHostMs`, `redact`, and `includeReport`. With `includeReport: true` it returns the `RunReport` inline in the tool result.
+
+`run_agent` always owns its session, so it cleans up the browser when the run ends.
+
+## Live progress
+
+If the client passes a `progressToken` in `_meta` (Claude Desktop and Cursor do this for long-running tools), `run_agent` streams `notifications/progress` for each loop event:
+
+- `transport_resolved` — early signal, e.g. `"transport=sdk-agent (codex/local)"`
+- `decision` — `"step N: decided <action_name>"`
+- `action` — `"<action_name>: ok"` / `"<action_name>: failed"`
+- `terminal` — `"done: <summary>"` / `"failed: <reason>"`
+
+Progress is monotonic (step number plus half-steps for action vs. decision). If no `progressToken` is sent, no progress events fire.
+
+## Cancellation
+
+If the client cancels the request, the harness aborts `extra.signal`, which propagates into the agent loop. The browser session is cleaned up if the loop owned it — and `run_agent` always owns its session.
+
+## Auth
+
+Credentials come from env vars or local CLI auth files, identical to the CLI. The MCP server exposes no auth flow of its own. See [Providers](/docs/getting-started/providers).
+
+## Programmatic embedding
+
+To run the server inside your own process:
+
+```ts
+import { createMcpServer, runStdioServer } from "@peteqian/browser-agent";
+
+// Plain stdio:
+await runStdioServer();
+
+// Custom transport:
+const server = createMcpServer();
+await server.connect(yourTransport);
+```
+
+<Callout type="info">
+  For in-process browser automation without MCP, import [`@peteqian/browser-agent-sdk`](/docs/guides/sdk) instead.
+</Callout>

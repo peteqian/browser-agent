@@ -1,0 +1,56 @@
+---
+title: Proxy rotation
+description: Rotate egress IPs across browser launches with ProxyPool — round-robin, random, or sticky-per-host.
+---
+
+`ProxyPool` rotates the network egress IP across launches so high-volume scraping or job-board automation doesn't trip IP-based rate limits or bans. A pool holds N proxy servers and hands one out per launch by a configurable strategy.
+
+## Enable
+
+Wire a pool into the `Browser` via `proxyPool`. The next proxy is picked at session start and overrides any static `proxyServer` / `proxyBypass`.
+
+```ts
+import { Browser, ProxyPool } from "@peteqian/browser-agent-sdk";
+
+const pool = new ProxyPool({
+  proxies: [
+    "http://1.2.3.4:8080",
+    { server: "http://5.6.7.8:8080", bypass: "*.internal", label: "eu-west" },
+  ],
+  strategy: "round-robin",
+});
+
+const browser = new Browser({ proxyPool: pool });
+```
+
+Pool entries are either a `scheme://host:port` string or a `ProxyEntry` (`server`, optional `bypass`, optional `label` for logging). A pool with no usable entries throws at construction.
+
+## Rotation strategies
+
+| Strategy | Behavior |
+| -------- | -------- |
+| `round-robin` *(default)* | Cycles through entries in order, one per launch. |
+| `random` | Picks an entry at random each launch. Pass `rng` for deterministic selection in tests. |
+| `sticky-per-host` | Same host keeps the same exit IP across a session — avoids mid-session IP changes that look suspicious. Pass the target host to `next(host)`. |
+
+```ts
+const pool = new ProxyPool({
+  proxies: [/* … */],
+  strategy: "sticky-per-host",
+});
+```
+
+Use `pool.next(host)` and `ProxyPool.toLaunchOptions(entry)` directly, or `resolveProxyLaunch(pool, targetUrl)` for a one-call launch-option resolve, if you manage launches yourself.
+
+<Callout type="warn">
+This rotates the network egress IP only (Chrome `--proxy-server`). It does **not** change Chrome's TLS/JA3 fingerprint, which CDN-level detectors (Cloudflare, DataDome) also inspect. To defeat that layer, point pool entries at a uTLS-style proxy in front of Chrome.
+</Callout>
+
+<Callout>
+`proxyPool` is ignored when connecting to an existing `cdpUrl` — no launch happens, so there is nothing to apply the proxy to.
+</Callout>
+
+## See also
+
+- [Anti-bot](/docs/features/anti-bot) — fingerprint and humanized input, the other half of looking like a real client.
+- [Reliability](/docs/features/reliability) — rate limiting to pace requests within an IP.

@@ -1,0 +1,117 @@
+---
+title: Anti-bot
+description: Fingerprint presets, humanized input, the bot-challenge watchdog, pluggable captcha solver, and login-wall detection.
+---
+
+Sites that gate on bot detection look at the browser's fingerprint, the shape of its input, and challenge widgets (Cloudflare, Turnstile, reCAPTCHA, hCaptcha). The SDK ships built-in handling for all three.
+
+## Fingerprint
+
+Pick how the browser presents itself. Stealth mode (the default) installs an init script plus a coherent `Emulation.setUserAgentOverride` so JS-visible and header-visible signals match. Native mode preserves the real browser identity.
+
+```ts
+import { Browser } from "@peteqian/browser-agent-sdk";
+
+const browser = new Browser({
+  fingerprint: "windows-chrome", // preset, or a partial FingerprintProfile
+});
+```
+
+Presets: `macos-chrome` (default), `windows-chrome`, `linux-chrome`. Supply a partial `FingerprintProfile` to override individual signals on top of a preset:
+
+```ts
+const browser = new Browser({
+  fingerprint: {
+    preset: "linux-chrome",
+    languages: ["en-GB", "en"],
+    hardwareConcurrency: 16,
+    deviceMemory: 16,
+    webglVendor: "Google Inc.",
+    webglRenderer: "ANGLE (Mesa Intel)",
+    screen: { width: 2560, height: 1440 },
+  },
+});
+```
+
+Overridable fields include UA, accept-language / `navigator.languages`, platform, client-hint brands, hardware concurrency, device memory, max touch points, WebGL vendor/renderer, and screen dimensions. The init script and the UA override are generated from the same resolved profile, so the signals stay consistent.
+
+<Callout type="warn">
+`fingerprint` only applies in stealth mode. Set `fingerprintMode: "native"` on the `Browser` to skip the stealth init script and UA override entirely — use that for user-controlled headed/profile browsers attached over `cdpUrl`, where cookies, storage, IP, and manual interaction must stay tied to the real browser identity.
+</Callout>
+
+Resolve a profile yourself with `resolveFingerprint`.
+
+## Humanized input
+
+Bot detectors score teleporting cursors and 0 ms inter-key intervals. `humanize` generates curved mouse paths and variable typing cadence.
+
+```ts
+const browser = new Browser({
+  humanize: true, // or { mouse, typing, speed, seed }
+});
+```
+
+Options (`HumanizeConfig`):
+
+| Option   | Type      | Default | Description |
+| -------- | --------- | ------- | ----------- |
+| `mouse`  | `boolean` | `true`  | Curved mouse movement before clicks. |
+| `typing` | `boolean` | `true`  | Variable inter-key delays while typing. |
+| `speed`  | `number`  | `1`     | Delay scale. `1` = realistic, `0` = no delays (events still dispatched). |
+| `seed`   | `number`  | random  | RNG seed for reproducible trajectories. |
+
+The challenge watchdog always uses humanized clicks regardless of this setting, since challenge widgets are exactly where input timing is scored.
+
+## Bot-challenge watchdog
+
+Enabled by default in the agent loop. Before each step it detects Cloudflare interstitials, Turnstile widgets, reCAPTCHA, and hCaptcha. It waits for managed challenges to auto-pass, clicks interactive Turnstile checkboxes with humanized input, and surfaces anything it can't clear as a `challenge` event plus an observation note so the model can route around it.
+
+```ts
+import { runTask } from "@peteqian/browser-agent-sdk";
+
+await runTask({
+  task,
+  browser,
+  challengeWatchdog: { timeoutMs: 30_000, clickTurnstile: true },
+});
+```
+
+Pass `false` to disable. Options (`ChallengeWatchdogOptions`):
+
+| Option           | Type             | Default  | Description |
+| ---------------- | ---------------- | -------- | ----------- |
+| `timeoutMs`      | `number`         | `20000`  | Max total time to wait for a challenge to clear. |
+| `pollIntervalMs` | `number`         | `500`    | Detection poll interval while waiting. |
+| `clickGraceMs`   | `number`         | `2500`   | Grace period before clicking a Turnstile checkbox, giving auto-pass a chance first. |
+| `clickTurnstile` | `boolean`        | `true`   | Humanized click on interactive Turnstile checkboxes. |
+| `solver`         | `CaptchaSolver`  | none     | Last-resort solver for challenges that auto-pass and clicking can't clear. |
+
+## Captcha solver plugin
+
+The watchdog auto-passes Cloudflare and clicks Turnstile. For reCAPTCHA / hCaptcha that need a real solve, plug in a `CaptchaSolver` (2captcha, CapSolver, or a human handoff). The watchdog parses the site key, calls your solver, injects the returned token, and re-checks.
+
+```ts
+await runTask({
+  task,
+  browser,
+  challengeWatchdog: {
+    solver: {
+      async solve({ vendor, siteKey, url }) {
+        const token = await mySolveService(vendor, siteKey, url);
+        return { solved: true, token };
+      },
+    },
+  },
+});
+```
+
+`solve` receives `{ vendor, url, siteKey? }` and returns `{ solved, token? }`. Omit `token` when the solver resolved the challenge out-of-band (e.g. a human interacted with the live widget directly). Tokens are injected into the right field per vendor: `g-recaptcha-response`, `h-captcha-response`, or `cf-turnstile-response`.
+
+## Login-wall watchdog
+
+Enabled by default. Detects login walls and paywalls and surfaces them as an observation note so the model knows it has hit a gate rather than the content it was sent for. Disable with `loginWallWatchdog: false`. Use `LoginWallWatchdog` / `detectLoginWall` directly if you want to run detection outside the loop.
+
+## See also
+
+- [Reliability](/docs/features/reliability) — self-healing, rate limiting, post-conditions.
+- [Proxy rotation](/docs/features/proxy) — rotate egress IPs across launches.

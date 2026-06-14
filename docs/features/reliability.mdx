@@ -1,0 +1,67 @@
+---
+title: Reliability
+description: Self-healing actions, post-condition assertions, politeness rate limiting, and loop detection.
+---
+
+The agent loop hardens each step against the two things that make browser automation flaky: pages that re-render between snapshot and action, and actions that silently no-op.
+
+## Self-healing actions
+
+When an index-targeted action fails because the page re-rendered between snapshot and click, the runner re-observes, re-locates the element by stable identity, and retries once before surfacing the failure.
+
+Enabled by default. Disable with:
+
+```ts
+await runTask({ task, browser, selfHealing: false });
+```
+
+## Post-condition assertions
+
+A click that doesn't navigate, or a submit that doesn't clear the form, otherwise looks like success. Per-action post-conditions verify the page reached the expected state without spending a full LLM re-observe — a failed assertion downgrades the action result to a failure with a clear message.
+
+```ts
+import { checkPostCondition } from "@peteqian/browser-agent-sdk";
+
+const result = await checkPostCondition(page, { type: "url_changed" }, beforeUrl);
+if (!result.ok) console.warn(result.message);
+```
+
+Condition types (`PostCondition`):
+
+| Type | Shape | Passes when |
+| ---- | ----- | ----------- |
+| `url_changed` | `{ type }` | URL differs from `beforeUrl`. |
+| `url_contains` | `{ type, value }` | Current URL contains `value`. |
+| `element_gone` | `{ type, selector }` | No element matches `selector`. |
+| `element_present` | `{ type, selector }` | At least one element matches `selector`. |
+| `text_present` | `{ type, value }` | `value` appears in the page body text. |
+| `text_absent` | `{ type, value }` | `value` does not appear in the page body text. |
+
+`url_changed` needs the URL captured before the action ran, passed as the third argument.
+
+## Rate limiting
+
+Politeness delays between actions keep high-volume automation from tripping volume-based bot heuristics or hammering a single site.
+
+```ts
+await runTask({
+  task,
+  browser,
+  rateLimit: { perActionMs: 250, perHostMs: 1000 },
+});
+```
+
+Options (`RateLimitConfig`):
+
+| Option         | Type     | Default | Description |
+| -------------- | -------- | ------- | ----------- |
+| `perActionMs`  | `number` | `0`     | Minimum ms between any two actions. |
+| `perHostMs`    | `number` | `0`     | Minimum ms between two actions targeting the same host. |
+
+Both default to off. Use `RateLimiter` directly to apply the same pacing outside the agent loop — `acquire(host)` blocks until enough time has elapsed and returns the ms waited.
+
+## Loop detection
+
+The loop detects repeated, non-progressing action sequences and either nudges the model out of the rut or terminates with `reason: "loop_detected"`. Tune via `loopDetectionMode` (`"nudge"` | `"strict"` | `"off"`) and `loopDetectionWindow`.
+
+See [Errors & termination](/docs/guides/errors) for the full list of terminal reasons and how to branch on them.
