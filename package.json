@@ -20,6 +20,8 @@
   "type": "module",
   "scripts": {
     "build": "turbo build --filter=!./apps/*",
+    "docs": "bun run --filter '@peteqian/browser-agent-docs' dev",
+    "docs:build": "bun run --filter '@peteqian/browser-agent-docs' build",
     "typecheck": "turbo typecheck --filter=!./apps/*",
     "lint": "turbo lint --filter=!./apps/*",
     "test": "turbo test --filter=!./apps/*",
