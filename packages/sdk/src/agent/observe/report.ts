@@ -1,6 +1,6 @@
-import type { ChallengeEncounter } from "../browser/watchdogs/challenge";
-import { estimateCostUsd, type ModelPricing } from "../llm/pricing";
-import type { AgentEvent, AgentResult } from "./contracts";
+import type { ChallengeEncounter } from "../../browser/watchdogs/challenge";
+import { estimateCostUsd, type ModelPricing } from "../../llm/pricing";
+import type { AgentEvent, AgentResult } from "../decide/contracts";
 
 /**
  * Machine-readable record of one agent run, built from the AgentEvent stream.

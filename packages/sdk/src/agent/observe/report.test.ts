@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { AgentEvent } from "./contracts";
+import type { AgentEvent } from "../decide/contracts";
 import { RunReportCollector, toJUnitXml } from "./report";
 
 function feed(collector: RunReportCollector, events: AgentEvent<unknown>[]): void {

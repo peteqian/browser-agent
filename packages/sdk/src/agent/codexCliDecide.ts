@@ -1,10 +1,10 @@
 import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
 
-import type { AgentInput, AgentOutput } from "./contracts";
-import { SYSTEM_PROMPT } from "./prompts";
-import { buildFreeformDecisionPrompt, parseDecision } from "./parseDecision";
-import { spawnChildWithSignal } from "./spawnChild";
+import type { AgentInput, AgentOutput } from "./decide/contracts";
+import { SYSTEM_PROMPT } from "./decide/prompts";
+import { buildFreeformDecisionPrompt, parseDecision } from "./decide/parseDecision";
+import { spawnChildWithSignal } from "./features/spawnChild";
 
 export interface CodexCliOptions {
   binaryPath?: string;

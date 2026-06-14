@@ -1,4 +1,4 @@
-import type { AgentInput, AgentOutput } from "./contracts";
+import type { AgentInput, AgentOutput } from "../decide/contracts";
 
 export async function withRejectingTimeout<T>(
   promise: Promise<T>,

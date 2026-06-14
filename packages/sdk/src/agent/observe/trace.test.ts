@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { AgentEvent } from "./contracts";
+import type { AgentEvent } from "../decide/contracts";
 import { TraceRecorder, renderTimelineHtml } from "./trace";
 
 function fakeFs() {

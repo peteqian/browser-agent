@@ -1,4 +1,4 @@
-import type { AgentControl } from "./contracts";
+import type { AgentControl } from "../decide/contracts";
 
 export class AgentController implements AgentControl {
   private abortController = new AbortController();

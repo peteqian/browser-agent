@@ -1,13 +1,13 @@
-import type { Action } from "../actions/types";
-import type { ActionDefinition, ActionRegistry, RegisteredAction } from "../actions/registry";
-import type { LaunchOptions } from "../cdp/launch";
-import type { BrowserSession, Page } from "../browser/session";
-import type { BrowserEvent } from "../browser/events";
-import type { BrowserStateSummary } from "../browser/state";
-import type { DomBudgetOptions } from "../dom/cdp-snapshot";
-import type { ChallengeEncounter, ChallengeWatchdogOptions } from "../browser/watchdogs/challenge";
-import type { LoginWallEncounter } from "../browser/watchdogs/login-wall";
-import type { RetryOptions } from "./retry";
+import type { Action } from "../../actions/types";
+import type { ActionDefinition, ActionRegistry, RegisteredAction } from "../../actions/registry";
+import type { LaunchOptions } from "../../cdp/launch";
+import type { BrowserSession, Page } from "../../browser/session";
+import type { BrowserEvent } from "../../browser/events";
+import type { BrowserStateSummary } from "../../browser/state";
+import type { DomBudgetOptions } from "../../dom/cdp-snapshot";
+import type { ChallengeEncounter, ChallengeWatchdogOptions } from "../../browser/watchdogs/challenge";
+import type { LoginWallEncounter } from "../../browser/watchdogs/login-wall";
+import type { RetryOptions } from "../core/retry";
 import type { z } from "zod/v4";
 
 /**
@@ -76,7 +76,7 @@ export interface AgentOutput {
    * Optional per-decision telemetry filled by adapters (token counts, latency,
    * cost). Surfaces on `decision` events so consumers can track spend.
    */
-  telemetry?: import("../llm/types").DecisionTelemetry;
+  telemetry?: import("../../llm/types").DecisionTelemetry;
 }
 
 export interface PlanItem {
@@ -208,7 +208,7 @@ export interface AgentBudget {
   /** Max total tokens (input + output) across all decisions. */
   maxTokens?: number;
   /** Custom price table; defaults to the built-in one. */
-  pricing?: Record<string, import("../llm/pricing").ModelPricing>;
+  pricing?: Record<string, import("../../llm/pricing").ModelPricing>;
 }
 
 /**
@@ -473,7 +473,7 @@ export interface AgentOptions<TData = unknown> {
    * Politeness rate limiting between actions (global and/or per host) to
    * avoid volume-based bot heuristics. Default: off.
    */
-  rateLimit?: import("../runtime/rate-limit").RateLimitConfig;
+  rateLimit?: import("../../runtime/rate-limit").RateLimitConfig;
   /** Token/cost ceiling for the run. See AgentBudget. */
   budget?: AgentBudget;
   /**

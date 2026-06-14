@@ -1,12 +1,12 @@
 import { Codex, type ModelReasoningEffort, type Thread } from "@openai/codex-sdk";
 
-import type { AgentInput, AgentOutput } from "./contracts";
-import { SYSTEM_PROMPT } from "./prompts";
+import type { AgentInput, AgentOutput } from "./decide/contracts";
+import { SYSTEM_PROMPT } from "./decide/prompts";
 import {
   buildContinuationPrompt,
   buildFreeformDecisionPrompt,
   parseDecision,
-} from "./parseDecision";
+} from "./decide/parseDecision";
 import { buildTelemetry } from "../llm/telemetry";
 
 export interface CodexSdkOptions {

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Page } from "../browser/session";
+import type { Page } from "../../browser/session";
 import { canReuseSnapshot, capturePageFingerprint } from "./snapshot-reuse";
 
 describe("canReuseSnapshot", () => {
