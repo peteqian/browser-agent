@@ -1,4 +1,4 @@
-import type { ElementInfo } from "../dom/types";
+import type { ElementInfo } from "../../dom/types";
 
 /**
  * Applicant identity used to pre-fill job-application forms deterministically

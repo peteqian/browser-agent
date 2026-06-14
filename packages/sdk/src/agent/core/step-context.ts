@@ -1,8 +1,8 @@
-import type { BrowserStateSummary } from "../browser/state";
-import type { DomBudgetOptions } from "../dom/cdp-snapshot";
-import type { PageSnapshot } from "../dom/types";
-import type { SessionRunner } from "../runtime/session-runner";
-import type { FocusState } from "./focus-state";
+import type { BrowserStateSummary } from "../../browser/state";
+import type { DomBudgetOptions } from "../../dom/cdp-snapshot";
+import type { PageSnapshot } from "../../dom/types";
+import type { SessionRunner } from "../../runtime/session-runner";
+import type { FocusState } from "../features/focus-state";
 
 export interface StepContext {
   browserState: BrowserStateSummary;

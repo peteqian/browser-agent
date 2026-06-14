@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { Browser } from "../browser/browser";
+import { Browser } from "../../browser/browser";
 import { Agent, runTask } from "./agent";
 
 describe("Agent", () => {

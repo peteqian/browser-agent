@@ -1,4 +1,4 @@
-import type { AgentOptions, AgentResult } from "./contracts";
+import type { AgentOptions, AgentResult } from "../decide/contracts";
 
 export function buildAbortedResult<TData>(steps: number): AgentResult<TData> {
   return {

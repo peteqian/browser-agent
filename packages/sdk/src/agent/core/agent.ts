@@ -1,8 +1,8 @@
 import type { z } from "zod/v4";
 
-import type { LaunchOptions } from "../cdp/launch";
-import type { Browser } from "../browser/browser";
-import { createDecide, type CreateDecideOptions, type ProviderId } from "../llm/createDecide";
+import type { LaunchOptions } from "../../cdp/launch";
+import type { Browser } from "../../browser/browser";
+import { createDecide, type CreateDecideOptions, type ProviderId } from "../../llm/createDecide";
 import { runLoop } from "./loop";
 import type {
   AgentControl,
@@ -14,11 +14,11 @@ import type {
   OnEventCallback,
   StepInfo,
   TransportResolution,
-} from "./contracts";
-import type { ActionDefinition, ActionRegistry } from "../actions/registry";
-import type { BrowserSession, Page } from "../browser/session";
-import { resolveBrowserPaths } from "../browser/profile-paths";
-import type { DomBudgetOptions } from "../dom/cdp-snapshot";
+} from "../decide/contracts";
+import type { ActionDefinition, ActionRegistry } from "../../actions/registry";
+import type { BrowserSession, Page } from "../../browser/session";
+import { resolveBrowserPaths } from "../../browser/profile-paths";
+import type { DomBudgetOptions } from "../../dom/cdp-snapshot";
 import type { RetryOptions } from "./retry";
 
 export type AgentProviderOptions = Pick<
@@ -109,7 +109,7 @@ export interface SimpleAgentOptions<TData = unknown> extends Partial<AgentProvid
   allowedDomains?: readonly string[];
   transportResolution?: TransportResolution;
   /** Bot-challenge watchdog config; default enabled. See AgentOptions.challengeWatchdog. */
-  challengeWatchdog?: boolean | import("../browser/watchdogs/challenge").ChallengeWatchdogOptions;
+  challengeWatchdog?: boolean | import("../../browser/watchdogs/challenge").ChallengeWatchdogOptions;
   /** Login-wall detection; default enabled. See AgentOptions.loginWallWatchdog. */
   loginWallWatchdog?: boolean;
   /** Reuse the prior snapshot when the page is unchanged; default true. See AgentOptions.snapshotReuse. */
@@ -117,9 +117,9 @@ export interface SimpleAgentOptions<TData = unknown> extends Partial<AgentProvid
   /** Stale-element self-healing; default true. See AgentOptions.selfHealing. */
   selfHealing?: boolean;
   /** Politeness rate limiting between actions. See AgentOptions.rateLimit. */
-  rateLimit?: import("../runtime/rate-limit").RateLimitConfig;
+  rateLimit?: import("../../runtime/rate-limit").RateLimitConfig;
   /** Token/cost ceiling for the run. See AgentBudget. */
-  budget?: import("./contracts").AgentBudget;
+  budget?: import("../decide/contracts").AgentBudget;
 }
 
 /**

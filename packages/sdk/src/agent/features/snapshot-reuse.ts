@@ -1,5 +1,5 @@
-import { actionSchemas } from "../actions/types";
-import type { Page } from "../browser/session";
+import { actionSchemas } from "../../actions/types";
+import type { Page } from "../../browser/session";
 
 /**
  * Snapshot reuse: skip the full DOM capture + serialize when the previous

@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-import type { AgentEvent } from "./contracts";
+import type { AgentEvent } from "../decide/contracts";
 
 /**
  * Records an agent run to disk as a replayable bundle: one screenshot +

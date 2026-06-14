@@ -1,10 +1,10 @@
-import { BrowserSession } from "../browser/session";
-import { ChallengeWatchdog, challengeObservationNote } from "../browser/watchdogs/challenge";
-import { LoginWallWatchdog, loginWallObservationNote } from "../browser/watchdogs/login-wall";
-import type { PageSnapshot } from "../dom/types";
-import { SessionRunner } from "../runtime/session-runner";
-import type { AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
-import { emitEvent } from "./emit";
+import { BrowserSession } from "../../browser/session";
+import { ChallengeWatchdog, challengeObservationNote } from "../../browser/watchdogs/challenge";
+import { LoginWallWatchdog, loginWallObservationNote } from "../../browser/watchdogs/login-wall";
+import type { PageSnapshot } from "../../dom/types";
+import { SessionRunner } from "../../runtime/session-runner";
+import type { AgentInput, AgentOptions, AgentOutput, AgentResult } from "../decide/contracts";
+import { emitEvent } from "../observe/emit";
 import { compactHistory } from "./history";
 import {
   buildLoopFingerprint,
@@ -12,7 +12,7 @@ import {
   detectAlternatingPair,
   detectSameNameRun,
   isRepeatingLoop,
-} from "./loop-detection";
+} from "../features/loop-detection";
 import {
   DEFAULT_HISTORY_HEAD,
   HISTORY_WINDOW,
@@ -24,16 +24,16 @@ import {
 } from "./options";
 import { resolveActionRegistry, tryFinalFailureRecovery } from "./recovery";
 import { withRetry } from "./retry";
-import { estimateCostUsd } from "../llm/pricing";
+import { estimateCostUsd } from "../../llm/pricing";
 import {
   canReuseSnapshot,
   capturePageFingerprint,
   type ExecutedStepAction,
-} from "./snapshot-reuse";
+} from "../features/snapshot-reuse";
 import { buildStepContext, type StepContext } from "./step-context";
 import { checkInterrupt, runActions, type StepOutcome } from "./step-runner";
 import { buildMaxFailuresResult } from "./terminal-result";
-import { createFocusState } from "./focus-state";
+import { createFocusState } from "../features/focus-state";
 import { combineSignals, withDecideTimeout, withRejectingTimeout } from "./timeouts";
 
 export { AgentController } from "./controller";
@@ -42,8 +42,8 @@ export {
   buildDecisionPrompt,
   buildDecisionPromptParts,
   buildDecisionUserPrompt,
-} from "./decision-prompt";
-export type { DecisionPromptParts } from "./decision-prompt";
+} from "../decide/decision-prompt";
+export type { DecisionPromptParts } from "../decide/decision-prompt";
 
 /**
  * Absolute internal safety ceiling. There is intentionally no user-facing
@@ -668,7 +668,7 @@ type LoopDetectionOutcome =
 
 function handleLoopDetection(input: {
   loopFingerprints: string[];
-  browserState: import("../browser/state").BrowserStateSummary;
+  browserState: import("../../browser/state").BrowserStateSummary;
   actionResults: Array<{ ok: boolean; message: string }>;
   recentActionCalls: readonly string[];
   window: number;

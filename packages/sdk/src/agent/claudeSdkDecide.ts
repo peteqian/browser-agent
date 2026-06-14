@@ -1,12 +1,12 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 
-import type { AgentInput, AgentOutput } from "./contracts";
-import { buildDecisionPromptParts } from "./decision-prompt";
+import type { AgentInput, AgentOutput } from "./decide/contracts";
+import { buildDecisionPromptParts } from "./decide/decision-prompt";
 import {
   buildContinuationPrompt,
   buildFreeformDecisionPrompt,
   parseDecision,
-} from "./parseDecision";
+} from "./decide/parseDecision";
 import { buildTelemetry } from "../llm/telemetry";
 
 export interface ClaudeSdkOptions {

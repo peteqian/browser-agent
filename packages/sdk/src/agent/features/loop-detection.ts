@@ -1,4 +1,4 @@
-import type { BrowserStateSummary } from "../browser/state";
+import type { BrowserStateSummary } from "../../browser/state";
 
 export function buildLoopFingerprint(
   browserState: BrowserStateSummary,

@@ -1,4 +1,4 @@
-import type { ElementBBox } from "../dom/types";
+import type { ElementBBox } from "../../dom/types";
 
 export interface FocusSnapshot {
   bbox: ElementBBox;

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { ElementInfo } from "../dom/types";
+import type { ElementInfo } from "../../dom/types";
 import { AnswerBank, autofillActions, planAutofill } from "./autofill";
 
 let seq = 0;

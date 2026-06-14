@@ -1,7 +1,7 @@
-import { createDefaultActionRegistry, type ActionRegistry } from "../actions/registry";
-import type { Action } from "../actions/types";
-import type { BrowserStateSummary } from "../browser/state";
-import type { AgentAction, AgentOptions, AgentResult } from "./contracts";
+import { createDefaultActionRegistry, type ActionRegistry } from "../../actions/registry";
+import type { Action } from "../../actions/types";
+import type { BrowserStateSummary } from "../../browser/state";
+import type { AgentAction, AgentOptions, AgentResult } from "../decide/contracts";
 import { withRetry } from "./retry";
 import { buildTerminalData } from "./terminal-result";
 import { combineSignals, withDecideTimeout } from "./timeouts";

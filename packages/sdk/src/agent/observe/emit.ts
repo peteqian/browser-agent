@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentOptions } from "./contracts";
+import type { AgentEvent, AgentOptions } from "../decide/contracts";
 
 export async function emitEvent<TData>(
   options: AgentOptions<TData>,

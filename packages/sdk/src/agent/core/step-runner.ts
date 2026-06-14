@@ -1,12 +1,12 @@
-import type { ActionResult } from "../actions/handlers/shared";
-import type { ActionRegistry } from "../actions/registry";
-import type { Action } from "../actions/types";
-import type { Page } from "../browser/session";
-import type { BrowserStateSummary } from "../browser/state";
-import { shouldReobserve } from "../runtime/executor";
-import type { SessionRunner } from "../runtime/session-runner";
-import type { AgentAction, AgentInput, AgentOptions, AgentOutput, AgentResult } from "./contracts";
-import { emitEvent } from "./emit";
+import type { ActionResult } from "../../actions/handlers/shared";
+import type { ActionRegistry } from "../../actions/registry";
+import type { Action } from "../../actions/types";
+import type { Page } from "../../browser/session";
+import type { BrowserStateSummary } from "../../browser/state";
+import { shouldReobserve } from "../../runtime/executor";
+import type { SessionRunner } from "../../runtime/session-runner";
+import type { AgentAction, AgentInput, AgentOptions, AgentOutput, AgentResult } from "../decide/contracts";
+import { emitEvent } from "../observe/emit";
 import { buildAbortedResult, buildStoppedResult, buildTerminalData } from "./terminal-result";
 import { combineSignals } from "./timeouts";
 
@@ -43,7 +43,7 @@ export async function runActions<TData>(input: {
   browserState: BrowserStateSummary;
   actionTimeoutMs: number;
   actionHistory: Array<{ action: string; result: string }>;
-  focusState?: import("./focus-state").FocusState;
+  focusState?: import("../features/focus-state").FocusState;
 }): Promise<StepOutcome<TData>> {
   const {
     options,
