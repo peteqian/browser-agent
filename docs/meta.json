@@ -1,0 +1,17 @@
+{
+  "title": "Docs",
+  "root": true,
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "getting-started",
+    "---Guides---",
+    "guides",
+    "---Features---",
+    "features",
+    "---Architecture---",
+    "architecture",
+    "---Reference---",
+    "reference"
+  ]
+}
