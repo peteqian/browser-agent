@@ -4,10 +4,10 @@ import type {
   ChatCompletionTool,
 } from "openai/resources/chat/completions";
 
-import type { AgentInput, AgentOutput, ToolDef } from "../agent/contracts";
-import { TOOL_SYSTEM_PROMPT } from "../agent/prompts";
-import type { LLMAdapterOptions } from "./types";
-import { buildTelemetry } from "./telemetry";
+import type { AgentInput, AgentOutput, ToolDef } from "../../agent/decide/contracts";
+import { TOOL_SYSTEM_PROMPT } from "../../agent/decide/prompts";
+import type { LLMAdapterOptions } from "../decision/types";
+import { buildTelemetry } from "../telemetry";
 
 /**
  * Native tool-calling adapter for the OpenAI Chat Completions API (and

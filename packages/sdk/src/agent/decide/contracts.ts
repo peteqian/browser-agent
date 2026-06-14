@@ -76,7 +76,7 @@ export interface AgentOutput {
    * Optional per-decision telemetry filled by adapters (token counts, latency,
    * cost). Surfaces on `decision` events so consumers can track spend.
    */
-  telemetry?: import("../../llm/types").DecisionTelemetry;
+  telemetry?: import("../../llm/decision/types").DecisionTelemetry;
 }
 
 export interface PlanItem {

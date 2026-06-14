@@ -1,4 +1,4 @@
-import type { AgentOutput } from "../agent/contracts";
+import type { AgentOutput } from "../../agent/decide/contracts";
 
 export const MAX_ACTIONS_PER_DECISION = 4;
 

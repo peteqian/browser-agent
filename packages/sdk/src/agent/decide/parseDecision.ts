@@ -1,4 +1,4 @@
-import { MAX_ACTIONS_PER_DECISION } from "../../llm/decisionSchema";
+import { MAX_ACTIONS_PER_DECISION } from "../../llm/decision/decisionSchema";
 import type { AgentInput, AgentOutput } from "./contracts";
 
 /**

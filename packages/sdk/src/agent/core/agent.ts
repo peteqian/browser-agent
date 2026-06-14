@@ -2,7 +2,7 @@ import type { z } from "zod/v4";
 
 import type { LaunchOptions } from "../../cdp/launch";
 import type { Browser } from "../../browser/browser";
-import { createDecide, type CreateDecideOptions, type ProviderId } from "../../llm/createDecide";
+import { createDecide, type CreateDecideOptions, type ProviderId } from "../../llm/transport/createDecide";
 import { runLoop } from "./loop";
 import type {
   AgentControl,

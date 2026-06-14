@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, mock } from "bun:test";
 
-import type { AgentInput } from "../agent/contracts";
+import type { AgentInput } from "../../agent/decide/contracts";
 
 interface CapturedCall {
   args?: Parameters<typeof JSON.stringify>[0];

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, mock } from "bun:test";
 
-import type { AgentInput, ToolDef } from "../agent/contracts";
+import type { AgentInput, ToolDef } from "../../agent/decide/contracts";
 
 interface CapturedCall {
   calls: Array<Record<string, unknown>>;

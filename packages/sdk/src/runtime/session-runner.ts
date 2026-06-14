@@ -8,8 +8,8 @@ import type { Action } from "../actions/types";
 import type { BrowserSession, Page } from "../browser/session";
 import type { BrowserStateSummary } from "../browser/state";
 import type { DomBudgetOptions } from "../dom/cdp-snapshot";
-import type { ExtractionLLMFn } from "../agent/contracts";
-import type { FocusState } from "../agent/focus-state";
+import type { ExtractionLLMFn } from "../agent/decide/contracts";
+import type { FocusState } from "../agent/features/focus-state";
 import {
   executeRuntimeAction,
   runRuntimeActions,

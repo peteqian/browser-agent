@@ -4,8 +4,8 @@ import type { Action } from "../actions/types";
 import type { BrowserSession, Page } from "../browser/session";
 import type { SelectorMap } from "../dom/cdp-snapshot";
 import type { ElementInfo } from "../dom/types";
-import type { ExtractionLLMFn } from "../agent/contracts";
-import type { FocusState } from "../agent/focus-state";
+import type { ExtractionLLMFn } from "../agent/decide/contracts";
+import type { FocusState } from "../agent/features/focus-state";
 
 export type RuntimeAction = Action | RegisteredAction;
 

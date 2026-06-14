@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 
 import { resolveTransport } from "./resolveTransport";
-import type { TransportResolution } from "../agent/contracts";
+import type { TransportResolution } from "../../agent/decide/contracts";
 
 const ENV_VARS = [
   "OPENAI_API_KEY",
