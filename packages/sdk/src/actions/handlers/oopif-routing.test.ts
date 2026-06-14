@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { BrowserSession, Page } from "../../browser/session";
+import type { BrowserSession, Page } from "../../browser/session/session";
 import type { SelectorMap } from "../../dom/cdp-snapshot";
 import { handleClick, handleType } from "./interaction";
 import type { HandlerContext } from "./shared";

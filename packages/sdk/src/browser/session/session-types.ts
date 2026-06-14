@@ -1,5 +1,5 @@
-import type { BrowserProfileInit } from "./profile";
-import type { LaunchOptions } from "../cdp/launch";
+import type { BrowserProfileInit } from "../identity/profile";
+import type { LaunchOptions } from "../../cdp/launch";
 
 export type BrowserSessionState =
   | "idle"

@@ -1,7 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import type { Page } from "./page";
-import type { RuntimeExceptionDetails } from "./session-types";
+import type { RuntimeExceptionDetails } from "../session/session-types";
 import {
   clickHoldDelayMs,
   mousePathPoints,
@@ -9,7 +9,7 @@ import {
   resolveHumanize,
   typingDelaysMs,
   type ResolvedHumanize,
-} from "./humanize";
+} from "../identity/humanize";
 
 // Last synthetic cursor position per page, so consecutive humanized clicks
 // start their path where the previous one landed.

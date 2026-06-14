@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { BrowserSession, Page } from "../../browser/session";
+import type { BrowserSession, Page } from "../../browser/session/session";
 import type { AgentEvent, AgentInput, StepInfo } from "../decide/contracts";
 import { runLoop } from "../core/loop";
 

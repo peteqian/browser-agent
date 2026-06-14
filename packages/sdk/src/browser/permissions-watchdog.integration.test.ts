@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { BrowserSession } from "./session";
+import { BrowserSession } from "./session/session";
 
 const runIntegration = process.env.BROWSER_AGENT_PERMISSIONS_WATCHDOG_INTEGRATION === "1";
 const integrationTest = runIntegration ? test : test.skip;

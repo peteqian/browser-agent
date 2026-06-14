@@ -1,4 +1,4 @@
-import type { Page } from "../../browser/page";
+import type { Page } from "../../browser/page/page";
 import type { Action } from "../types";
 import { fail, ok, type ActionResult, type HandlerContext } from "./shared";
 

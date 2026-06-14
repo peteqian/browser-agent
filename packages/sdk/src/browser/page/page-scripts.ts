@@ -1,12 +1,12 @@
 import type { Page } from "./page";
-import { AD_DOMAINS } from "./session-helpers";
+import { AD_DOMAINS } from "../session/session-helpers";
 import type {
   ExtractContentParams,
   ExtractContentResult,
   FindElementsParams,
   PendingNetworkRequest,
   SearchPageParams,
-} from "./session-types";
+} from "../session/session-types";
 
 export async function readLocalStorage(page: Page): Promise<Record<string, string>> {
   return page.evaluate<Record<string, string>>(`(() => {

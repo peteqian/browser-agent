@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
-import { BrowserSession } from "../browser/session";
+import { BrowserSession } from "../browser/session/session";
 import { captureBrowserState } from "../browser/state";
 
 const runIntegration = process.env.BROWSER_AGENT_DOM_SNAPSHOT_INTEGRATION === "1";

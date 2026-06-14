@@ -1,7 +1,7 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import type { Page } from "../page";
-import { humanClickAtCoordinates } from "../page-input";
+import type { Page } from "../page/page";
+import { humanClickAtCoordinates } from "../page/page-input";
 
 /**
  * Bot-protection challenge watchdog.

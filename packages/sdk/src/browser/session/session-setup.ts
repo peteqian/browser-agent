@@ -1,8 +1,8 @@
 import { mkdirSync } from "node:fs";
 
-import type { CDPClient } from "../cdp/client";
-import type { BrowserProfile } from "./profile";
-import type { BrowserEventBus } from "./events";
+import type { CDPClient } from "../../cdp/client";
+import type { BrowserProfile } from "../identity/profile";
+import type { BrowserEventBus } from "../events";
 import {
   buildLocalStorageRestoreScript,
   cookieToParam,
@@ -11,14 +11,14 @@ import {
   writeStorageStateFile,
   type BrowserOriginStorageState,
   type BrowserStorageState,
-} from "./storage-state";
-import { AUTO_CONSENT_INIT_SCRIPT } from "./auto-consent";
+} from "../storage-state";
+import { AUTO_CONSENT_INIT_SCRIPT } from "../auto-consent";
 import {
   buildFingerprintInitScript,
   buildUserAgentOverride,
   resolveFingerprint,
-} from "./fingerprint";
-import type { Page } from "./page";
+} from "../identity/fingerprint";
+import type { Page } from "../page/page";
 
 export async function configureDownloads(
   client: CDPClient,

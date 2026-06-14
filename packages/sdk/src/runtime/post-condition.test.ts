@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Page } from "../browser/session";
+import type { Page } from "../browser/session/session";
 import { checkPostCondition } from "./post-condition";
 
 function page(opts: { url?: string; counts?: Record<string, number>; body?: string }): Page {

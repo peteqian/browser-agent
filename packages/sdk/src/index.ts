@@ -6,25 +6,25 @@
  * — that subpath has no stability guarantee.
  */
 
-export { BrowserSession, Page } from "./browser/session";
+export { BrowserSession, Page } from "./browser/session/session";
 export type {
   BrowserSessionConnectOptions,
   NavigationHealthResult,
   NavigationHealthStatus,
-} from "./browser/session";
-export type { BrowserPermission, BrowserPermissionGrant } from "./browser/profile";
+} from "./browser/session/session";
+export type { BrowserPermission, BrowserPermissionGrant } from "./browser/identity/profile";
 export {
   resolveFingerprint,
   buildFingerprintInitScript,
   buildUserAgentOverride,
-} from "./browser/fingerprint";
+} from "./browser/identity/fingerprint";
 export type {
   FingerprintInit,
   FingerprintPreset,
   FingerprintProfile,
   ResolvedFingerprint,
-} from "./browser/fingerprint";
-export type { HumanizeConfig, HumanizeInit } from "./browser/humanize";
+} from "./browser/identity/fingerprint";
+export type { HumanizeConfig, HumanizeInit } from "./browser/identity/humanize";
 export {
   ChallengeWatchdog,
   challengeObservationNote,
@@ -102,8 +102,8 @@ export { planAutofill, autofillActions, AnswerBank } from "./agent/features/auto
 export type { ApplicantProfile, AutofillSuggestion, AutofillFieldKind } from "./agent/features/autofill";
 export { redactString, redactValue, redactReport } from "./agent/observe/redact";
 export type { RedactOptions } from "./agent/observe/redact";
-export { ProxyPool, resolveProxyLaunch } from "./browser/proxy-pool";
-export type { ProxyEntry, ProxyPoolOptions, ProxyRotationStrategy } from "./browser/proxy-pool";
+export { ProxyPool, resolveProxyLaunch } from "./browser/identity/proxy-pool";
+export type { ProxyEntry, ProxyPoolOptions, ProxyRotationStrategy } from "./browser/identity/proxy-pool";
 export { RateLimiter } from "./runtime/rate-limit";
 export type { RateLimitConfig } from "./runtime/rate-limit";
 export { checkPostCondition } from "./runtime/post-condition";

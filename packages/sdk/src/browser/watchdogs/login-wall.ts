@@ -1,4 +1,4 @@
-import type { Page } from "../page";
+import type { Page } from "../page/page";
 
 /**
  * Login-wall watchdog.

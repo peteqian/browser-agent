@@ -3,7 +3,7 @@ import { z } from "zod/v4";
 import { executeAction, type ActionResult } from "./execute";
 import type { ToolDef } from "../agent/decide/contracts";
 import { actionSchemas, type Action, type ActionName } from "./types";
-import type { BrowserSession, Page } from "../browser/session";
+import type { BrowserSession, Page } from "../browser/session/session";
 import type { BrowserStateSummary } from "../browser/state";
 import type { SelectorMap } from "../dom/cdp-snapshot";
 import type { ExtractionLLMFn } from "../agent/decide/contracts";

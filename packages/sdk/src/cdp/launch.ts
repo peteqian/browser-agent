@@ -8,9 +8,9 @@ import {
   BrowserProfile,
   type BrowserFingerprintMode,
   type BrowserPermissionGrant,
-} from "../browser/profile";
-import type { FingerprintInit } from "../browser/fingerprint";
-import type { HumanizeInit } from "../browser/humanize";
+} from "../browser/identity/profile";
+import type { FingerprintInit } from "../browser/identity/fingerprint";
+import type { HumanizeInit } from "../browser/identity/humanize";
 import { discoverBrowserExecutable, installBrowser, type BrowserChannel } from "./discovery";
 import { buildChromeArgs, buildLightpandaArgs } from "./chrome-args";
 

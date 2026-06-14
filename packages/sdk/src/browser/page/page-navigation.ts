@@ -1,8 +1,8 @@
 import { setTimeout as delay } from "node:timers/promises";
 
 import type { Page } from "./page";
-import { navigationFailureStatus } from "./session-helpers";
-import type { NavigationHealthResult, NavigationHealthStatus } from "./session-types";
+import { navigationFailureStatus } from "../session/session-helpers";
+import type { NavigationHealthResult, NavigationHealthStatus } from "../session/session-types";
 
 export async function goto(
   page: Page,

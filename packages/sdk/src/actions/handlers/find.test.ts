@@ -3,7 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { handleFindByRole, handleFindByText, handleFindByTestid } from "./find";
 import type { ElementInfo } from "../../dom/types";
 import type { HandlerContext } from "./shared";
-import type { Page } from "../../browser/page";
+import type { Page } from "../../browser/page/page";
 
 function mk(overrides: Partial<ElementInfo>): ElementInfo {
   return {

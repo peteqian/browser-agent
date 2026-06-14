@@ -3,7 +3,7 @@ import {
   type BrowserStateOptions,
   type BrowserStateSummary,
 } from "../browser/state";
-import type { BrowserSession, Page } from "../browser/session";
+import type { BrowserSession, Page } from "../browser/session/session";
 
 export interface ObservePageOptions extends BrowserStateOptions {}
 

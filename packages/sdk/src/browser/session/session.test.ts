@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import type { BrowserEvent } from "./events";
-import type { BrowserPermissionGrant } from "./profile";
-import { BrowserEventBus } from "./events";
+import type { BrowserEvent } from "../events";
+import type { BrowserPermissionGrant } from "../identity/profile";
+import { BrowserEventBus } from "../events";
 import { BrowserSession, Page, resolveCdpEndpoint } from "./session";
 import { reconnectIfNeeded } from "./session-reconnect";
 import { configurePermissions } from "./session-setup";
-import type { CDPClient } from "../cdp/client";
+import type { CDPClient } from "../../cdp/client";
 
 function createNavigationPage(options: {
   finalUrl?: string;

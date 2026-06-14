@@ -1,4 +1,4 @@
-import type { CDPClient } from "../cdp/client";
+import type { CDPClient } from "../../cdp/client";
 import type { BrowserSession } from "./session";
 import { createJavaScriptDialogWatchdogData, safeDownloadPath } from "./session-helpers";
 import type {

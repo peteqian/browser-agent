@@ -1,7 +1,7 @@
 import type { ActionResult } from "../actions/handlers/shared";
 import type { ActionRegistry, RegisteredAction } from "../actions/registry";
 import type { Action } from "../actions/types";
-import type { BrowserSession, Page } from "../browser/session";
+import type { BrowserSession, Page } from "../browser/session/session";
 import type { SelectorMap } from "../dom/cdp-snapshot";
 import type { ElementInfo } from "../dom/types";
 import type { ExtractionLLMFn } from "../agent/decide/contracts";

@@ -1,4 +1,4 @@
-import { BrowserSession, type Page } from "../browser/session";
+import { BrowserSession, type Page } from "../browser/session/session";
 
 import { startFixtureServer, type FixturePages, type FixtureServer } from "./fixtureServer";
 

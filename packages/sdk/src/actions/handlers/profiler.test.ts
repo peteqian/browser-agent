@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { handleProfilerStart, handleProfilerStop } from "./profiler";
 import type { HandlerContext } from "./shared";
-import type { Page } from "../../browser/page";
+import type { Page } from "../../browser/page/page";
 
 interface MockHandlers {
   dataCollected?: (p: unknown) => void;

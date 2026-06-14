@@ -3,7 +3,7 @@ import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 
 import type { BrowserEvent } from "./events";
-import { BrowserSession } from "./session";
+import { BrowserSession } from "./session/session";
 
 type BrowserRuntimeEvent = Extract<BrowserEvent, { type: "browser_event" }>;
 

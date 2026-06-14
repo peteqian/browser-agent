@@ -1,4 +1,4 @@
-import type { Page } from "../browser/session";
+import type { Page } from "../browser/session/session";
 
 /**
  * Cheap post-action verification. After an action the runner can assert the

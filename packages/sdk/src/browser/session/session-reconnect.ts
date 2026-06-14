@@ -1,6 +1,6 @@
 import { setTimeout as delay } from "node:timers/promises";
 
-import { launchBrowserFromProfile } from "../cdp/launch";
+import { launchBrowserFromProfile } from "../../cdp/launch";
 import type { BrowserSession } from "./session";
 
 export async function reconnectIfNeeded(session: BrowserSession): Promise<void> {

@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import type { ElementInfo, PageSnapshot } from "../dom/types";
+import type { ElementInfo, PageSnapshot } from "../../dom/types";
 import type { Page } from "./page";
 
 export interface ScreenshotOptions {
