@@ -70,5 +70,5 @@ export {
 } from "./actions/registry";
 export type { ActionDefinition, ActionContext, RegisteredAction } from "./actions/registry";
 
-export { buildDecisionPrompt } from "./agent/core/loop";
+export { buildDecisionPrompt } from "./agent/decide/decision-prompt";
 export { SYSTEM_PROMPT } from "./agent/decide/prompts";

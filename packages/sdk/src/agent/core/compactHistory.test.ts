@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { compactHistory } from "./loop";
+import { compactHistory } from "./history";
 
 const entry = (i: number) => ({ action: `step${i}`, result: `result${i}` });
 

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import type { Page } from "../../browser/session/session";
-import { runLoop } from "./loop";
+import { runLoop } from "./engine";
 
 function makeFakeCdpSnapshot() {
   const strings = ["https://example.com/", "Example", "BUTTON", "block", "visible", "1", "First"];

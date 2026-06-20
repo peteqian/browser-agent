@@ -4,7 +4,9 @@ import { z } from "zod/v4";
 import type { BrowserSession, Page } from "../../browser/session/session";
 import type { AgentEvent, AgentInput, StepInfo } from "../decide/contracts";
 import { SYSTEM_PROMPT } from "../decide/prompts";
-import { AgentController, buildDecisionPrompt, buildDecisionUserPrompt, runLoop } from "./loop";
+import { AgentController } from "./controller";
+import { buildDecisionPrompt, buildDecisionUserPrompt } from "../decide/decision-prompt";
+import { runLoop } from "./engine";
 
 function makeFakeCdpSnapshot() {
   // Two interactive button elements at indexes 0 and 1, with backendNodeIds 0 and 1.

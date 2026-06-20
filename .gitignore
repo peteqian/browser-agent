@@ -15,3 +15,6 @@ apps/*/bench/results/*.json
 !packages/*/bench/results/*.published.json
 !apps/*/bench/results/*.published.json
 booking-annotated.png
+
+# private scratch (not tracked)
+tmp/

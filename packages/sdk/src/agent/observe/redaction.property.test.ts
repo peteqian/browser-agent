@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import type { BrowserSession, Page } from "../../browser/session/session";
 import type { AgentEvent, AgentInput, StepInfo } from "../decide/contracts";
-import { runLoop } from "../core/loop";
+import { runLoop } from "../core/engine";
 
 /**
  * Property-style redaction test: across many randomized secret values, prove
