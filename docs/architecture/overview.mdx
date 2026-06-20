@@ -76,20 +76,20 @@ Three integration surfaces share one core. The CLI, the SDK, and the MCP server 
 
 A model can stall, thrash, or run up cost without ever failing outright. The loop terminates with a typed `TerminalReason` when any of these fire:
 
-| Guardrail | Mechanism | Terminal reason |
-| --- | --- | --- |
-| Step timeout | Snapshot/context build exceeds `stepTimeoutMs` | `step_timeout` |
-| Decision timeout | Model call exceeds `decisionTimeoutMs` (with retry) | `decision_timeout` |
-| Consecutive failures | `maxFailures` steps in a row where every action failed | `max_failures` |
-| Loop detection | Repeated action + same page state past the nudge budget | `loop_detected` |
-| Budget | Token or USD spend crosses `budget.maxTokens` / `maxCostUsd` | `budget_exceeded` |
-| Empty decisions | Model returns zero actions for 2 turns running | `failed` |
-| Runaway ceiling | Hard internal cap of 250 steps of non-repeating "progress" | `failed` |
-| Abort / stop | Caller signal or interrupt | `aborted` / `stopped` |
+| Guardrail            | Mechanism                                                    | Terminal reason       |
+| -------------------- | ------------------------------------------------------------ | --------------------- |
+| Step timeout         | Snapshot/context build exceeds `stepTimeoutMs`               | `step_timeout`        |
+| Decision timeout     | Model call exceeds `decisionTimeoutMs` (with retry)          | `decision_timeout`    |
+| Consecutive failures | `maxFailures` steps in a row where every action failed       | `max_failures`        |
+| Loop detection       | Repeated action + same page state past the nudge budget      | `loop_detected`       |
+| Budget               | Token or USD spend crosses `budget.maxTokens` / `maxCostUsd` | `budget_exceeded`     |
+| Empty decisions      | Model returns zero actions for 2 turns running               | `failed`              |
+| Runaway ceiling      | Hard internal cap of 250 steps of non-repeating "progress"   | `failed`              |
+| Abort / stop         | Caller signal or interrupt                                   | `aborted` / `stopped` |
 
 A few details worth knowing as a contributor:
 
-- **Loop detection is graduated.** Before hard-stopping, the loop emits *nudges* — observation prefixes that tell the model it is repeating itself and suggest alternatives. Only after the nudge budget (`loopDetectionNudgeBudget`, default 2) is spent does it terminate with `loop_detected`. Set `loopDetectionMode: "strict"` to skip nudges, or `"off"` to disable.
+- **Loop detection is graduated.** Before hard-stopping, the loop emits _nudges_ — observation prefixes that tell the model it is repeating itself and suggest alternatives. Only after the nudge budget (`loopDetectionNudgeBudget`, default 2) is spent does it terminate with `loop_detected`. Set `loopDetectionMode: "strict"` to skip nudges, or `"off"` to disable.
 - **Budget is checked after the decision is paid for.** A crossed limit lets a terminal `done` finish (no further spend) but stops before buying more actions or decisions. USD accounting requires a pricing entry for the model.
 - **Failure recovery.** When `maxFailures` is hit and `finalResponseAfterFailure` is on (default), the loop gives the model one last chance to summarize before returning the failure result.
 - **Watchdog notes are non-fatal.** Bot-challenge and login-wall detection inject a note into the next observation and emit a structured event so a caller can pause for a human, but they do not stop the loop themselves.

@@ -6,141 +6,141 @@ description: Categorized list of the public exports from @peteqian/browser-agent
 Everything below is exported from the package root `@peteqian/browser-agent-sdk`.
 
 <Callout type="warn">
-Anything imported from the `@peteqian/browser-agent-sdk/internal` subpath (raw CDP,
-profile management, DOM serializer, action executor, prompt internals) carries **no
-stability guarantee** and may change without a major version bump.
+  Anything imported from the `@peteqian/browser-agent-sdk/internal` subpath (raw CDP, profile
+  management, DOM serializer, action executor, prompt internals) carries **no stability guarantee**
+  and may change without a major version bump.
 </Callout>
 
 ## Core
 
-| Export | Kind | Description |
-| --- | --- | --- |
-| `Browser` | class | High-level browser handle; owns launch/connect lifecycle. |
-| `BrowserOptions` | type | Constructor options for `Browser` (incl. `fingerprint`, `humanize`, `proxyPool`, `cdpUrl`). |
-| `BrowserSession`, `Page` | class | Lower-level session and page handles. |
-| `Agent` | class | Task runner wrapping the decision loop. |
-| `runTask` | function | One-shot entry point. See [runTask options](/docs/reference/run-task). |
-| `SimpleAgentOptions`, `AgentProviderOptions` | type | Option shapes for `Agent` / `runTask`. |
-| `AgentController` | class | The underlying agent loop controller. |
+| Export                                       | Kind     | Description                                                                                 |
+| -------------------------------------------- | -------- | ------------------------------------------------------------------------------------------- |
+| `Browser`                                    | class    | High-level browser handle; owns launch/connect lifecycle.                                   |
+| `BrowserOptions`                             | type     | Constructor options for `Browser` (incl. `fingerprint`, `humanize`, `proxyPool`, `cdpUrl`). |
+| `BrowserSession`, `Page`                     | class    | Lower-level session and page handles.                                                       |
+| `Agent`                                      | class    | Task runner wrapping the decision loop.                                                     |
+| `runTask`                                    | function | One-shot entry point. See [runTask options](/docs/reference/run-task).                      |
+| `SimpleAgentOptions`, `AgentProviderOptions` | type     | Option shapes for `Agent` / `runTask`.                                                      |
+| `AgentController`                            | class    | The underlying agent loop controller.                                                       |
 
 ## Providers
 
-| Export | Kind | Description |
-| --- | --- | --- |
-| `createDecide` | function | Resolve a decide function from provider options. |
-| `createOpenAIDecide` | function | OpenAI Chat Completions adapter. |
-| `createAnthropicDecide` | function | Anthropic Messages adapter. |
-| `createCodexCliDecide` | function | Codex CLI adapter. |
-| `createCodexSdkDecide` | function | Codex Agent SDK adapter. |
-| `createClaudeCliDecide` | function | Claude CLI adapter. |
-| `createClaudeSdkDecide` | function | Claude Agent SDK adapter. |
-| `resolveTransport`, `detectEnv` | function | Transport / environment resolution helpers. |
-| `CreateDecideOptions`, `ResolveOptions`, `ResolvedDecide`, `ProviderId`, `LLMAdapterOptions`, `DecisionTelemetry`, `TokenUsage` | type | Provider and telemetry types. |
-| `*CliOptions`, `*SdkOptions` | type | Per-adapter option types (`CodexCliOptions`, `ClaudeSdkOptions`, …). |
+| Export                                                                                                                          | Kind     | Description                                                          |
+| ------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------------- |
+| `createDecide`                                                                                                                  | function | Resolve a decide function from provider options.                     |
+| `createOpenAIDecide`                                                                                                            | function | OpenAI Chat Completions adapter.                                     |
+| `createAnthropicDecide`                                                                                                         | function | Anthropic Messages adapter.                                          |
+| `createCodexCliDecide`                                                                                                          | function | Codex CLI adapter.                                                   |
+| `createCodexSdkDecide`                                                                                                          | function | Codex Agent SDK adapter.                                             |
+| `createClaudeCliDecide`                                                                                                         | function | Claude CLI adapter.                                                  |
+| `createClaudeSdkDecide`                                                                                                         | function | Claude Agent SDK adapter.                                            |
+| `resolveTransport`, `detectEnv`                                                                                                 | function | Transport / environment resolution helpers.                          |
+| `CreateDecideOptions`, `ResolveOptions`, `ResolvedDecide`, `ProviderId`, `LLMAdapterOptions`, `DecisionTelemetry`, `TokenUsage` | type     | Provider and telemetry types.                                        |
+| `*CliOptions`, `*SdkOptions`                                                                                                    | type     | Per-adapter option types (`CodexCliOptions`, `ClaudeSdkOptions`, …). |
 
 ## Pricing
 
-| Export | Kind | Description |
-| --- | --- | --- |
+| Export                                   | Kind     | Description                         |
+| ---------------------------------------- | -------- | ----------------------------------- |
 | `estimateCostUsd`, `resolveModelPricing` | function | Estimate run cost from token usage. |
-| `DEFAULT_MODEL_PRICING` | const | Built-in per-model price table. |
-| `ModelPricing` | type | Price-table entry shape. |
+| `DEFAULT_MODEL_PRICING`                  | const    | Built-in per-model price table.     |
+| `ModelPricing`                           | type     | Price-table entry shape.            |
 
 ## Reports
 
-| Export | Kind | Description |
-| --- | --- | --- |
-| `RunReportCollector` | class | `onEvent` sink that builds a stable `RunReport` JSON. |
-| `toJUnitXml` | function | Render a `RunReport` as JUnit XML for CI ingestion. |
-| `reportToOtel` | function | Map a `RunReport` to dependency-free OTel spans + metrics. |
-| `RunReport`, `RunReportStep`, `RunReportCollectorOptions` | type | Report shapes. |
-| `OtelExport`, `OtelSpan`, `OtelMetric`, `OtelSpanStatus` | type | OTel output shapes. |
+| Export                                                    | Kind     | Description                                                |
+| --------------------------------------------------------- | -------- | ---------------------------------------------------------- |
+| `RunReportCollector`                                      | class    | `onEvent` sink that builds a stable `RunReport` JSON.      |
+| `toJUnitXml`                                              | function | Render a `RunReport` as JUnit XML for CI ingestion.        |
+| `reportToOtel`                                            | function | Map a `RunReport` to dependency-free OTel spans + metrics. |
+| `RunReport`, `RunReportStep`, `RunReportCollectorOptions` | type     | Report shapes.                                             |
+| `OtelExport`, `OtelSpan`, `OtelMetric`, `OtelSpanStatus`  | type     | OTel output shapes.                                        |
 
 ## Tracing
 
-| Export | Kind | Description |
-| --- | --- | --- |
-| `TraceRecorder` | class | Writes per-step trace bundle (screenshots, decisions) plus `index.html`. |
-| `renderTimelineHtml` | function | Render a standalone replay timeline. |
-| `TraceRecorderOptions`, `TraceManifest` | type | Tracer config and manifest shapes. |
+| Export                                  | Kind     | Description                                                              |
+| --------------------------------------- | -------- | ------------------------------------------------------------------------ |
+| `TraceRecorder`                         | class    | Writes per-step trace bundle (screenshots, decisions) plus `index.html`. |
+| `renderTimelineHtml`                    | function | Render a standalone replay timeline.                                     |
+| `TraceRecorderOptions`, `TraceManifest` | type     | Tracer config and manifest shapes.                                       |
 
 ## Autofill
 
-| Export | Kind | Description |
-| --- | --- | --- |
-| `planAutofill` | function | Match an `ApplicantProfile` against form elements into deterministic fills. |
-| `autofillActions` | function | Convert fills into `type` / `select_option` / `upload_file` actions. |
-| `AnswerBank` | class | Cache free-form answers keyed by question text. |
-| `ApplicantProfile`, `AutofillSuggestion`, `AutofillFieldKind` | type | Autofill data shapes. |
+| Export                                                        | Kind     | Description                                                                 |
+| ------------------------------------------------------------- | -------- | --------------------------------------------------------------------------- |
+| `planAutofill`                                                | function | Match an `ApplicantProfile` against form elements into deterministic fills. |
+| `autofillActions`                                             | function | Convert fills into `type` / `select_option` / `upload_file` actions.        |
+| `AnswerBank`                                                  | class    | Cache free-form answers keyed by question text.                             |
+| `ApplicantProfile`, `AutofillSuggestion`, `AutofillFieldKind` | type     | Autofill data shapes.                                                       |
 
 ## Redaction
 
-| Export | Kind | Description |
-| --- | --- | --- |
+| Export                                        | Kind     | Description                                                                 |
+| --------------------------------------------- | -------- | --------------------------------------------------------------------------- |
 | `redactString`, `redactValue`, `redactReport` | function | Scrub emails, phones, and caller secrets from strings, values, and reports. |
-| `RedactOptions` | type | Redaction config. |
+| `RedactOptions`                               | type     | Redaction config.                                                           |
 
 ## Proxy
 
-| Export | Kind | Description |
-| --- | --- | --- |
-| `ProxyPool` | class | Rotate egress IPs across launches (round-robin / random / sticky-per-host). |
-| `resolveProxyLaunch` | function | Resolve a proxy entry into launch options. |
-| `ProxyEntry`, `ProxyPoolOptions`, `ProxyRotationStrategy` | type | Proxy config shapes. |
+| Export                                                    | Kind     | Description                                                                 |
+| --------------------------------------------------------- | -------- | --------------------------------------------------------------------------- |
+| `ProxyPool`                                               | class    | Rotate egress IPs across launches (round-robin / random / sticky-per-host). |
+| `resolveProxyLaunch`                                      | function | Resolve a proxy entry into launch options.                                  |
+| `ProxyEntry`, `ProxyPoolOptions`, `ProxyRotationStrategy` | type     | Proxy config shapes.                                                        |
 
 ## Runtime
 
-| Export | Kind | Description |
-| --- | --- | --- |
-| `RateLimiter` | class | Politeness delays between actions (per-action / per-host). |
-| `RateLimitConfig` | type | `{ perActionMs?, perHostMs? }`. |
-| `checkPostCondition` | function | Evaluate a per-action `PostCondition`. |
-| `PostCondition`, `PostConditionResult` | type | Post-condition assertion shapes (`url_changed`, `element_present`, `text_present`, …). |
+| Export                                 | Kind     | Description                                                                            |
+| -------------------------------------- | -------- | -------------------------------------------------------------------------------------- |
+| `RateLimiter`                          | class    | Politeness delays between actions (per-action / per-host).                             |
+| `RateLimitConfig`                      | type     | `{ perActionMs?, perHostMs? }`.                                                        |
+| `checkPostCondition`                   | function | Evaluate a per-action `PostCondition`.                                                 |
+| `PostCondition`, `PostConditionResult` | type     | Post-condition assertion shapes (`url_changed`, `element_present`, `text_present`, …). |
 
 ## Identity and anti-bot
 
-| Export | Kind | Description |
-| --- | --- | --- |
-| `resolveFingerprint`, `buildFingerprintInitScript`, `buildUserAgentOverride` | function | Resolve and apply a browser fingerprint. |
-| `FingerprintInit`, `FingerprintPreset`, `FingerprintProfile`, `ResolvedFingerprint` | type | Fingerprint shapes. |
-| `HumanizeConfig`, `HumanizeInit` | type | Humanized-input config. |
-| `ChallengeWatchdog`, `detectChallenge`, `challengeObservationNote` | class / function | Bot-challenge detection and handling. |
-| `ChallengeDetection`, `ChallengeEncounter`, `ChallengeVendor`, `ChallengeWatchdogOptions`, `CaptchaSolver`, `CaptchaSolveRequest`, `CaptchaSolveResult` | type | Challenge / solver shapes. |
-| `LoginWallWatchdog`, `detectLoginWall`, `loginWallObservationNote` | class / function | Login-wall detection. |
-| `LoginWallDetection`, `LoginWallEncounter`, `LoginWallSignal` | type | Login-wall shapes. |
+| Export                                                                                                                                                  | Kind             | Description                              |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------------------------------- |
+| `resolveFingerprint`, `buildFingerprintInitScript`, `buildUserAgentOverride`                                                                            | function         | Resolve and apply a browser fingerprint. |
+| `FingerprintInit`, `FingerprintPreset`, `FingerprintProfile`, `ResolvedFingerprint`                                                                     | type             | Fingerprint shapes.                      |
+| `HumanizeConfig`, `HumanizeInit`                                                                                                                        | type             | Humanized-input config.                  |
+| `ChallengeWatchdog`, `detectChallenge`, `challengeObservationNote`                                                                                      | class / function | Bot-challenge detection and handling.    |
+| `ChallengeDetection`, `ChallengeEncounter`, `ChallengeVendor`, `ChallengeWatchdogOptions`, `CaptchaSolver`, `CaptchaSolveRequest`, `CaptchaSolveResult` | type             | Challenge / solver shapes.               |
+| `LoginWallWatchdog`, `detectLoginWall`, `loginWallObservationNote`                                                                                      | class / function | Login-wall detection.                    |
+| `LoginWallDetection`, `LoginWallEncounter`, `LoginWallSignal`                                                                                           | type             | Login-wall shapes.                       |
 
 ## Actions
 
-| Export | Kind | Description |
-| --- | --- | --- |
+| Export                                                                                          | Kind             | Description                          |
+| ----------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------ |
 | `ActionRegistry`, `createActionRegistry`, `createDefaultActionRegistry`, `createDefaultActions` | class / function | Build and extend the action catalog. |
-| `ActionContext`, `ActionDefinition`, `RegisteredAction`, `ActionResult` | type | Action authoring and result shapes. |
+| `ActionContext`, `ActionDefinition`, `RegisteredAction`, `ActionResult`                         | type             | Action authoring and result shapes.  |
 
 ## State and storage
 
-| Export | Kind | Description |
-| --- | --- | --- |
-| `saveState`, `loadState`, `listStates`, `showState`, `renameState`, `clearState`, `cleanAllStates`, `resolveStateVaultDir` | function | Storage-state vault helpers. |
-| `captureBrowserState` | function | Capture a `BrowserStateSummary`. |
-| `BrowserEventBus` | class | Browser event bus. |
-| `StateVaultOptions`, `StateSummary`, `StateListEntry`, `BrowserStorageState`, `BrowserOriginStorageState`, `BrowserStateSummary`, `BrowserStateOptions`, `ScreenshotState`, `TabState`, `BrowserEvent`, `BrowserEventHandler` | type | State and event shapes. |
+| Export                                                                                                                                                                                                                        | Kind     | Description                      |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------------------- |
+| `saveState`, `loadState`, `listStates`, `showState`, `renameState`, `clearState`, `cleanAllStates`, `resolveStateVaultDir`                                                                                                    | function | Storage-state vault helpers.     |
+| `captureBrowserState`                                                                                                                                                                                                         | function | Capture a `BrowserStateSummary`. |
+| `BrowserEventBus`                                                                                                                                                                                                             | class    | Browser event bus.               |
+| `StateVaultOptions`, `StateSummary`, `StateListEntry`, `BrowserStorageState`, `BrowserOriginStorageState`, `BrowserStateSummary`, `BrowserStateOptions`, `ScreenshotState`, `TabState`, `BrowserEvent`, `BrowserEventHandler` | type     | State and event shapes.          |
 
 ## Contracts and types
 
-| Export | Kind | Description |
-| --- | --- | --- |
+| Export                                                                                   | Kind | Description                                                         |
+| ---------------------------------------------------------------------------------------- | ---- | ------------------------------------------------------------------- |
 | `AgentResult`, `AgentEvent`, `TerminalReason`, `AgentBudget`, `AgentControl`, `StepInfo` | type | Result and event contracts. See [Results](/docs/reference/results). |
-| `AgentInput`, `AgentOutput`, `AgentOutputAction`, `PlanItem` | type | Decision-loop I/O. |
-| `GetNextActionFn`, `OnEventCallback`, `JudgeFn`, `ExtractionLLMFn` | type | Callback signatures. |
-| `EnvId`, `TransportId`, `TransportResolution` | type | Transport contracts. |
-| `DomBudgetOptions`, `SelectorMap`, `ElementInfo`, `ElementBBox`, `PageSnapshot` | type | DOM snapshot shapes. |
+| `AgentInput`, `AgentOutput`, `AgentOutputAction`, `PlanItem`                             | type | Decision-loop I/O.                                                  |
+| `GetNextActionFn`, `OnEventCallback`, `JudgeFn`, `ExtractionLLMFn`                       | type | Callback signatures.                                                |
+| `EnvId`, `TransportId`, `TransportResolution`                                            | type | Transport contracts.                                                |
+| `DomBudgetOptions`, `SelectorMap`, `ElementInfo`, `ElementBBox`, `PageSnapshot`          | type | DOM snapshot shapes.                                                |
 
 ## Utilities
 
-| Export | Kind | Description |
-| --- | --- | --- |
+| Export                                             | Kind             | Description                             |
+| -------------------------------------------------- | ---------------- | --------------------------------------- |
 | `withRetry`, `defaultShouldRetry`, `DEFAULT_RETRY` | function / const | Retry helper used for `decide()` calls. |
-| `RetryOptions` | type | Retry config. |
-| `createDefaultLogger`, `noopLogger` | function | Logger factories. |
-| `Logger`, `LogLevel` | type | Logger shapes. |
-| `VERSION`, `PACKAGE_NAME` | const | Package version and name. |
+| `RetryOptions`                                     | type             | Retry config.                           |
+| `createDefaultLogger`, `noopLogger`                | function         | Logger factories.                       |
+| `Logger`, `LogLevel`                               | type             | Logger shapes.                          |
+| `VERSION`, `PACKAGE_NAME`                          | const            | Package version and name.               |

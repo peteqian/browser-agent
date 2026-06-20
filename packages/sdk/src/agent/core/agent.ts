@@ -2,7 +2,11 @@ import type { z } from "zod/v4";
 
 import type { LaunchOptions } from "../../cdp/launch";
 import type { Browser } from "../../browser/browser";
-import { createDecide, type CreateDecideOptions, type ProviderId } from "../../llm/transport/createDecide";
+import {
+  createDecide,
+  type CreateDecideOptions,
+  type ProviderId,
+} from "../../llm/transport/createDecide";
 import { runLoop } from "./engine";
 import type {
   AgentControl,
@@ -109,7 +113,9 @@ export interface SimpleAgentOptions<TData = unknown> extends Partial<AgentProvid
   allowedDomains?: readonly string[];
   transportResolution?: TransportResolution;
   /** Bot-challenge watchdog config; default enabled. See AgentOptions.challengeWatchdog. */
-  challengeWatchdog?: boolean | import("../../browser/watchdogs/challenge").ChallengeWatchdogOptions;
+  challengeWatchdog?:
+    | boolean
+    | import("../../browser/watchdogs/challenge").ChallengeWatchdogOptions;
   /** Login-wall detection; default enabled. See AgentOptions.loginWallWatchdog. */
   loginWallWatchdog?: boolean;
   /** Reuse the prior snapshot when the page is unchanged; default true. See AgentOptions.snapshotReuse. */

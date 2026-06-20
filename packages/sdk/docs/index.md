@@ -37,14 +37,14 @@ The browser is real Chrome (headed or headless), not a synthetic emulator.
 
 Docs use these reader-friendly names:
 
-| Plain name | Code name |
-|------------|-----------|
-| model request | `AgentInput` / `decideInput` |
-| model answer | `AgentOutput` / `decision` |
-| ask model | `runDecide(...)` |
-| action player | `step-runner.ts` / `runActions(...)` |
-| browser runner | `SessionRunner` |
-| element lookup map | `selectorMap` |
+| Plain name         | Code name                            |
+| ------------------ | ------------------------------------ |
+| model request      | `AgentInput` / `decideInput`         |
+| model answer       | `AgentOutput` / `decision`           |
+| ask model          | `runDecide(...)`                     |
+| action player      | `step-runner.ts` / `runActions(...)` |
+| browser runner     | `SessionRunner`                      |
+| element lookup map | `selectorMap`                        |
 
 ## Quick links
 

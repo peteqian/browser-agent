@@ -7,20 +7,20 @@ description: Terminal reasons, the "no transport available" failure, decision pa
 
 Every run ends with an `AgentResult` whose `reason` tells you why. Branch on `reason` rather than parsing `summary`.
 
-| Reason             | Meaning                                                                  | Common cause                                                                       |
-| ------------------ | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| `completed`        | Model emitted a successful terminal `done`. `success` is `true`.         | Normal termination.                                                               |
+| Reason             | Meaning                                                                  | Common cause                                                                         |
+| ------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `completed`        | Model emitted a successful terminal `done`. `success` is `true`.         | Normal termination.                                                                  |
 | `failed`           | Model emitted `done` with `success: false`, or the loop failed a step.   | The model decided the task could not be completed. Inspect the last `action` events. |
-| `max_failures`     | Consecutive failures hit `maxFailures` (default 5).                      | Bad selectors, broken page, missing auth. Inspect the last few `action` events.   |
-| `loop_detected`    | The same action+result fingerprint repeated `loopDetectionWindow` times. | Model stuck. Check the page or refine the task.                                    |
-| `step_timeout`     | DOM serialization / page-context prep exceeded `stepTimeoutMs`.          | Slow page, infinite redirects, heavy JS. Raise `--step-timeout`.                  |
-| `decision_timeout` | The model took longer than `decisionTimeoutMs` to respond.               | Slow provider, large context. Raise `--llm-timeout`.                              |
-| `schema_violation` | Terminal `done` payload didn't match `outputSchema`. `data` is `null`.   | Model returned an unexpected data shape.                                          |
-| `aborted`          | `signal` aborted.                                                        | User cancellation / external timeout.                                             |
-| `stopped`          | `control.stop()` was called.                                            | Cooperative shutdown from the caller.                                             |
-| `decide_error`     | The decide function threw and could not recover.                         | Adapter / transport error mid-run.                                               |
-| `budget_exceeded`  | A configured token or USD `budget` limit was crossed.                    | Run hit its spend ceiling.                                                        |
-| `judge_failed`     | The `judge` hook rejected the model's terminal claim.                    | Final validation said the task wasn't actually done.                              |
+| `max_failures`     | Consecutive failures hit `maxFailures` (default 5).                      | Bad selectors, broken page, missing auth. Inspect the last few `action` events.      |
+| `loop_detected`    | The same action+result fingerprint repeated `loopDetectionWindow` times. | Model stuck. Check the page or refine the task.                                      |
+| `step_timeout`     | DOM serialization / page-context prep exceeded `stepTimeoutMs`.          | Slow page, infinite redirects, heavy JS. Raise `--step-timeout`.                     |
+| `decision_timeout` | The model took longer than `decisionTimeoutMs` to respond.               | Slow provider, large context. Raise `--llm-timeout`.                                 |
+| `schema_violation` | Terminal `done` payload didn't match `outputSchema`. `data` is `null`.   | Model returned an unexpected data shape.                                             |
+| `aborted`          | `signal` aborted.                                                        | User cancellation / external timeout.                                                |
+| `stopped`          | `control.stop()` was called.                                             | Cooperative shutdown from the caller.                                                |
+| `decide_error`     | The decide function threw and could not recover.                         | Adapter / transport error mid-run.                                                   |
+| `budget_exceeded`  | A configured token or USD `budget` limit was crossed.                    | Run hit its spend ceiling.                                                           |
+| `judge_failed`     | The `judge` hook rejected the model's terminal claim.                    | Final validation said the task wasn't actually done.                                 |
 
 ## "No transport available"
 
@@ -37,7 +37,7 @@ browser-agent --probe --provider claude
 Common fixes:
 
 - `sdk-agent: no ANTHROPIC_API_KEY or ~/.claude/.credentials.json` → run `claude login` or set `ANTHROPIC_API_KEY`.
-- `cli: \`claude\` not found on PATH` → install the Claude CLI or set `CLAUDE_BIN`.
+- `cli: \`claude\` not found on PATH`→ install the Claude CLI or set`CLAUDE_BIN`.
 - `sdk-api: ANTHROPIC_API_KEY not set` → export the env var.
 
 See [Transports](/docs/guides/transports) for the full resolution flow.

@@ -2,7 +2,12 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import type { EnvId, GetNextActionFn, TransportId, TransportResolution } from "../../agent/decide/contracts";
+import type {
+  EnvId,
+  GetNextActionFn,
+  TransportId,
+  TransportResolution,
+} from "../../agent/decide/contracts";
 import { detectEnv } from "./env";
 import { createDefaultLogger, type Logger } from "../../logger";
 import { createOpenAIDecide } from "../providers/openai";

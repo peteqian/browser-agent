@@ -17,17 +17,17 @@ Source of truth: `src/agent/contracts.ts`.
 The exported type names are intentionally stable, but they are not always the
 best teaching names. Use this map when explaining the contracts:
 
-| Plain name | Public type / code name | Meaning |
-|------------|-------------------------|---------|
-| **model request** | `AgentInput` | Everything the model sees before choosing the next action. |
-| **model answer** | `AgentOutput` | The model's actions, done flag, summary, memory, and telemetry. |
-| **requested action** | `AgentOutputAction` | One raw action proposed by the model before schema validation. |
-| **model adapter** | `GetNextActionFn` | Function that turns a model request into a model answer. |
-| **browser result** | `AgentResult` | Final result returned to SDK/CLI/MCP callers. |
-| **event stream** | `AgentEvent` / `OnEventCallback` | Structured progress stream for UIs, reports, traces, and debugging. |
-| **action catalog** | `ActionRegistry` | Known actions plus schemas/descriptions; exported through internal APIs. |
-| **page state** | `BrowserStateSummary` | Structured page snapshot carried inside `AgentInput`. |
-| **element lookup map** | `selectorMap` | Internal map from observed element index to Chrome backend node ID. |
+| Plain name             | Public type / code name          | Meaning                                                                  |
+| ---------------------- | -------------------------------- | ------------------------------------------------------------------------ |
+| **model request**      | `AgentInput`                     | Everything the model sees before choosing the next action.               |
+| **model answer**       | `AgentOutput`                    | The model's actions, done flag, summary, memory, and telemetry.          |
+| **requested action**   | `AgentOutputAction`              | One raw action proposed by the model before schema validation.           |
+| **model adapter**      | `GetNextActionFn`                | Function that turns a model request into a model answer.                 |
+| **browser result**     | `AgentResult`                    | Final result returned to SDK/CLI/MCP callers.                            |
+| **event stream**       | `AgentEvent` / `OnEventCallback` | Structured progress stream for UIs, reports, traces, and debugging.      |
+| **action catalog**     | `ActionRegistry`                 | Known actions plus schemas/descriptions; exported through internal APIs. |
+| **page state**         | `BrowserStateSummary`            | Structured page snapshot carried inside `AgentInput`.                    |
+| **element lookup map** | `selectorMap`                    | Internal map from observed element index to Chrome backend node ID.      |
 
 ## Public types
 

@@ -21,15 +21,18 @@ await runTask({
 
 The event stream is a discriminated union with many members, but four carry the run's narrative:
 
-| `type`                | When                                          | Key fields                          |
-| --------------------- | --------------------------------------------- | ----------------------------------- |
-| `transport_resolved`  | Once, before step 1 (only if `transportResolution` was passed) | `resolution`         |
-| `decision`            | After the model returns, once per step        | `step`, `decision`                  |
-| `action`              | After each executed action                    | `step`, `url`, `action`, `result`   |
-| `terminal`            | Once, always last                             | `result`                            |
+| `type`               | When                                                           | Key fields                        |
+| -------------------- | -------------------------------------------------------------- | --------------------------------- |
+| `transport_resolved` | Once, before step 1 (only if `transportResolution` was passed) | `resolution`                      |
+| `decision`           | After the model returns, once per step                         | `step`, `decision`                |
+| `action`             | After each executed action                                     | `step`, `url`, `action`, `result` |
+| `terminal`           | Once, always last                                              | `result`                          |
 
 <Callout type="info">
-  The union also emits finer-grained progress events — `decision_started` / `decision_completed`, `snapshot_started` / `snapshot_captured`, `action_started` / `action_completed`, plus `planning`, `browser_event`, `loop_nudge`, `challenge`, and `login_wall`. Branch on `event.type` and ignore what you don't need; unknown members are safe to skip.
+  The union also emits finer-grained progress events — `decision_started` / `decision_completed`,
+  `snapshot_started` / `snapshot_captured`, `action_started` / `action_completed`, plus `planning`,
+  `browser_event`, `loop_nudge`, `challenge`, and `login_wall`. Branch on `event.type` and ignore
+  what you don't need; unknown members are safe to skip.
 </Callout>
 
 ## Ordering
@@ -116,11 +119,11 @@ The `terminal` event carries an `AgentResult`:
 
 ```ts
 interface AgentResult<TData = unknown> {
-  success: boolean;          // true when reason === "completed"
-  reason: TerminalReason;    // see the table below
-  summary: string;           // human-readable; may be empty
-  data: TData | null;        // validated outputSchema data or done(data=...)
-  steps: number;             // steps executed before termination
+  success: boolean; // true when reason === "completed"
+  reason: TerminalReason; // see the table below
+  summary: string; // human-readable; may be empty
+  data: TData | null; // validated outputSchema data or done(data=...)
+  steps: number; // steps executed before termination
 }
 ```
 

@@ -7,12 +7,12 @@ Browser Agent brings the hands and eyes; you bring the model. Pick **one** provi
 
 ## Provider auth
 
-| Provider | Backend | Auth | Notes |
-| -------- | ------- | ---- | ----- |
-| `codex` _(default)_ | Codex Agent SDK → Codex CLI | `~/.codex/auth.json` (from `codex login`) **or** `OPENAI_API_KEY` | Default. Resolves through the Codex Agent SDK, then the Codex CLI. |
-| `claude` | Claude Agent SDK → Claude CLI → Anthropic API | `~/.claude/.credentials.json` (from `claude login`) **or** `ANTHROPIC_API_KEY` | Falls back through agent SDK → CLI → API. |
-| `openai` | OpenAI Chat Completions | `OPENAI_API_KEY` | Chat Completions with structured output. |
-| `anthropic` | Anthropic Messages | `ANTHROPIC_API_KEY` | Messages API with structured output. |
+| Provider            | Backend                                       | Auth                                                                           | Notes                                                              |
+| ------------------- | --------------------------------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `codex` _(default)_ | Codex Agent SDK → Codex CLI                   | `~/.codex/auth.json` (from `codex login`) **or** `OPENAI_API_KEY`              | Default. Resolves through the Codex Agent SDK, then the Codex CLI. |
+| `claude`            | Claude Agent SDK → Claude CLI → Anthropic API | `~/.claude/.credentials.json` (from `claude login`) **or** `ANTHROPIC_API_KEY` | Falls back through agent SDK → CLI → API.                          |
+| `openai`            | OpenAI Chat Completions                       | `OPENAI_API_KEY`                                                               | Chat Completions with structured output.                           |
+| `anthropic`         | Anthropic Messages                            | `ANTHROPIC_API_KEY`                                                            | Messages API with structured output.                               |
 
 The default provider auto-resolves to whatever's signed in locally, preferring Codex → Claude → OpenAI/Anthropic by API key. Pin one explicitly with `--provider <p>` (CLI) or `llm: { provider, model }` (SDK).
 
@@ -26,7 +26,8 @@ The default provider auto-resolves to whatever's signed in locally, preferring C
 `openai` and `anthropic` are direct API providers — they require their API key and do not use any local CLI.
 
 <Callout type="info">
-`--base-url` (CLI) / `baseURL` (SDK) overrides the SDK base URL for OpenAI-compatible endpoints, local servers, or gateways.
+  `--base-url` (CLI) / `baseURL` (SDK) overrides the SDK base URL for OpenAI-compatible endpoints,
+  local servers, or gateways.
 </Callout>
 
 ## Pin a provider and model
@@ -67,5 +68,9 @@ It prints the resolved transport as JSON (which path won — agent SDK, CLI, or 
 ## Next
 
 <Cards>
-  <Card title="First run" href="/docs/getting-started/first-run" description="Run your first task on the CLI, SDK, and MCP." />
+  <Card
+    title="First run"
+    href="/docs/getting-started/first-run"
+    description="Run your first task on the CLI, SDK, and MCP."
+  />
 </Cards>

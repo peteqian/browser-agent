@@ -82,7 +82,9 @@ const result = await runTask({
 `AgentBudget` accepts `maxCostUsd`, `maxTokens` (input + output across all decisions), and an optional `pricing` table.
 
 <Callout type="warn">
-Prices drift. `DEFAULT_MODEL_PRICING` is a cached snapshot — treat estimates as approximate and pass a custom table when accuracy matters. `maxCostUsd` only fires for models that have a pricing entry.
+  Prices drift. `DEFAULT_MODEL_PRICING` is a cached snapshot — treat estimates as approximate and
+  pass a custom table when accuracy matters. `maxCostUsd` only fires for models that have a pricing
+  entry.
 </Callout>
 
 ## PII redaction
@@ -99,11 +101,11 @@ const event = redactValue(payload); // deep-redact any JSON-serializable value
 
 Two layers: pattern-based (emails and phone numbers, on by default) and value-based (exact strings you already know are sensitive — reuse the same map you pass as `sensitiveData` to the agent). Options (`RedactOptions`):
 
-| Option        | Type       | Default        | Description |
-| ------------- | ---------- | -------------- | ----------- |
-| `values`      | `string[]` | `[]`           | Exact strings to replace wherever they appear (longest first). |
-| `emails`      | `boolean`  | `true`         | Redact email addresses. |
+| Option        | Type       | Default        | Description                                                           |
+| ------------- | ---------- | -------------- | --------------------------------------------------------------------- |
+| `values`      | `string[]` | `[]`           | Exact strings to replace wherever they appear (longest first).        |
+| `emails`      | `boolean`  | `true`         | Redact email addresses.                                               |
 | `phones`      | `boolean`  | `true`         | Redact phone numbers (requires ≥7 digits to avoid nuking prices/ids). |
-| `placeholder` | `string`   | `"[REDACTED]"` | Replacement token. |
+| `placeholder` | `string`   | `"[REDACTED]"` | Replacement token.                                                    |
 
 `redactReport` scrubs the task string, terminal summary, and per-action messages; numeric usage/cost is left untouched.
