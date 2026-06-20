@@ -1,0 +1,7 @@
+# Use a hoisted node_modules layout (single flat copy per package).
+# The isolated linker forks duplicate copies of a package per peer-dependency
+# context; that split two fumadocs-core@16.10.2 instances apart, breaking the
+# type identity between fumadocs-mdx's toFumadocsSource() and fumadocs-core's
+# loader() (page.data lost its `body`/`toc`). Hoisting dedupes to one copy.
+[install]
+linker = "hoisted"
