@@ -1,4 +1,4 @@
-import { getPageImage, getPageMarkdownUrl, source } from "@/lib/source";
+import { type DocPageData, getPageImage, getPageMarkdownUrl, source } from "@/lib/source";
 import {
   DocsBody,
   DocsDescription,
@@ -18,13 +18,14 @@ export default async function Page(props: PageProps<"/docs/[[...slug]]">) {
   const page = source.getPage(params.slug);
   if (!page) notFound();
 
-  const MDX = page.data.body;
+  const data = page.data as DocPageData;
+  const MDX = data.body;
   const markdownUrl = getPageMarkdownUrl(page).url;
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription className="mb-0">{page.data.description}</DocsDescription>
+    <DocsPage toc={data.toc} full={data.full}>
+      <DocsTitle>{data.title}</DocsTitle>
+      <DocsDescription className="mb-0">{data.description}</DocsDescription>
       <div className="flex flex-row gap-2 items-center border-b pb-6">
         <MarkdownCopyButton markdownUrl={markdownUrl} />
         <ViewOptionsPopover
