@@ -21,6 +21,23 @@ for (const dir of pkgs) {
   const pkg = JSON.parse(readFileSync(resolve(dir, "package.json"), "utf8"));
   if (pkg.private) continue;
 
+  // Idempotent: skip versions already on npm so re-runs (every push to main
+  // runs `release`, not just version bumps) don't fail on a publish conflict.
+  let alreadyPublished = false;
+  try {
+    const out = execSync(`npm view ${pkg.name}@${pkg.version} version`, {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    alreadyPublished = out === pkg.version;
+  } catch {
+    alreadyPublished = false; // not found on the registry yet
+  }
+  if (alreadyPublished) {
+    console.log(`${pkg.name}@${pkg.version} already on npm — skipping`);
+    continue;
+  }
+
   console.log(`packing ${pkg.name}@${pkg.version} from ${dir}`);
   const stage = mkdtempSync(resolve(tmpdir(), "publish-"));
   execSync(`bun pm pack --destination ${stage}`, { cwd: dir, stdio: "inherit" });
