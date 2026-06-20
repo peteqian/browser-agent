@@ -43,7 +43,7 @@
     },
     "evals/mcp-tool-choice": {
       "name": "@peteqian/browser-agent-evals-mcp-tool-choice",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "dependencies": {
         "@anthropic-ai/sdk": "^0.92.0",
         "@peteqian/browser-agent-sdk": "workspace:*",
@@ -52,7 +52,7 @@
     },
     "packages/cli": {
       "name": "@peteqian/browser-agent",
-      "version": "0.1.3",
+      "version": "0.2.0",
       "bin": {
         "browser-agent": "./dist/bin/cli.js",
         "browser-agent-mcp": "./dist/bin/mcp.js",
@@ -66,7 +66,7 @@
     },
     "packages/sdk": {
       "name": "@peteqian/browser-agent-sdk",
-      "version": "0.1.3",
+      "version": "0.2.0",
       "dependencies": {
         "@anthropic-ai/claude-agent-sdk": "^0.2.126",
         "@anthropic-ai/sdk": "^0.92.0",
