@@ -15,14 +15,14 @@ export {
 } from "./cdp/discovery";
 export type { BrowserChannel, BrowserInstallResult, BrowserInstallStatus } from "./cdp/discovery";
 
-export { BrowserProfile } from "./browser/profile";
+export { BrowserProfile } from "./browser/identity/profile";
 export type {
   BrowserPermission,
   BrowserPermissionGrant,
   BrowserProfileInit,
-} from "./browser/profile";
+} from "./browser/identity/profile";
 export { matchesAllowedDomains, parseAllowedDomainsInput } from "./browser/allowed-domains";
-export type { NavigationHealthResult, NavigationHealthStatus } from "./browser/session";
+export type { NavigationHealthResult, NavigationHealthStatus } from "./browser/session/session";
 export type { BrowserOriginStorageState, BrowserStorageState } from "./browser/storage-state";
 export {
   readStorageStateFile,
@@ -70,5 +70,5 @@ export {
 } from "./actions/registry";
 export type { ActionDefinition, ActionContext, RegisteredAction } from "./actions/registry";
 
-export { buildDecisionPrompt } from "./agent/loop";
-export { SYSTEM_PROMPT } from "./agent/prompts";
+export { buildDecisionPrompt } from "./agent/decide/decision-prompt";
+export { SYSTEM_PROMPT } from "./agent/decide/prompts";

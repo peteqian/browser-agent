@@ -1,0 +1,142 @@
+---
+title: Events
+description: The onEvent stream — event types, ordering guarantees, the terminal result shape, and worked examples for token aggregation, SSE, and transcripts.
+---
+
+Every agent run can be observed through the `onEvent` callback. Events fire in order, and async callbacks are awaited before the loop continues — so backpressure is honored and you can stream safely.
+
+```ts
+import { runTask } from "@peteqian/browser-agent-sdk";
+
+await runTask({
+  task: "...",
+  getNextAction,
+  onEvent: (event) => {
+    // event is a discriminated union — branch on event.type
+  },
+});
+```
+
+## The events you'll usually handle
+
+The event stream is a discriminated union with many members, but four carry the run's narrative:
+
+| `type`                | When                                          | Key fields                          |
+| --------------------- | --------------------------------------------- | ----------------------------------- |
+| `transport_resolved`  | Once, before step 1 (only if `transportResolution` was passed) | `resolution`         |
+| `decision`            | After the model returns, once per step        | `step`, `decision`                  |
+| `action`              | After each executed action                    | `step`, `url`, `action`, `result`   |
+| `terminal`            | Once, always last                             | `result`                            |
+
+<Callout type="info">
+  The union also emits finer-grained progress events — `decision_started` / `decision_completed`, `snapshot_started` / `snapshot_captured`, `action_started` / `action_completed`, plus `planning`, `browser_event`, `loop_nudge`, `challenge`, and `login_wall`. Branch on `event.type` and ignore what you don't need; unknown members are safe to skip.
+</Callout>
+
+## Ordering
+
+```
+transport_resolved        (once, only if transportResolution passed)
+        │
+        ▼
+  ┌──────────────────────────────────────────┐
+  │ for each step:                           │
+  │   decision                               │
+  │   action × N   (one per decision action) │
+  └──────────────────────────────────────────┘
+        │
+        ▼
+terminal                  (always last)
+```
+
+The `terminal` event always fires — on success, failure, or abort — so a consumer can rely on it as the single final-state notification.
+
+## Examples
+
+### Aggregate token usage
+
+```ts
+import { runTask } from "@peteqian/browser-agent-sdk";
+
+let totalIn = 0;
+let totalOut = 0;
+
+await runTask({
+  task: "...",
+  getNextAction,
+  onEvent: (event) => {
+    if (event.type === "decision_completed") {
+      totalIn += event.tokensIn ?? 0;
+      totalOut += event.tokensOut ?? 0;
+    }
+  },
+});
+
+console.log({ totalIn, totalOut });
+```
+
+### Stream to Server-Sent Events
+
+```ts
+import type { Response } from "express";
+import { runTask } from "@peteqian/browser-agent-sdk";
+
+function streamRun(res: Response, task: string) {
+  res.setHeader("content-type", "text/event-stream");
+  return runTask({
+    task,
+    getNextAction,
+    onEvent: async (event) => {
+      res.write(`data: ${JSON.stringify(event)}\n\n`);
+    },
+  });
+}
+```
+
+Because the loop awaits the callback, a slow write applies backpressure to the run instead of dropping events.
+
+### Build a transcript
+
+```ts
+const transcript: string[] = [];
+
+await runTask({
+  task,
+  getNextAction,
+  onEvent: (event) => {
+    if (event.type === "action") {
+      transcript.push(`[${event.step}] ${event.action.name} → ${event.result.message}`);
+    }
+  },
+});
+```
+
+## Terminal result shape
+
+The `terminal` event carries an `AgentResult`:
+
+```ts
+interface AgentResult<TData = unknown> {
+  success: boolean;          // true when reason === "completed"
+  reason: TerminalReason;    // see the table below
+  summary: string;           // human-readable; may be empty
+  data: TData | null;        // validated outputSchema data or done(data=...)
+  steps: number;             // steps executed before termination
+}
+```
+
+`reason` is one of: `completed`, `failed`, `max_failures`, `loop_detected`, `aborted`, `stopped`, `step_timeout`, `decision_timeout`, `schema_violation`, `decide_error`, `budget_exceeded`, `judge_failed`. Branch on `reason` rather than parsing `summary` — see [Errors and recovery](/docs/guides/errors) for what each means.
+
+## Legacy `onStep`
+
+`onStep(info: StepInfo)` still exists for backwards compatibility and fires once per executed action:
+
+```ts
+interface StepInfo {
+  step: number;
+  url: string;
+  action: AgentAction;
+  result: { ok: boolean; message: string };
+}
+```
+
+Prefer `onEvent` for new code — it carries decision, transport, and terminal events that `onStep` does not.

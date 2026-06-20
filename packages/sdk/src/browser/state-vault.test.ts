@@ -15,7 +15,7 @@ import {
   showState,
   stateFilePath,
 } from "./state-vault";
-import { BrowserProfile } from "./profile";
+import { BrowserProfile } from "./identity/profile";
 
 let tempDir = "";
 const ENV_KEY = "BROWSER_AGENT_STATE_DIR";

@@ -14,14 +14,17 @@
   },
   "workspaces": [
     "packages/*",
+    "apps/*",
     "evals/*"
   ],
   "type": "module",
   "scripts": {
-    "build": "turbo build",
-    "typecheck": "turbo typecheck",
-    "lint": "turbo lint",
-    "test": "turbo test",
+    "build": "turbo build --filter=!./apps/*",
+    "docs": "bun run --filter '@peteqian/browser-agent-docs' dev",
+    "docs:build": "bun run --filter '@peteqian/browser-agent-docs' build",
+    "typecheck": "turbo typecheck --filter=!./apps/*",
+    "lint": "turbo lint --filter=!./apps/*",
+    "test": "turbo test --filter=!./apps/*",
     "fmt": "oxfmt --ignore-path .gitignore --ignore-path .oxfmtignore",
     "fmt:check": "oxfmt --check --ignore-path .gitignore --ignore-path .oxfmtignore",
     "changeset": "changeset",

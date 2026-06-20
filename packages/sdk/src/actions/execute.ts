@@ -1,7 +1,7 @@
-import type { BrowserSession, Page } from "../browser/session";
+import type { BrowserSession, Page } from "../browser/session/session";
 import type { SelectorMap } from "../dom/cdp-snapshot";
 import type { Action } from "./types";
-import type { ExtractionLLMFn } from "../agent/contracts";
+import type { ExtractionLLMFn } from "../agent/decide/contracts";
 
 import { fail, type ActionResult, type HandlerContext } from "./handlers/shared";
 import {
@@ -58,7 +58,7 @@ import { handleConsoleRead, handleConsoleStart, handleConsoleStop } from "./hand
 import { handleSetViewport } from "./handlers/emulation";
 import { handleCookiesClear, handleCookiesGet, handleCookiesSet } from "./handlers/cookies";
 import { handleProfilerStart, handleProfilerStop } from "./handlers/profiler";
-import type { FocusState } from "../agent/focus-state";
+import type { FocusState } from "../agent/features/focus-state";
 import type { ElementInfo } from "../dom/types";
 
 export type { ActionResult } from "./handlers/shared";

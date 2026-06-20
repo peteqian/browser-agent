@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { Page } from "../../browser/page";
+import type { Page } from "../../browser/page/page";
 import { handleSetViewport } from "./emulation";
 import type { HandlerContext } from "./shared";
 

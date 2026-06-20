@@ -1,0 +1,116 @@
+---
+title: Results and events
+description: AgentResult, TerminalReason, and the AgentEvent stream.
+---
+
+These types are defined in `agent/decide/contracts.ts` and exported from
+`@peteqian/browser-agent-sdk`.
+
+## AgentResult
+
+`runTask` and `Agent.run` resolve to `AgentResult<TData>`.
+
+```ts
+interface AgentResult<TData = unknown> {
+  success: boolean;
+  reason: TerminalReason;
+  summary: string;
+  data: TData | null;
+  steps: number;
+}
+```
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `success` | `boolean` | `true` only when `reason === "completed"`. Kept for backwards compatibility. |
+| `reason` | `TerminalReason` | Structured termination reason. Branch on this in consumer code. |
+| `summary` | `string` | Human-readable summary; may be empty for purely structured callers. Not for control flow. |
+| `data` | `TData \| null` | Validated terminal data (when `outputSchema` set) or the `done(data=...)` payload. |
+| `steps` | `number` | Number of steps executed before terminating. |
+
+## TerminalReason
+
+| Value | Meaning |
+| --- | --- |
+| `completed` | The model emitted a successful `done`. |
+| `failed` | The model emitted `done` with `success: false`. |
+| `max_failures` | Consecutive failures hit the `maxFailures` ceiling. |
+| `loop_detected` | Identical-fingerprint loop detection stopped the run. |
+| `aborted` | The provided `AbortSignal` fired. |
+| `stopped` | `control.stop()` was called. |
+| `step_timeout` | Per-step page preparation exceeded `stepTimeoutMs`. |
+| `decision_timeout` | A model decision exceeded `decisionTimeoutMs`. |
+| `schema_violation` | Terminal data failed `outputSchema` validation; `data` is `null`. |
+| `decide_error` | The `decide()` call errored after retries. |
+| `budget_exceeded` | `budget` token/cost ceiling was crossed. |
+| `judge_failed` | The `judge` validator returned `pass: false`. |
+
+## AgentBudget
+
+```ts
+interface AgentBudget {
+  maxCostUsd?: number;
+  maxTokens?: number;
+  pricing?: Record<string, ModelPricing>;
+}
+```
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `maxCostUsd` | `number` | Max estimated spend in USD (requires a pricing entry for the model). |
+| `maxTokens` | `number` | Max total tokens (input + output) across all decisions. |
+| `pricing` | `Record<string, ModelPricing>` | Custom price table; defaults to the built-in `DEFAULT_MODEL_PRICING`. |
+
+## AgentControl
+
+```ts
+interface AgentControl {
+  readonly signal: AbortSignal;
+  readonly isPaused: boolean;
+  readonly stopReason?: string;
+  pause: () => void;
+  resume: () => void;
+  stop: (reason?: string) => void;
+  waitIfPaused: () => Promise<void>;
+}
+```
+
+## AgentEvent
+
+`onEvent` receives a discriminated union keyed by `type`. Per step the order is one
+`decision` (after the model returns), one `action` per executed action, then a single
+`terminal` when the loop exits.
+
+| `type` | Key fields | Meaning |
+| --- | --- | --- |
+| `browser_state` | `step`, `state` | Browser state summary captured for the step. |
+| `screenshot` | `step`, `screenshot` | Screenshot captured for the step. |
+| `action_start` | `step`, `action` | An action is about to execute. |
+| `planning` | `step`, `plan?`, `memory?`, `nextGoal?` | Planning/memory fields from the decision. |
+| `browser_event` | `event` | Underlying `BrowserEvent`. |
+| `decision` | `step`, `decision` | The model's `AgentOutput` for the step. |
+| `action` | `step`, `url`, `action`, `result` | Result of an executed action (`result: { ok, message }`). |
+| `transport_resolved` | `resolution` | Which transport / fallback was selected. |
+| `loop_nudge` | `step`, `notice`, `nudgesUsed`, `budget` | A loop-detection nudge was injected. |
+| `decision_started` | `stepIndex`, `provider`, `model` | A decision call began. |
+| `decision_completed` | `stepIndex`, `durationMs`, `tokensIn?`, `tokensOut?`, `cacheReadTokens?`, `cacheCreationTokens?` | A decision call finished, with token telemetry. |
+| `challenge` | `step`, `encounter` | A bot challenge was detected (`ChallengeEncounter`). |
+| `login_wall` | `step`, `encounter` | A login wall was detected (`LoginWallEncounter`). |
+| `snapshot_started` | `stepIndex` | DOM snapshot capture began. |
+| `snapshot_captured` | `stepIndex`, `durationMs`, `elementCount`, `bytes`, `reused?` | Snapshot completed; `reused` when the prior snapshot was reused. |
+| `action_started` | `stepIndex`, `action` | An action began (string name). |
+| `action_completed` | `stepIndex`, `action`, `durationMs`, `ok` | An action finished. |
+| `terminal` | `result` | The run ended; carries the final `AgentResult<TData>`. |
+
+## StepInfo
+
+The legacy `onStep` callback receives one `StepInfo` per executed action.
+
+```ts
+interface StepInfo {
+  step: number;
+  url: string;
+  action: AgentAction;
+  result: { ok: boolean; message: string };
+}
+```

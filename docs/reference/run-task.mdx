@@ -1,0 +1,123 @@
+---
+title: runTask options
+description: Every option accepted by runTask / new Agent(), with type and meaning.
+---
+
+`runTask(options)` and `new Agent(options).run()` share the same `SimpleAgentOptions`
+shape. This page documents the options against the real type. Many options accept
+both `camelCase` and `snake_case` aliases; the canonical `camelCase` form is listed.
+
+## Task and model
+
+| Option | Type | Meaning |
+| --- | --- | --- |
+| `task` | `string` | Required. Natural-language task the agent should accomplish. |
+| `llm` | `"auto" \| ProviderId \| AgentProviderOptions \| GetNextActionFn` | Provider selection. `"auto"` (default) resolves to whatever is signed in locally; a string pins a provider; an object pins `{ provider, model, ... }`; a function is used directly as the decide loop. |
+| `provider` | `ProviderId` | Provider id when not nesting under `llm`. |
+| `model` | `string` | Model id for the chosen provider. |
+| `apiKey` | `string` | API key override. |
+| `baseURL` | `string` | Base URL override (OpenAI-compatible endpoints, gateways, local servers). |
+| `effort` | provider-specific | Reasoning effort hint. |
+| `env` | `EnvId` (`"local" \| "cloud"`) | Logical environment; drives transport priority. |
+| `transport` | `TransportId` (`"sdk-agent" \| "sdk-api" \| "cli"`) | Force a specific transport. |
+| `decisionMode` | provider-specific | Decision/prompt mode for the adapter. |
+| `getNextAction` | `GetNextActionFn` | Supply a custom decide function directly. |
+
+## Browser and navigation
+
+| Option | Type | Meaning |
+| --- | --- | --- |
+| `browser` | `Browser` | Reusable `Browser` instance. The loop does not own its lifecycle. |
+| `browserSession` / `session` | `BrowserSession` | Caller-supplied session; loop does not own lifecycle. |
+| `page` | `Page` | Caller-supplied page; loop does not own lifecycle. |
+| `startUrl` | `string` | URL to navigate to before the first decision. |
+| `profile` | `string` | Named persistent profile under `~/.browser-agent/profiles/<name>`. For one-shot authenticated tasks without creating a `Browser` first. |
+| `headless` | `boolean` | Launch headless. Default `true`. |
+| `cdpUrl` | `string` | Attach to an existing Chrome DevTools endpoint. |
+| `userDataDir` | `string` | Chrome user-data directory. |
+| `storageStatePath` | `string` | Path to a saved storage-state bundle. |
+| `saveStorageStateOnClose` | `boolean` | Persist storage state when the session closes. |
+| `launch` | `LaunchOptions` | Raw browser launch options when the loop owns the session. |
+| `allowedDomains` | `readonly string[]` | Restrict `navigate` / `new_tab` to matching hosts (exact `example.com` or wildcard `*.example.com`). |
+
+## Output and validation
+
+| Option | Type | Meaning |
+| --- | --- | --- |
+| `outputSchema` | `z.ZodType<TData>` | Zod schema for the terminal `done(data=...)` payload. Validation failure resolves to `reason: "schema_violation"`. |
+| `judge` | `JudgeFn<TData>` | Final validator after a successful `done`. Returning `pass: false` produces `reason: "judge_failed"`. |
+| `extractionLLM` | `ExtractionLLMFn` | Hook for structured extraction; routes `extract_content` markdown + `schemaJson` and surfaces the result as `data.structured`. |
+
+## Perception
+
+| Option | Type | Meaning |
+| --- | --- | --- |
+| `vision` | `boolean \| "auto"` | Capture screenshots and pass to multimodal providers. Default `false`. |
+| `planning` | `boolean` | Include planning/memory fields in prompts and events. Default `true`. |
+| `fullSnapshots` | `boolean` | Always send a full DOM snapshot instead of a per-step diff. Default `false`. |
+| `snapshotReuse` | `boolean` | Reuse the prior snapshot when the page provably did not change. Default `true`. |
+| `domBudgets` | `DomBudgetOptions` | Caps on per-step DOM snapshot capture and prompt formatting. |
+| `memory` | `string` | Initial run memory carried across decisions. |
+
+## Resilience and limits
+
+| Option | Type | Meaning |
+| --- | --- | --- |
+| `maxFailures` | `number` | Max consecutive failed steps before terminating. Values `< 1` coerce to the default (`5`). |
+| `finalResponseAfterFailure` | `boolean` | After `maxFailures`, ask the model once more for a clean done. Default `true`. |
+| `loopDetectionMode` | `"nudge" \| "strict" \| "off"` | Identical-fingerprint loop handling. Default `"nudge"`. |
+| `loopDetectionWindow` | `number` | Identical consecutive fingerprints treated as a loop. Default `4`. |
+| `loopDetectionNudgeBudget` | `number` | In `"nudge"` mode, max consecutive nudges before a strict stop. Default `2`. |
+| `historyHead` | `number` | Head entries retained in compacted history. Default `2`. |
+| `historyTail` | `number` | Tail entries retained (must be `>= 1`). Default `8`. |
+| `selfHealing` | `boolean` | Re-locate and retry once on stale-element failures. Default `true`. |
+| `decideRetry` | `RetryOptions` | Retry policy for `decide()` calls. Default 3 attempts with backoff for 429/5xx/network. |
+| `budget` | `AgentBudget` | Token / USD ceiling for the run; crossing it terminates with `reason: "budget_exceeded"`. See [Results](/docs/reference/results). |
+| `rateLimit` | `RateLimitConfig` (`{ perActionMs?, perHostMs? }`) | Politeness delays between actions. Default off. |
+
+## Timeouts
+
+| Option | Type | Meaning |
+| --- | --- | --- |
+| `stepTimeoutMs` | `number` | Per-step page-context preparation timeout. Default `180000`. |
+| `actionTimeoutMs` | `number` | Single-action execution timeout. Default `30000`. |
+| `decisionTimeoutMs` | `number` | One model-decision timeout; aborts the SDK request. Default `120000`. |
+| `newTabDetectMs` | `number` | Window after `click` to adopt a newly attached page target. Default `500`; `0` disables. |
+
+## Control and observability
+
+| Option | Type | Meaning |
+| --- | --- | --- |
+| `signal` | `AbortSignal` | Plain cancellation. |
+| `control` | `AgentControl` | Cooperative pause/resume/stop surface. |
+| `onEvent` | `OnEventCallback<TData>` | Structured event stream (`decision`, `action`, `terminal`, …). Async callbacks are awaited. See [Results](/docs/reference/results). |
+| `onStep` | `(info: StepInfo) => void` | Legacy per-action callback. Prefer `onEvent`. |
+| `transportResolution` | `TransportResolution` | Pre-resolved transport; emits a `transport_resolved` event before the first step. |
+| `actions` | `ActionRegistry \| ActionDefinition[]` | Override or extend the action catalog. |
+
+## Anti-bot
+
+| Option | Type | Meaning |
+| --- | --- | --- |
+| `challengeWatchdog` | `boolean \| ChallengeWatchdogOptions` | Bot-challenge watchdog (Cloudflare / Turnstile / reCAPTCHA / hCaptcha). Default enabled. Pass `false` to disable or an options object (e.g. `{ timeoutMs, clickTurnstile, solver }`) to tune. |
+| `loginWallWatchdog` | `boolean` | Login-wall detection; surfaces a `login_wall` event. Default enabled. |
+| `sensitiveData` | `Record<string, string>` | Map of placeholder key → real secret. The model emits `<secret>key</secret>` tokens; the real value is substituted at execute time and never appears in prompts, history, events, or output. |
+
+## Browser-level options
+
+`fingerprint`, `humanize`, `fingerprintMode`, and `proxyPool` are **`Browser`
+constructor options** (`BrowserOptions`), not `runTask` options. Configure them on
+the `Browser` you pass in:
+
+```ts
+const browser = new Browser({
+  fingerprint: "windows-chrome",
+  humanize: true,
+  proxyPool: new ProxyPool({ entries, strategy: "round-robin" }),
+});
+await runTask({ task, browser });
+```
+
+Per-action `postCondition` assertions (`url_changed`, `element_present`,
+`text_present`, …) are carried on individual actions, not on the run; see
+`PostCondition` in [Exports](/docs/reference/exports).

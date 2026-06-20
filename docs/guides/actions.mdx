@@ -1,0 +1,141 @@
+---
+title: Actions
+description: The fixed action vocabulary the model picks from each step, the params each takes, index-based vs coordinate clicks, and how failures are reported.
+---
+
+The model never runs arbitrary code. Each step it picks one or more named actions from a fixed menu. Every action is defined in `actions/types.ts` and zod-validated at execution time, so a malformed call fails before it touches the page.
+
+The catalog below is generated from the SDK's action schemas (`@peteqian/browser-agent-sdk`).
+
+## Navigation
+
+| Name         | Params           | What            |
+| ------------ | ---------------- | --------------- |
+| `navigate`   | `url`, `newTab?` | Navigate via CDP |
+| `go_back`    | –                | History back    |
+| `go_forward` | –                | History forward |
+| `refresh`    | –                | Reload          |
+
+## Tabs
+
+| Name         | Params                   | What            |
+| ------------ | ------------------------ | --------------- |
+| `new_tab`    | `url?`                   | Create a target |
+| `switch_tab` | `targetId?` OR `pageId?` | Activate target |
+| `close_tab`  | `targetId?` OR `pageId?` | Close target    |
+
+## Browser lifecycle
+
+| Name            | Params | What                                      |
+| --------------- | ------ | ----------------------------------------- |
+| `close_browser` | –      | Close the session and end the run         |
+
+## Input
+
+| Name            | Params                                     | What                                                              |
+| --------------- | ------------------------------------------ | ----------------------------------------------------------------- |
+| `click`         | `index?` OR `coordinateX`+`coordinateY`    | Click a DOM element by serialized index, or by absolute coordinates |
+| `click_by`      | `locator`                                  | Click by semantic locator                                         |
+| `dblclick`      | `index`                                    | Double-click a DOM element                                        |
+| `hover`         | `index`                                    | Move the pointer over an element                                  |
+| `focus`         | `index`                                    | Focus a DOM element by serialized index                          |
+| `focus_area`    | `query`, `clear?`                          | Narrow attention to a page region by description                 |
+| `type`          | `index`, `text`, `submit?`, `mode?`        | Focus + insert text. `submit:true` sends Enter; `mode` is `replace` (default) or `append` |
+| `type_by`       | `locator`, `text`, `submit?`, `mode?`      | Type by semantic locator                                         |
+| `fill`          | `index`, `text`, `submit?`                 | Set a field value directly                                       |
+| `send_keys`     | `keys`                                     | Raw key combos: `Control+A`, `Tab`, `Enter`                     |
+| `press`         | `key`                                      | Press one keyboard key                                          |
+| `keyboard_type` | `text`                                     | Send text as keyboard input                                     |
+| `select_option` | `index`, `value`                           | Set a `<select>` value                                          |
+| `select_by`     | `locator`, `value`                         | Select an option by semantic locator                           |
+| `upload_file`   | `index`, `paths[]`                         | Set files on a file input via CDP                              |
+| `scroll`        | `direction` (`up`/`down`/`top`/`bottom`), `amount?`, `pages?` (≤10), `index?` | Wheel or scroll-to |
+
+## Waiting
+
+| Name                 | Params                            | What                                                            |
+| -------------------- | --------------------------------- | --------------------------------------------------------------- |
+| `wait`               | `ms` (≤10 000)                    | Sleep                                                           |
+| `wait_for_text`      | `text`, `timeoutMs?` (≤30 000)    | Poll the DOM for text                                           |
+| `wait_for_condition` | `expression`, `timeoutMs?` (≤30 000) | Poll a JS expression until truthy                            |
+| `wait_for_url`       | `pattern`, `timeoutMs?` (≤30 000) | Wait until the URL matches (substring or `*` wildcard)         |
+
+## Reading
+
+| Name                   | Params                                                                       | What                             |
+| ---------------------- | --------------------------------------------------------------------------- | -------------------------------- |
+| `search_page`          | `pattern`, `regex?`, `caseSensitive?`, `contextChars?`, `cssScope?`, `maxResults?` | Text search with context  |
+| `find_text`            | `text`                                                                       | Locate text on the page          |
+| `find_elements`        | `selector`, `attributes?`, `maxResults?`, `includeText?`                     | CSS selector query               |
+| `find_by_role`         | `role`, `name?`, `partial?`                                                  | Find elements by ARIA role       |
+| `find_by_text`         | `text`, `partial?`                                                           | Find elements by visible text    |
+| `find_by_testid`       | `testid`                                                                     | Find elements by test id         |
+| `get_dropdown_options` | `index`                                                                      | List the `<option>`s of a `<select>` |
+| `extract_content`      | `query`, `extractLinks?`, `extractImages?`, `schemaJson?`                    | Pull structured content          |
+| `eval`                 | `expression`, `awaitPromise?`                                               | Evaluate JavaScript in the page  |
+
+<Callout type="info">
+  `extract_content` accepts continuation params (`startFromChar`, `maxChars`, `alreadyCollected`) on its schema for chunked extraction, but these are not advertised to the model — the agent is steered to refine its `query` instead.
+</Callout>
+
+## Capture
+
+| Name          | Params                                                                  | What                  |
+| ------------- | ---------------------------------------------------------------------- | --------------------- |
+| `screenshot`  | `fileName?`, `annotate?`                                               | PNG of the viewport   |
+| `save_as_pdf` | `fileName?`, `printBackground?`, `landscape?`, `scale?`, `paperFormat?` | Print the page to PDF |
+
+## Browser events
+
+| Name                    | Params                                              | What                                               |
+| ----------------------- | --------------------------------------------------- | -------------------------------------------------- |
+| `dialog_handle`         | `accept`, `promptText?`                              | Accept or dismiss the active dialog                |
+| `network_har_start`     | –                                                   | Begin recording network requests                   |
+| `network_har_stop`      | `fileName?`                                         | Stop recording and optionally save a HAR           |
+| `network_list_requests` | `urlIncludes?`, `method?`, `status?`, `maxResults?` | Filter requests captured by the active recorder    |
+| `set_viewport`          | `width`, `height`, `deviceScaleFactor?`, `mobile?`  | Override device metrics                            |
+| `cookies_get`           | `urls?`, `maxResults?`                              | Read cookies (optional URL host filter)            |
+| `cookies_set`           | `cookies[]` (each needs `url` or `domain`)          | Set cookies                                        |
+| `cookies_clear`         | –                                                   | Clear all cookies                                  |
+| `console_start`         | –                                                   | Begin buffering page console + uncaught exceptions |
+| `console_read`          | `level?`, `maxResults?`, `clear?`                   | Read buffered console entries                      |
+| `console_stop`          | –                                                   | Stop console capture                               |
+| `profiler_start`        | `categories?`                                       | Start a Chrome trace                               |
+| `profiler_stop`         | `fileName?`                                         | Stop the trace and optionally save JSON            |
+| `fingerprint_report`    | –                                                   | Report the active browser fingerprint              |
+
+## Terminal
+
+| Name   | Params                        | What                                                              |
+| ------ | ----------------------------- | ----------------------------------------------------------------- |
+| `done` | `success`, `summary`, `data?` | Ends the loop. `data` is validated against `outputSchema` if one is set |
+
+## Clicking: index vs coordinates
+
+Most actions target elements by **index**. The page snapshot tags every interactive element with an integer index; the model picks one. This is the preferred path — it survives layout shifts and is what the model sees.
+
+`click`, alone, also supports **coordinates** as a fallback for canvas, WebGL, or other non-DOM surfaces. When using coordinates, both `coordinateX` and `coordinateY` are required — supplying only one fails validation.
+
+<Tabs items={["Index", "Coordinates"]}>
+
+```json tab="Index"
+{ "name": "click", "params": { "index": 12 } }
+```
+
+```json tab="Coordinates"
+{ "name": "click", "params": { "coordinateX": 420, "coordinateY": 260 } }
+```
+
+</Tabs>
+
+Beyond raw index/coordinates, the `*_by` actions (`click_by`, `type_by`, `select_by`) and `focus_area` accept a **semantic locator** — `role`, `name`, `text`, `testid`, `label`, `placeholder`, `href`, `dataAttr`, or a cross-snapshot `stableId` — plus an optional `nth`. Use these when you want to re-target the same conceptual element across snapshots.
+
+## How failures are reported
+
+A failed action returns `{ ok: false, message }`. The loop counts it as a failure, increments the consecutive-failure counter, and feeds the message back to the model in the next observation. There are three failure shapes:
+
+1. **Validation error** — params didn't match the zod schema (wrong shape, missing required field, out-of-range value).
+2. **CDP error** — element not found, navigation failed, and similar runtime errors.
+3. **Timeout** — the action ran longer than `actionTimeoutMs`.
+
+If consecutive failures reach `maxFailures` (default 5), the run terminates with `reason: "max_failures"`. See [Errors and recovery](/docs/guides/errors) for the full reason table.

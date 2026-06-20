@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import type { AddressInfo } from "node:net";
 
 import type { BrowserEvent } from "./events";
-import { BrowserSession } from "./session";
+import { BrowserSession } from "./session/session";
 
 type BrowserRuntimeEvent = Extract<BrowserEvent, { type: "browser_event" }>;
 

@@ -1,7 +1,7 @@
 import type { LaunchOptions } from "../cdp/launch";
-import { resolveBrowserPaths } from "./profile-paths";
-import { ProxyPool } from "./proxy-pool";
-import { BrowserSession, type Page } from "./session";
+import { resolveBrowserPaths } from "./identity/profile-paths";
+import { ProxyPool } from "./identity/proxy-pool";
+import { BrowserSession, type Page } from "./session/session";
 
 export interface BrowserOptions extends LaunchOptions {
   /**

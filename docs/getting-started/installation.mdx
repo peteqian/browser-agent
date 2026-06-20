@@ -1,0 +1,108 @@
+---
+title: Installation
+description: Install the SDK, the CLI + MCP runtime, and the managed browser.
+---
+
+Browser Agent ships as two npm packages. Install the one that matches how you'll use it.
+
+| Package | Install for | Bins |
+| ------- | ----------- | ---- |
+| `@peteqian/browser-agent-sdk` | Library use — `import` into your own TypeScript/JavaScript | — |
+| `@peteqian/browser-agent` | The `browser-agent` CLI and the `browser-agent-mcp` MCP server | `browser-agent`, `browser-agent-mcp` |
+
+The CLI/MCP package depends on the SDK internally. You only install both directly if you want the bins *and* import the library in the same project.
+
+## Requirements
+
+- **Node ≥ 18** or **Bun ≥ 1.3**
+- A Chrome-based browser — Browser Agent can auto-install one for you (see below)
+- One LLM provider configured. See [Providers](/docs/getting-started/providers).
+
+## Install the SDK
+
+<Tabs items={['npm', 'bun']}>
+<Tab value="npm">
+
+```sh
+npm install @peteqian/browser-agent-sdk
+```
+
+</Tab>
+<Tab value="bun">
+
+```sh
+bun add @peteqian/browser-agent-sdk
+```
+
+</Tab>
+</Tabs>
+
+The package ships ESM exports only. Public surface is `runTask`, `Browser`, `Page`, the action registry, observability helpers, and LLM adapters. Anything imported from `@peteqian/browser-agent-sdk/internal` carries **no stability guarantee**.
+
+## Install the CLI and MCP runtime
+
+The `browser-agent` (CLI) and `browser-agent-mcp` (MCP server) bins live in the `@peteqian/browser-agent` package.
+
+<Tabs items={['Global', 'npx (no install)']}>
+<Tab value="Global">
+
+```sh
+npm install -g @peteqian/browser-agent
+browser-agent --help
+```
+
+</Tab>
+<Tab value="npx (no install)">
+
+```sh
+npx -y -p @peteqian/browser-agent browser-agent --help
+```
+
+</Tab>
+</Tabs>
+
+To register the MCP server with Claude Code, Cursor, or Codex, run the interactive installer:
+
+```sh
+browser-agent install
+```
+
+It detects your installed clients, asks for scope and runtime source, then writes the config. See the [MCP guide](/docs/guides/mcp) for manual snippets.
+
+## The managed browser
+
+Browser Agent talks to Chrome over the raw Chrome DevTools Protocol — no Puppeteer or Playwright in the runtime chain. It needs a Chrome-based binary to drive.
+
+**The default managed browser is Chrome for Testing (CfT).** On first launch, if no suitable browser is discoverable, Browser Agent auto-installs CfT into `~/.browser-agent/browsers/` via `@puppeteer/browsers`. Using a dedicated CfT build keeps automation reproducible and keeps debug-mode Chrome separate from your everyday browser.
+
+<Callout type="info">
+Chrome for Testing is the default. A Playwright-managed Chromium build is only used as a fallback during discovery, or when you explicitly install a non-CfT channel (which installs via `playwright install chromium`). Don't confuse the two — the out-of-the-box managed browser is Chrome for Testing.
+</Callout>
+
+Check or install it explicitly:
+
+```sh
+browser-agent browser status     # report the discovered executable
+browser-agent browser install    # install Chrome for Testing if missing
+```
+
+Both accept `--channel <c>` (default `chrome-for-testing`). Other channels include `chromium`, `chrome`, `chrome-beta`, `chrome-canary`, `msedge`, and `lightpanda`. Add `--json` for machine-readable output.
+
+### Using your own browser
+
+To skip the managed binary, point Browser Agent at an existing executable or attach to a running Chrome:
+
+- `BROWSER_AGENT_CHROME=/path/to/chrome` — use a specific executable
+- `--channel chrome` — discover and use system-installed Google Chrome
+- `--cdp-url http://127.0.0.1:9222` — attach to an already-running Chrome DevTools endpoint
+
+<Callout type="info">
+Installing the managed browser does not remove cookie banners or persist logins by itself. Use named profiles (`--profile <name>`) and auto-consent for repeat visits. Profiles live under `~/.browser-agent/profiles/<name>/`.
+</Callout>
+
+## Next
+
+<Cards>
+  <Card title="Providers" href="/docs/getting-started/providers" description="Configure an LLM provider and verify auth with --probe." />
+  <Card title="First run" href="/docs/getting-started/first-run" description="Run your first task on the CLI, SDK, and MCP." />
+</Cards>

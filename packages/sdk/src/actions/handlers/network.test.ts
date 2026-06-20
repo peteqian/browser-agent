@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { filterNetworkEntries, handleNetworkHarStart, handleNetworkHarStop } from "./network";
 import type { HandlerContext } from "./shared";
-import type { Page } from "../../browser/page";
+import type { Page } from "../../browser/page/page";
 
 interface MockHandlers {
   requestWillBeSent?: (p: unknown) => void;

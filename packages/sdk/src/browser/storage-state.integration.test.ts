@@ -5,7 +5,7 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { BrowserSession } from "./session";
+import { BrowserSession } from "./session/session";
 
 const runIntegration = process.env.BROWSER_AGENT_STORAGE_STATE_INTEGRATION === "1";
 const integrationTest = runIntegration ? test : test.skip;

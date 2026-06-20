@@ -1,0 +1,234 @@
+---
+title: SDK
+description: Drive the browser-agent loop from any Node.js or Bun program with @peteqian/browser-agent-sdk.
+---
+
+`@peteqian/browser-agent-sdk` is the library core: raw Chrome DevTools Protocol plus an LLM decision loop. The common path is one shape — hand a single task to `runTask(...)`.
+
+```bash
+npm install @peteqian/browser-agent-sdk
+# or
+bun add @peteqian/browser-agent-sdk
+```
+
+Requirements: **Node ≥ 18** or **Bun ≥ 1.3**, plus any Chrome-based browser.
+
+## Minimal run
+
+```ts
+import { runTask } from "@peteqian/browser-agent-sdk";
+
+const result = await runTask({
+  task: "Open example.com and report the H1.",
+});
+
+console.log(result.summary);
+```
+
+By default the agent auto-resolves a local model transport (signed-in Codex → Claude → API-key providers) and launches managed Chrome with CDP debugging enabled. No separate debug-mode flag is needed for normal runs.
+
+<Callout type="info">
+  `result.success` is `true` only when `result.reason === "completed"`. Branch on `reason`, not `summary` — `summary` is human-readable, not for control flow.
+</Callout>
+
+## Authenticated tasks via profiles
+
+Use a named profile when a task needs login state:
+
+```ts
+const result = await runTask({
+  task: "Check my Gmail inbox and summarize unread messages.",
+  profile: "gmail",
+  headless: false,
+});
+```
+
+The first run creates `~/.browser-agent/profiles/gmail/`; later runs reuse its cookies and localStorage. Profile reuse stays explicit while the public flow stays a single task call.
+
+## Choosing an LLM adapter
+
+Pass `llm` for explicit provider/model control:
+
+```ts
+await runTask({
+  task: "Find the top Hacker News story.",
+  startUrl: "https://news.ycombinator.com",
+  llm: { provider: "openai", model: "gpt-4.1-mini" },
+});
+```
+
+You can also pin the transport and environment:
+
+```ts
+await runTask({
+  task: "...",
+  llm: { provider: "claude", transport: "sdk-api", env: "cloud" },
+});
+```
+
+For provider backends and credentials, see [Providers](/docs/getting-started/providers).
+
+## Custom getNextAction
+
+For a fully custom decision function, pass `getNextAction` instead of `llm`:
+
+```ts
+await runTask({
+  task: "...",
+  getNextAction: async (input) => ({
+    done: true,
+    success: true,
+    summary: `Saw ${input.observation.length} chars of page state.`,
+    actions: [{ name: "done", params: { success: true, summary: "done" } }],
+  }),
+});
+```
+
+### Decide factories
+
+For advanced callers, these factories build a `getNextAction`-compatible decide function for a specific backend:
+
+| Factory | Backend |
+| --- | --- |
+| `createOpenAIDecide` | OpenAI Chat Completions |
+| `createAnthropicDecide` | Anthropic Messages |
+| `createCodexCliDecide` | Codex CLI |
+| `createCodexSdkDecide` | Codex Agent SDK |
+| `createClaudeCliDecide` | Claude CLI |
+| `createClaudeSdkDecide` | Claude Agent SDK |
+| `createDecide` | Generic resolver across the above |
+
+```ts
+import { createOpenAIDecide, runTask } from "@peteqian/browser-agent-sdk";
+
+const decide = createOpenAIDecide({ model: "gpt-4.1-mini" });
+await runTask({ task: "...", getNextAction: decide });
+```
+
+## Typed terminal output
+
+Pass a Zod schema and the loop validates the model's `done(data=...)` payload, narrowing `result.data`:
+
+```ts
+import { z } from "zod";
+import { runTask } from "@peteqian/browser-agent-sdk";
+
+const schema = z.object({
+  jobs: z.array(z.object({ title: z.string(), url: z.string().url() })),
+});
+
+const result = await runTask({
+  task: "Find top 5 frontend jobs on seek.com.au",
+  startUrl: "https://seek.com.au",
+  outputSchema: schema,
+});
+
+if (result.success) {
+  for (const job of result.data.jobs) console.log(job.title);
+}
+```
+
+If the payload fails validation, the result is `{ success: false, reason: "schema_violation", data: null }`.
+
+## Observing runs
+
+```ts
+await runTask({
+  task: "...",
+  onEvent: (event) => {
+    switch (event.type) {
+      case "transport_resolved":
+        console.log("transport:", event.resolution.transport);
+        break;
+      case "decision":
+        console.log(`step ${event.step}: ${event.decision.actions[0]?.name}`);
+        break;
+      case "action":
+        console.log(`  -> ${event.action.name}: ${event.result.message}`);
+        break;
+      case "terminal":
+        console.log("done:", event.result.summary);
+        break;
+    }
+  },
+});
+```
+
+`onEvent` is awaited, so returning a Promise backpressures the loop.
+
+## Cancellation
+
+Hard cancel with an `AbortController`:
+
+```ts
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 30_000);
+
+await runTask({ task: "...", signal: controller.signal });
+```
+
+Cooperative pause / resume / stop with an `AgentController`:
+
+```ts
+import { AgentController, runTask } from "@peteqian/browser-agent-sdk";
+
+const control = new AgentController();
+const promise = runTask({ task: "...", control });
+
+control.pause();
+control.resume();
+control.stop("user canceled");
+
+await promise;
+```
+
+When `control.stop()` is called or `signal` aborts, the loop terminates at the next safe point and resolves with `result.reason === "aborted"` (signal) or the passed stop reason.
+
+## Reusing a Browser
+
+When the agent owns its browser, it launches and tears down Chrome per run. Pass a `Browser` to keep state across runs:
+
+```ts
+import { Browser, runTask } from "@peteqian/browser-agent-sdk";
+
+const browser = new Browser();
+
+try {
+  await runTask({ task: "first task", browser });
+  await runTask({ task: "second task", browser });
+} finally {
+  await browser.close();
+}
+```
+
+Use `browser.close()` for normal cleanup. If Chrome is wedged, `browser.kill()` force-kills the launched process tree.
+
+To attach to a browser already exposing CDP:
+
+```ts
+import { BrowserSession } from "@peteqian/browser-agent-sdk";
+
+const session = await BrowserSession.connect(process.env.BROWSER_AGENT_CDP_URL!);
+const page = (await session.listPages())[0] ?? (await session.newPage());
+
+await runTask({ task: "...", session, page });
+```
+
+## Versioning
+
+```ts
+import { VERSION, PACKAGE_NAME } from "@peteqian/browser-agent-sdk";
+console.log(`${PACKAGE_NAME} ${VERSION}`);
+```
+
+## The /internal subpath
+
+`@peteqian/browser-agent-sdk/internal` exposes raw CDP, DOM serialization, action schemas, and the prompt builder:
+
+```ts
+import { CDPClient, launchBrowser, executeAction } from "@peteqian/browser-agent-sdk/internal";
+```
+
+<Callout type="warn">
+  Everything under `/internal` carries **no stability guarantee** and may change without a minor version bump. Build on the public surface where possible.
+</Callout>

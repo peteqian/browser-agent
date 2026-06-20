@@ -14,10 +14,17 @@ We exercised Vercel's `browser-agent` CLI against the SEEK apply task:
 
 The useful architectural lesson is not the exact CLI shape. It is that the AI should operate at the task level while the browser layer exposes fast, deterministic primitives against a persistent session.
 
+Terminology used below:
+
+- **model request** = `AgentInput`, the packet sent to the AI.
+- **model answer** = `AgentOutput`, the actions and done state returned by the AI.
+- **action player** = `step-runner.ts` / `runActions(...)`, the code that validates and plays the model answer.
+- **browser runner** = `SessionRunner`, the owner of active page, latest page state, and action execution.
+
 ## Current Gaps
 
 - The library still spends too many observe/decide/act cycles on atomic browser work.
-- Snapshot capture, decision prompting, action execution, and loop recovery all live in the same runtime loop, which makes it harder to optimize each independently.
+- Snapshot capture, asking the model, playing actions, and loop recovery all live in the same runtime loop, which makes it harder to optimize each independently.
 - The public SDK now exposes `runTask(...)` as the first-class one-task wrapper, but primitive session controls are not yet a stable public SDK surface.
 - Auth/profile reuse is now supported, but session/process ownership is still less explicit than Vercel's `--session`, `--session-name`, and `--profile` split.
 
@@ -43,15 +50,15 @@ The Agent loop uses these modules for step observation and action execution. The
 
 This is the beginning of the Vercel-like shape: browser primitives are shared and deterministic, while the natural-language Agent is a layer over those primitives.
 
-## Third Change: SessionRunner
+## Third Change: Browser Runner (`SessionRunner`)
 
-`runtime/SessionRunner` now owns the persistent browser session, active page, latest observation, action registry, allowed domains, and DOM budgets. It composes the shared observer/executor modules and gives callers a smaller runtime surface:
+The browser runner (`runtime/SessionRunner`) now owns the persistent browser session, active page, latest observation, action registry, allowed domains, and DOM budgets. It composes the shared observer/executor modules and gives callers a smaller runtime surface:
 
 - `observe` and `refresh` keep the latest browser state in one place;
 - `runAction` executes one primitive against the cached selector map, then clears stale state when the action can change the page;
 - `runActions` executes a bounded primitive batch and can stop on failure for MCP-style deterministic command lists.
 
-MCP sessions now keep a `SessionRunner` on each `SessionRecord`, and the Agent loop creates one runner per task. That means the natural-language one-shot path and primitive MCP path now share the same page/current-state ownership instead of each maintaining separate action and observation plumbing.
+MCP sessions now keep a browser runner (`SessionRunner`) on each `SessionRecord`, and the Agent loop creates one runner per task. That means the natural-language one-shot path and primitive MCP path now share the same page/current-state ownership instead of each maintaining separate action and observation plumbing.
 
 The SDK also exposes `runTask(...)` as the first-class one-shot wrapper:
 

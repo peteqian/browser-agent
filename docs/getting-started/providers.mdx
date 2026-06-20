@@ -1,0 +1,71 @@
+---
+title: Providers
+description: Configure an LLM provider, understand auth resolution, and verify with --probe.
+---
+
+Browser Agent brings the hands and eyes; you bring the model. Pick **one** provider and give it credentials. This page is the single source for provider auth — other pages link here.
+
+## Provider auth
+
+| Provider | Backend | Auth | Notes |
+| -------- | ------- | ---- | ----- |
+| `codex` _(default)_ | Codex Agent SDK → Codex CLI | `~/.codex/auth.json` (from `codex login`) **or** `OPENAI_API_KEY` | Default. Resolves through the Codex Agent SDK, then the Codex CLI. |
+| `claude` | Claude Agent SDK → Claude CLI → Anthropic API | `~/.claude/.credentials.json` (from `claude login`) **or** `ANTHROPIC_API_KEY` | Falls back through agent SDK → CLI → API. |
+| `openai` | OpenAI Chat Completions | `OPENAI_API_KEY` | Chat Completions with structured output. |
+| `anthropic` | Anthropic Messages | `ANTHROPIC_API_KEY` | Messages API with structured output. |
+
+The default provider auto-resolves to whatever's signed in locally, preferring Codex → Claude → OpenAI/Anthropic by API key. Pin one explicitly with `--provider <p>` (CLI) or `llm: { provider, model }` (SDK).
+
+## How resolution works
+
+`codex` and `claude` are layered. They prefer a locally signed-in agent SDK, fall back to the corresponding CLI, and finally fall back to a raw API key. This means:
+
+- If you've run `codex login` or `claude login`, no API key is needed.
+- If you haven't, set the matching `*_API_KEY` env var and the same provider still works through the API path.
+
+`openai` and `anthropic` are direct API providers — they require their API key and do not use any local CLI.
+
+<Callout type="info">
+`--base-url` (CLI) / `baseURL` (SDK) overrides the SDK base URL for OpenAI-compatible endpoints, local servers, or gateways.
+</Callout>
+
+## Pin a provider and model
+
+<Tabs items={['CLI', 'SDK']}>
+<Tab value="CLI">
+
+```sh
+browser-agent "Find the top Hacker News story" \
+  --provider openai --model gpt-4.1-mini
+```
+
+</Tab>
+<Tab value="SDK">
+
+```ts
+await runTask({
+  task: "Find the top Hacker News story.",
+  browser,
+  startUrl: "https://news.ycombinator.com",
+  llm: { provider: "openai", model: "gpt-4.1-mini" },
+});
+```
+
+</Tab>
+</Tabs>
+
+## Verify with `--probe`
+
+Before doing real work, check what auth and transport would resolve — no browser launches, no LLM calls:
+
+```sh
+browser-agent --probe --provider claude
+```
+
+It prints the resolved transport as JSON (which path won — agent SDK, CLI, or API — and the model). Use this to confirm credentials are picked up before running a task.
+
+## Next
+
+<Cards>
+  <Card title="First run" href="/docs/getting-started/first-run" description="Run your first task on the CLI, SDK, and MCP." />
+</Cards>

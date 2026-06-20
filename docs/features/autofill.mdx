@@ -1,0 +1,84 @@
+---
+title: Autofill & embedded forms
+description: Deterministic applicant autofill with planAutofill and AnswerBank, plus cross-origin (OOPIF) iframe support for embedded job-application forms.
+---
+
+Job-application forms repeat the same fields across sites. Paying an LLM round-trip per field is slow and expensive. The autofill helpers match a declarative profile against the page and emit deterministic actions — turning most of an application into cheap typed actions instead of model reasoning.
+
+## Applicant autofill
+
+`planAutofill` matches an `ApplicantProfile` against the snapshot's form elements and returns deterministic fills. `autofillActions` turns those into agent action objects.
+
+```ts
+import {
+  planAutofill,
+  autofillActions,
+  AnswerBank,
+} from "@peteqian/browser-agent-sdk";
+
+const bank = new AnswerBank(savedAnswers);
+
+const fills = planAutofill(
+  { firstName: "Ada", lastName: "Lovelace", email: "ada@x.com", resumePath: "/cv.pdf" },
+  state.elements, // ElementInfo[] from the page snapshot
+  bank,
+);
+
+const actions = autofillActions(fills);
+// → type (replace) for text, select_option for selects, upload_file for files
+```
+
+### ApplicantProfile
+
+Standard fields are matched by a built-in synonym map against each element's label, name, ARIA name, placeholder, or test id:
+
+| Field | Notes |
+| ----- | ----- |
+| `firstName`, `lastName` | First/last name inputs. |
+| `fullName` | Matched after first/last so it won't grab a first-name field. Falls back to `${firstName} ${lastName}`. |
+| `email`, `phone` | |
+| `address`, `city`, `state`, `country`, `postalCode` | |
+| `linkedin`, `github`, `website` | Profile/portfolio links. |
+| `resumePath` | Absolute path to a resume/CV, routed to a file input via `upload_file`. |
+| `custom` | `Record<string, string>` of free-form Q&A, matched fuzzily against the field label. Matched last so it can't shadow a standard field. |
+
+Fields with no value, or no matching element, are skipped — the model handles those. Only visible elements (non-zero bounding box) are considered, and each element is filled at most once.
+
+### AnswerBank
+
+`AnswerBank` caches free-form answers keyed by normalized question text, so repeated applications reuse answers like "Why do you want to work here?" instead of regenerating them.
+
+```ts
+const bank = new AnswerBank();
+bank.set("Why do you want to work here?", "Because…");
+bank.has("why do you want to work here?"); // true — keys are normalized
+
+// Persist across runs:
+const json = bank.toJSON();
+const restored = AnswerBank.fromJSON(json);
+```
+
+Pass a bank as the third argument to `planAutofill`; its entries are merged after `profile.custom` and matched against field labels.
+
+<Callout>
+Autofill produces actions, it doesn't execute them. Feed the returned actions to the runner (e.g. as `initialActions`) or apply them through your own action loop.
+</Callout>
+
+## Embedded forms (cross-origin iframes)
+
+Many job boards render their forms in out-of-process iframes (OOPIFs) — Greenhouse `job_app`, Workday company-site embeds — which a plain DOM snapshot can't see. The snapshot pipeline:
+
+- detects those iframes and captures their targets through CDP;
+- translates iframe coordinates into main-page space;
+- merges the elements into the observation with `framePath: "oopif:<targetId>"`.
+
+Actions (`click`, `type`, `select_option`, `upload_file`, and locator variants) route to the owning target automatically — verified live against a Greenhouse-embedded application form. Workday's `data-automation-id` attributes are captured as test ids for durable locators.
+
+When an iframe target can't be matched, the merged element keeps a hint telling the model to navigate to the frame's `src` or fall back to screenshot + coordinate clicks.
+
+This is automatic — no configuration needed. Autofill works across these embeds because the iframe elements appear in `state.elements` like any other.
+
+## See also
+
+- [Anti-bot](/docs/features/anti-bot) — humanized input for the typing autofill emits.
+- [Observability](/docs/features/observability) — redact PII (names, emails, phones) before shipping reports.

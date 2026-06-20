@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
-import type { BrowserSession } from "../../browser/session";
-import type { Page } from "../../browser/page";
+import type { BrowserSession } from "../../browser/session/session";
+import type { Page } from "../../browser/page/page";
 import { handleConsoleRead, handleConsoleStart, handleConsoleStop } from "./console";
 import type { HandlerContext } from "./shared";
 

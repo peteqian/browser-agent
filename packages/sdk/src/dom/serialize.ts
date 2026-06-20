@@ -1,4 +1,4 @@
-import type { Page } from "../browser/session";
+import type { Page } from "../browser/session/session";
 import {
   captureCdpSnapshot,
   withBudgetDefaults,

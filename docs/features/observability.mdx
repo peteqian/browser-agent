@@ -1,0 +1,109 @@
+---
+title: Observability
+description: Run reports, JUnit and OpenTelemetry export, replayable trace bundles, cost tracking and budgets, and PII redaction.
+---
+
+Every run can be captured as a stable, machine-readable record: archive it as a CI artifact, gate on success, track cost over time, export to your tracing backend, or replay exactly what the agent saw when something failed.
+
+## Run reports
+
+`RunReportCollector` consumes the agent's event stream via `onEvent` and builds a `RunReport`.
+
+```ts
+import { RunReportCollector, runTask } from "@peteqian/browser-agent-sdk";
+
+const collector = new RunReportCollector({ task });
+const result = await runTask({ task, browser, onEvent: collector.onEvent });
+
+const report = collector.build(); // stable JSON
+```
+
+The `RunReport` has a versioned shape (`schemaVersion: 1`) with `task`, timing, `result`, `provider`/`transport`/`model`, aggregated `usage` (input/output/cache-read/cache-creation tokens), `costUsd`, per-step detail (`steps`), `challenges`, and `loopNudges`.
+
+Pass a custom price table via `new RunReportCollector({ task, pricing })` to override the built-in one.
+
+### JUnit export
+
+`toJUnitXml(report)` renders the report as JUnit XML for CI systems that ingest test reports.
+
+```ts
+import { toJUnitXml } from "@peteqian/browser-agent-sdk";
+
+await Bun.write("report.json", JSON.stringify(report, null, 2));
+await Bun.write("report.junit.xml", toJUnitXml(report));
+```
+
+## OpenTelemetry export
+
+`reportToOtel(report)` maps a `RunReport` to dependency-free OTel-shaped spans and metrics — no `@opentelemetry/*` dependency pulled in. The span tree mirrors the run (`run → step → decision/action`); metrics cover tokens, cost, duration, and challenges. Forward to any backend (Datadog, Grafana Tempo, Honeycomb).
+
+```ts
+import { reportToOtel } from "@peteqian/browser-agent-sdk";
+
+const { resource, spans, metrics } = reportToOtel(report);
+// hand spans/metrics to your exporter
+```
+
+Span IDs are deterministic (derived from the run start time + an index), so the same report always produces the same trace.
+
+## Trace / replay bundle
+
+`TraceRecorder` writes a per-step screenshot + observation + decision + action result to a directory, plus a self-contained `index.html` timeline. Replay exactly what the agent saw when a CI run fails — no live browser needed.
+
+```ts
+import { TraceRecorder, runTask } from "@peteqian/browser-agent-sdk";
+
+const tracer = new TraceRecorder({ dir: "./traces/run-1" });
+await runTask({ task, browser, onEvent: tracer.onEvent });
+tracer.finalize(); // writes trace.json + index.html
+```
+
+## Cost tracking and budgets
+
+`report.usage` aggregates tokens (including cache reads/writes) and `report.costUsd` prices them per model. Estimate cost directly with `estimateCostUsd`, or look up a model's rates with `resolveModelPricing` against `DEFAULT_MODEL_PRICING`.
+
+```ts
+import { estimateCostUsd, resolveModelPricing } from "@peteqian/browser-agent-sdk";
+
+const usd = estimateCostUsd(usage, "claude-sonnet-4-6"); // null if no pricing entry
+const pricing = resolveModelPricing("anthropic/claude-haiku-4-5"); // tolerates prefixes/suffixes
+```
+
+Set a hard ceiling for a run with `budget`. When exceeded, the run terminates with `reason: "budget_exceeded"`.
+
+```ts
+const result = await runTask({
+  task,
+  browser,
+  budget: { maxCostUsd: 0.5, maxTokens: 500_000 },
+});
+```
+
+`AgentBudget` accepts `maxCostUsd`, `maxTokens` (input + output across all decisions), and an optional `pricing` table.
+
+<Callout type="warn">
+Prices drift. `DEFAULT_MODEL_PRICING` is a cached snapshot — treat estimates as approximate and pass a custom table when accuracy matters. `maxCostUsd` only fires for models that have a pricing entry.
+</Callout>
+
+## PII redaction
+
+Job-application runs carry names, emails, phones, and resume contents through the event stream. Scrub them before persisting a report or shipping JSONL as a CI artifact.
+
+```ts
+import { redactReport, redactString, redactValue } from "@peteqian/browser-agent-sdk";
+
+const safe = redactReport(report, { values: ["Ada Lovelace", resumeText] });
+const line = redactString(logLine);
+const event = redactValue(payload); // deep-redact any JSON-serializable value
+```
+
+Two layers: pattern-based (emails and phone numbers, on by default) and value-based (exact strings you already know are sensitive — reuse the same map you pass as `sensitiveData` to the agent). Options (`RedactOptions`):
+
+| Option        | Type       | Default        | Description |
+| ------------- | ---------- | -------------- | ----------- |
+| `values`      | `string[]` | `[]`           | Exact strings to replace wherever they appear (longest first). |
+| `emails`      | `boolean`  | `true`         | Redact email addresses. |
+| `phones`      | `boolean`  | `true`         | Redact phone numbers (requires ≥7 digits to avoid nuking prices/ids). |
+| `placeholder` | `string`   | `"[REDACTED]"` | Replacement token. |
+
+`redactReport` scrubs the task string, terminal summary, and per-action messages; numeric usage/cost is left untouched.

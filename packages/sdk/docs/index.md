@@ -19,15 +19,32 @@ You give the agent a task in natural language and (optionally) a starting URL. I
    open Chrome (CDP)
             │
             ▼
-   snapshot ──► LLM ──► decision { name, params }
-                                       │
-                                       ▼
-                              executeAction()
-                                       │
-                                       └── back to snapshot
+   page state + page text
+            │
+            ▼
+   model request ──► ask model ──► model answer { actions }
+                                            │
+                                            ▼
+                                  action player validates
+                                            │
+                                            ▼
+                                  browser runner executes
+                                            │
+                                            └── back to page state
 ```
 
 The browser is real Chrome (headed or headless), not a synthetic emulator.
+
+Docs use these reader-friendly names:
+
+| Plain name | Code name |
+|------------|-----------|
+| model request | `AgentInput` / `decideInput` |
+| model answer | `AgentOutput` / `decision` |
+| ask model | `runDecide(...)` |
+| action player | `step-runner.ts` / `runActions(...)` |
+| browser runner | `SessionRunner` |
+| element lookup map | `selectorMap` |
 
 ## Quick links
 

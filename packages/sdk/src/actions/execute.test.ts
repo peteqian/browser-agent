@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import type { BrowserSession, NavigationHealthResult, Page } from "../browser/session";
+import type { BrowserSession, NavigationHealthResult, Page } from "../browser/session/session";
 import type { SelectorMap } from "../dom/cdp-snapshot";
 import { executeAction } from "./execute";
 

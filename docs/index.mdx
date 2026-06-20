@@ -1,0 +1,49 @@
+---
+title: Introduction
+description: TypeScript browser automation driven by an LLM decision loop over raw Chrome DevTools Protocol.
+---
+
+`browser-agent` drives a real Chrome browser with a large language model. You give
+it a task in plain language; it observes the page, decides the next action, runs
+that action over the Chrome DevTools Protocol (CDP), and repeats until the task is
+done.
+
+## The loop
+
+```text
+task ──▶ snapshot ──▶ LLM decision ──▶ action ──▶ snapshot ──▶ … ──▶ done
+```
+
+Every step the agent serializes the live DOM into a compact snapshot, asks the
+model for the next action(s), executes them against the active page, and captures
+a fresh snapshot. The run ends when the model emits a terminal `done` action — or
+when a guardrail (timeout, max-failures, loop detection, budget) stops it.
+
+## Three ways to use it
+
+<Cards>
+  <Card title="SDK" href="/docs/guides/sdk" description="Import the library and call runTask in your own TypeScript." />
+  <Card title="CLI" href="/docs/guides/cli" description="Run a one-shot task from the terminal with the browser-agent binary." />
+  <Card title="MCP" href="/docs/guides/mcp" description="Expose browser tools to Claude Desktop, Cursor, and other MCP clients." />
+</Cards>
+
+## What makes it different
+
+- **Raw CDP, real Chrome** — headed or headless, not a synthetic emulator.
+- **Bring any model** — OpenAI, Anthropic, or local CLIs (Codex, Claude) via a
+  pluggable transport layer.
+- **Resilient by default** — self-healing actions, loop detection, post-condition
+  assertions, and consecutive-failure limits.
+- **Production observability** — structured run reports, OpenTelemetry export,
+  JUnit XML, cost/budget tracking, and replay traces.
+
+## Next steps
+
+Start with [Installation](/docs/getting-started/installation), then pick the
+surface that fits your use case. The [Architecture](/docs/architecture/overview)
+section explains how the pieces fit together.
+
+<Callout type="info">
+  Pre-1.0: the public API surface is stable, but internals (exposed under the
+  `/internal` subpath) carry no stability guarantee.
+</Callout>
