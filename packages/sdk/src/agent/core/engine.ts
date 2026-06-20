@@ -1,17 +1,15 @@
 import { BrowserSession } from "../../browser/session/session";
-import { ChallengeWatchdog, challengeObservationNote } from "../../browser/watchdogs/challenge";
-import { LoginWallWatchdog, loginWallObservationNote } from "../../browser/watchdogs/login-wall";
+import { ChallengeWatchdog } from "../../browser/watchdogs/challenge";
+import { LoginWallWatchdog } from "../../browser/watchdogs/login-wall";
 import type { PageSnapshot } from "../../dom/types";
 import { SessionRunner } from "../../runtime/session-runner";
 import type { AgentInput, AgentOptions, AgentOutput, AgentResult } from "../decide/contracts";
 import { emitEvent } from "../observe/emit";
 import { compactHistory } from "./history";
 import {
-  buildLoopFingerprint,
   canonicaliseActionCall,
   detectAlternatingPair,
   detectSameNameRun,
-  isRepeatingLoop,
 } from "../features/loop-detection";
 import {
   DEFAULT_HISTORY_HEAD,
@@ -24,7 +22,6 @@ import {
 } from "./options";
 import { resolveActionRegistry, tryFinalFailureRecovery } from "./recovery";
 import { withRetry } from "./retry";
-import { estimateCostUsd } from "../../llm/pricing";
 import {
   canReuseSnapshot,
   capturePageFingerprint,
@@ -32,18 +29,12 @@ import {
 } from "../features/snapshot-reuse";
 import { buildStepContext, type StepContext } from "./step-context";
 import { checkInterrupt, runActions, type StepOutcome } from "./step-runner";
-import { buildMaxFailuresResult } from "./terminal-result";
+import { buildDecisionDoneResult, buildMaxFailuresResult } from "./terminal-result";
+import { applyBudgetGuard, type SpendAccumulator } from "./budget";
+import { runWatchdogs } from "./watchdog-gate";
+import { buildAlternatingNudge, buildSameNameNudge, handleLoopDetection } from "./loop-guards";
 import { createFocusState } from "../features/focus-state";
 import { combineSignals, withDecideTimeout, withRejectingTimeout } from "./timeouts";
-
-export { AgentController } from "./controller";
-export { compactHistory } from "./history";
-export {
-  buildDecisionPrompt,
-  buildDecisionPromptParts,
-  buildDecisionUserPrompt,
-} from "../decide/decision-prompt";
-export type { DecisionPromptParts } from "../decide/decision-prompt";
 
 /**
  * Absolute internal safety ceiling. There is intentionally no user-facing
@@ -118,8 +109,7 @@ async function runLoopInner<TData = unknown>(
           typeof options.challengeWatchdog === "object" ? options.challengeWatchdog : {},
         );
   const loginWallWatchdog = options.loginWallWatchdog === false ? null : new LoginWallWatchdog();
-  let spentTokens = 0;
-  let spentCostUsd = 0;
+  const spend: SpendAccumulator = { tokens: 0, cost: 0 };
 
   try {
     const initialPage = options.page ?? (session ? await session.newPage() : undefined);
@@ -166,39 +156,14 @@ async function runLoopInner<TData = unknown>(
       const beforeStepInterrupt = await checkInterrupt(options, step - 1);
       if (beforeStepInterrupt) return beforeStepInterrupt;
 
-      // Clear (or at least report) bot-protection challenges before spending
-      // a snapshot + decision on a gated page. Detection failures (e.g. fake
-      // pages in tests, mid-navigation evaluate errors) are non-fatal.
-      let challengeNote: string | null = null;
-      if (challengeWatchdog) {
-        const encounter = await challengeWatchdog.check(runner.page).catch(() => null);
-        if (encounter) {
-          await emitEvent(options, { type: "challenge", step, encounter });
-          await session?.eventBus?.emit({
-            type: "browser_event",
-            name: encounter.resolved ? "challenge_resolved" : "challenge_unresolved",
-            data: encounter,
-          });
-          if (!encounter.resolved) challengeNote = challengeObservationNote(encounter);
-        }
-      }
-
-      // Login-wall detection mirrors the challenge path: emit a structured
-      // event so callers can pause for a human, and note it in the
-      // observation so the model can route around it.
-      let loginWallNote: string | null = null;
-      if (loginWallWatchdog) {
-        const encounter = await loginWallWatchdog.check(runner.page).catch(() => null);
-        if (encounter) {
-          await emitEvent(options, { type: "login_wall", step, encounter });
-          await session?.eventBus?.emit({
-            type: "browser_event",
-            name: "login_wall",
-            data: encounter,
-          });
-          loginWallNote = loginWallObservationNote(encounter);
-        }
-      }
+      const { challengeNote, loginWallNote } = await runWatchdogs({
+        challengeWatchdog,
+        loginWallWatchdog,
+        runner,
+        session,
+        options,
+        step,
+      });
 
       await emitEvent(options, { type: "snapshot_started", stepIndex: step });
       const snapshotStartedAt = Date.now();
@@ -339,32 +304,8 @@ async function runLoopInner<TData = unknown>(
         cacheCreationTokens: decision.telemetry?.usage?.cacheCreationTokens,
       });
 
-      // Budget accounting — the decision is already paid for, so a crossed
-      // limit lets a terminal `done` finish (no further spend) but otherwise
-      // stops before more actions/decisions are bought.
-      if (options.budget) {
-        const usage = decision.telemetry?.usage;
-        if (usage) {
-          spentTokens += usage.inputTokens + usage.outputTokens;
-          const cost = estimateCostUsd(usage, decision.telemetry?.model, options.budget.pricing);
-          if (cost !== null) spentCostUsd += cost;
-        }
-        const overTokens =
-          typeof options.budget.maxTokens === "number" && spentTokens > options.budget.maxTokens;
-        const overCost =
-          typeof options.budget.maxCostUsd === "number" && spentCostUsd > options.budget.maxCostUsd;
-        if ((overTokens || overCost) && !decision.done) {
-          return {
-            success: false,
-            reason: "budget_exceeded",
-            summary: overTokens
-              ? `Stopped: token budget exceeded (${spentTokens} > ${options.budget.maxTokens}).`
-              : `Stopped: cost budget exceeded ($${spentCostUsd.toFixed(4)} > $${options.budget.maxCostUsd?.toFixed(4)}).`,
-            data: null,
-            steps: step,
-          };
-        }
-      }
+      const budgetResult = applyBudgetGuard<TData>(options, decision, spend, step);
+      if (budgetResult) return budgetResult;
 
       if (typeof decision.memory === "string") currentMemory = decision.memory;
       if (cfg.planning && (decision.plan || decision.memory || decision.nextGoal)) {
@@ -552,29 +493,7 @@ async function runLoopInner<TData = unknown>(
         consecutiveFailures = 0;
       }
 
-      if (decision.done) {
-        const success = decision.success ?? true;
-        const doneParams = (decision.actions[0]?.params ?? {}) as {
-          summary?: unknown;
-          data?: unknown;
-        };
-        const candidates = [
-          decision.summary,
-          typeof doneParams.summary === "string" ? doneParams.summary : undefined,
-          decision.thought,
-          decision.nextGoal,
-        ];
-        const summary =
-          candidates.find((s): s is string => typeof s === "string" && s.trim().length > 0) ??
-          "Agent signaled done.";
-        return {
-          success,
-          reason: success ? "completed" : "failed",
-          summary,
-          data: (doneParams.data ?? null) as never,
-          steps: step,
-        };
-      }
+      if (decision.done) return buildDecisionDoneResult<TData>(decision, step);
     }
   } finally {
     unsubscribeBrowserEvents?.();
@@ -658,66 +577,4 @@ async function runDecide<TData>(
   } finally {
     parentSignal.cleanup();
   }
-}
-
-type LoopDetectionOutcome =
-  | { kind: "stop" }
-  | { kind: "nudge"; notice: string; nudgesUsed: number }
-  | { kind: "reset" }
-  | { kind: "noop" };
-
-function handleLoopDetection(input: {
-  loopFingerprints: string[];
-  browserState: import("../../browser/state").BrowserStateSummary;
-  actionResults: Array<{ ok: boolean; message: string }>;
-  recentActionCalls: readonly string[];
-  window: number;
-  mode: "nudge" | "strict";
-  nudgesUsed: number;
-  nudgeBudget: number;
-}): LoopDetectionOutcome {
-  const fingerprint = buildLoopFingerprint(input.browserState, input.actionResults);
-  // Additionally fold in the canonicalised action-name signature of the
-  // latest step so that calls with identical params other than `index`
-  // do not bypass the legacy fingerprint just because the message text
-  // includes the index number.
-  const callSig = input.recentActionCalls.at(-1) ?? "";
-  const composite = `${fingerprint}|${callSig}`;
-  input.loopFingerprints.push(composite);
-  if (input.loopFingerprints.length > input.window) input.loopFingerprints.shift();
-
-  if (isRepeatingLoop(input.loopFingerprints, input.window)) {
-    if (input.mode === "strict" || input.nudgesUsed >= input.nudgeBudget) {
-      return { kind: "stop" };
-    }
-    const nudgesUsed = input.nudgesUsed + 1;
-    const notice = `Stagnation notice: the last ${input.window} steps repeated the same action and produced the same page state. Try a different approach — change parameters, target a different element, or call \`done\` if you cannot make progress. (nudge ${nudgesUsed}/${input.nudgeBudget})`;
-    return { kind: "nudge", notice, nudgesUsed };
-  }
-
-  return input.nudgesUsed > 0 ? { kind: "reset" } : { kind: "noop" };
-}
-
-const ALTERNATIVES_BY_NAME: Record<string, string> = {
-  eval: "screenshot (with annotate=true), find_elements, find_by_role, find_by_text, or extract_content",
-  find_elements: "find_by_role, find_by_text, find_by_testid, snapshot refs, or extract_content",
-  search_page: "snapshot refs, find_by_text, or extract_content with a tighter query",
-  scroll: "click_by on a 'Next' / 'Load more' control, or extract_content with startFromChar",
-};
-
-function buildSameNameNudge(run: { name: string; count: number }): string {
-  const alt = ALTERNATIVES_BY_NAME[run.name] ?? "a different action";
-  return (
-    `Stagnation notice: \`${run.name}\` has been called ${run.count} times in a row. ` +
-    `The variations aren't producing new information. Switch tactic — try ${alt}. ` +
-    `If you have what you need, call \`done\` now.`
-  );
-}
-
-function buildAlternatingNudge(pair: { a: string; b: string; pairs: number }): string {
-  return (
-    `Stagnation notice: you have alternated \`${pair.a}\` and \`${pair.b}\` for ${pair.pairs} cycles. ` +
-    `This is the same loop pattern. Either commit the value you've already extracted to memory and emit \`done\`, ` +
-    `or switch strategy entirely.`
-  );
 }

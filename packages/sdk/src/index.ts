@@ -81,7 +81,7 @@ export type { ActionContext, ActionDefinition } from "./actions/registry";
 export type { RegisteredAction } from "./actions/registry";
 export type { ActionResult } from "./actions/execute";
 
-export { AgentController } from "./agent/core/loop";
+export { AgentController } from "./agent/core/controller";
 export { createCodexCliDecide } from "./llm/providers/codexCliDecide";
 export type { CodexCliOptions } from "./llm/providers/codexCliDecide";
 export { createCodexSdkDecide } from "./llm/providers/codexSdkDecide";
