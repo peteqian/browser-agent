@@ -28,14 +28,14 @@ if (!result.ok) console.warn(result.message);
 
 Condition types (`PostCondition`):
 
-| Type | Shape | Passes when |
-| ---- | ----- | ----------- |
-| `url_changed` | `{ type }` | URL differs from `beforeUrl`. |
-| `url_contains` | `{ type, value }` | Current URL contains `value`. |
-| `element_gone` | `{ type, selector }` | No element matches `selector`. |
-| `element_present` | `{ type, selector }` | At least one element matches `selector`. |
-| `text_present` | `{ type, value }` | `value` appears in the page body text. |
-| `text_absent` | `{ type, value }` | `value` does not appear in the page body text. |
+| Type              | Shape                | Passes when                                    |
+| ----------------- | -------------------- | ---------------------------------------------- |
+| `url_changed`     | `{ type }`           | URL differs from `beforeUrl`.                  |
+| `url_contains`    | `{ type, value }`    | Current URL contains `value`.                  |
+| `element_gone`    | `{ type, selector }` | No element matches `selector`.                 |
+| `element_present` | `{ type, selector }` | At least one element matches `selector`.       |
+| `text_present`    | `{ type, value }`    | `value` appears in the page body text.         |
+| `text_absent`     | `{ type, value }`    | `value` does not appear in the page body text. |
 
 `url_changed` needs the URL captured before the action ran, passed as the third argument.
 
@@ -53,10 +53,10 @@ await runTask({
 
 Options (`RateLimitConfig`):
 
-| Option         | Type     | Default | Description |
-| -------------- | -------- | ------- | ----------- |
-| `perActionMs`  | `number` | `0`     | Minimum ms between any two actions. |
-| `perHostMs`    | `number` | `0`     | Minimum ms between two actions targeting the same host. |
+| Option        | Type     | Default | Description                                             |
+| ------------- | -------- | ------- | ------------------------------------------------------- |
+| `perActionMs` | `number` | `0`     | Minimum ms between any two actions.                     |
+| `perHostMs`   | `number` | `0`     | Minimum ms between two actions targeting the same host. |
 
 Both default to off. Use `RateLimiter` directly to apply the same pacing outside the agent loop — `acquire(host)` blocks until enough time has elapsed and returns the ms waited.
 

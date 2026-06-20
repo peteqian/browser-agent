@@ -27,15 +27,17 @@ Pool entries are either a `scheme://host:port` string or a `ProxyEntry` (`server
 
 ## Rotation strategies
 
-| Strategy | Behavior |
-| -------- | -------- |
-| `round-robin` *(default)* | Cycles through entries in order, one per launch. |
-| `random` | Picks an entry at random each launch. Pass `rng` for deterministic selection in tests. |
-| `sticky-per-host` | Same host keeps the same exit IP across a session — avoids mid-session IP changes that look suspicious. Pass the target host to `next(host)`. |
+| Strategy                  | Behavior                                                                                                                                      |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `round-robin` _(default)_ | Cycles through entries in order, one per launch.                                                                                              |
+| `random`                  | Picks an entry at random each launch. Pass `rng` for deterministic selection in tests.                                                        |
+| `sticky-per-host`         | Same host keeps the same exit IP across a session — avoids mid-session IP changes that look suspicious. Pass the target host to `next(host)`. |
 
 ```ts
 const pool = new ProxyPool({
-  proxies: [/* … */],
+  proxies: [
+    /* … */
+  ],
   strategy: "sticky-per-host",
 });
 ```
@@ -43,11 +45,14 @@ const pool = new ProxyPool({
 Use `pool.next(host)` and `ProxyPool.toLaunchOptions(entry)` directly, or `resolveProxyLaunch(pool, targetUrl)` for a one-call launch-option resolve, if you manage launches yourself.
 
 <Callout type="warn">
-This rotates the network egress IP only (Chrome `--proxy-server`). It does **not** change Chrome's TLS/JA3 fingerprint, which CDN-level detectors (Cloudflare, DataDome) also inspect. To defeat that layer, point pool entries at a uTLS-style proxy in front of Chrome.
+  This rotates the network egress IP only (Chrome `--proxy-server`). It does **not** change Chrome's
+  TLS/JA3 fingerprint, which CDN-level detectors (Cloudflare, DataDome) also inspect. To defeat that
+  layer, point pool entries at a uTLS-style proxy in front of Chrome.
 </Callout>
 
 <Callout>
-`proxyPool` is ignored when connecting to an existing `cdpUrl` — no launch happens, so there is nothing to apply the proxy to.
+  `proxyPool` is ignored when connecting to an existing `cdpUrl` — no launch happens, so there is
+  nothing to apply the proxy to.
 </Callout>
 
 ## See also

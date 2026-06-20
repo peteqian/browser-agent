@@ -5,11 +5,11 @@ description: What a transport is, how resolution picks one, probe conditions, th
 
 A **transport** is the mechanism the agent uses to reach an LLM. There are three kinds:
 
-| Transport   | What                                                                                                                            |
-| ----------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Transport   | What                                                                                                                                     |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | `sdk-agent` | A vendor's Agent SDK (e.g. `@anthropic-ai/claude-agent-sdk`, `@openai/codex-sdk`). Best when available — runs in-process, no spawn cost. |
-| `sdk-api`   | The vendor's plain REST SDK (`openai`, `@anthropic-ai/sdk`). Always available given an API key.                              |
-| `cli`       | The vendor's CLI binary (`codex`, `claude`). Used when the SDK isn't viable but a logged-in CLI is.                          |
+| `sdk-api`   | The vendor's plain REST SDK (`openai`, `@anthropic-ai/sdk`). Always available given an API key.                                          |
+| `cli`       | The vendor's CLI binary (`codex`, `claude`). Used when the SDK isn't viable but a logged-in CLI is.                                      |
 
 ## Resolution flow
 

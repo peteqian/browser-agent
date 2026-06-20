@@ -36,7 +36,10 @@ const browser = new Browser({
 Overridable fields include UA, accept-language / `navigator.languages`, platform, client-hint brands, hardware concurrency, device memory, max touch points, WebGL vendor/renderer, and screen dimensions. The init script and the UA override are generated from the same resolved profile, so the signals stay consistent.
 
 <Callout type="warn">
-`fingerprint` only applies in stealth mode. Set `fingerprintMode: "native"` on the `Browser` to skip the stealth init script and UA override entirely — use that for user-controlled headed/profile browsers attached over `cdpUrl`, where cookies, storage, IP, and manual interaction must stay tied to the real browser identity.
+  `fingerprint` only applies in stealth mode. Set `fingerprintMode: "native"` on the `Browser` to
+  skip the stealth init script and UA override entirely — use that for user-controlled
+  headed/profile browsers attached over `cdpUrl`, where cookies, storage, IP, and manual interaction
+  must stay tied to the real browser identity.
 </Callout>
 
 Resolve a profile yourself with `resolveFingerprint`.
@@ -53,12 +56,12 @@ const browser = new Browser({
 
 Options (`HumanizeConfig`):
 
-| Option   | Type      | Default | Description |
-| -------- | --------- | ------- | ----------- |
-| `mouse`  | `boolean` | `true`  | Curved mouse movement before clicks. |
-| `typing` | `boolean` | `true`  | Variable inter-key delays while typing. |
+| Option   | Type      | Default | Description                                                              |
+| -------- | --------- | ------- | ------------------------------------------------------------------------ |
+| `mouse`  | `boolean` | `true`  | Curved mouse movement before clicks.                                     |
+| `typing` | `boolean` | `true`  | Variable inter-key delays while typing.                                  |
 | `speed`  | `number`  | `1`     | Delay scale. `1` = realistic, `0` = no delays (events still dispatched). |
-| `seed`   | `number`  | random  | RNG seed for reproducible trajectories. |
+| `seed`   | `number`  | random  | RNG seed for reproducible trajectories.                                  |
 
 The challenge watchdog always uses humanized clicks regardless of this setting, since challenge widgets are exactly where input timing is scored.
 
@@ -78,13 +81,13 @@ await runTask({
 
 Pass `false` to disable. Options (`ChallengeWatchdogOptions`):
 
-| Option           | Type             | Default  | Description |
-| ---------------- | ---------------- | -------- | ----------- |
-| `timeoutMs`      | `number`         | `20000`  | Max total time to wait for a challenge to clear. |
-| `pollIntervalMs` | `number`         | `500`    | Detection poll interval while waiting. |
-| `clickGraceMs`   | `number`         | `2500`   | Grace period before clicking a Turnstile checkbox, giving auto-pass a chance first. |
-| `clickTurnstile` | `boolean`        | `true`   | Humanized click on interactive Turnstile checkboxes. |
-| `solver`         | `CaptchaSolver`  | none     | Last-resort solver for challenges that auto-pass and clicking can't clear. |
+| Option           | Type            | Default | Description                                                                         |
+| ---------------- | --------------- | ------- | ----------------------------------------------------------------------------------- |
+| `timeoutMs`      | `number`        | `20000` | Max total time to wait for a challenge to clear.                                    |
+| `pollIntervalMs` | `number`        | `500`   | Detection poll interval while waiting.                                              |
+| `clickGraceMs`   | `number`        | `2500`  | Grace period before clicking a Turnstile checkbox, giving auto-pass a chance first. |
+| `clickTurnstile` | `boolean`       | `true`  | Humanized click on interactive Turnstile checkboxes.                                |
+| `solver`         | `CaptchaSolver` | none    | Last-resort solver for challenges that auto-pass and clicking can't clear.          |
 
 ## Captcha solver plugin
 

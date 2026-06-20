@@ -5,18 +5,18 @@
 Use the plain name when explaining the system, and the code name when searching
 or editing files.
 
-| Plain name | Code name | What it means |
-|------------|-----------|---------------|
-| **model request** | `AgentInput` / `decideInput` | The packet sent to the AI: task, page, history, tools, memory. |
-| **model answer** | `AgentOutput` / `decision` | What the AI sends back: actions, done flag, summary, memory, telemetry. |
-| **ask the model** | `runDecide(...)` | Calls the selected AI adapter with retry, timeout, and abort handling. |
-| **action player** | `step-runner.ts` / `runActions(...)` | Validates and plays the model's actions one by one. |
-| **browser runner** | `SessionRunner` | Owns the active page, latest page state, stale-element recovery, and action execution. |
-| **page state** | `BrowserStateSummary` / `browserState` | Structured snapshot of the page after observe. |
-| **page text for AI** | `observation` | Compact text version of the page that the AI reads. |
-| **element lookup map** | `selectorMap` | Hidden map from model-visible index to Chrome backend node ID. |
-| **action catalog** | `ActionRegistry` | Known browser actions plus their schemas and descriptions. |
-| **Chrome wire client** | `CDPClient` | WebSocket client that sends raw Chrome DevTools Protocol messages. |
+| Plain name             | Code name                              | What it means                                                                          |
+| ---------------------- | -------------------------------------- | -------------------------------------------------------------------------------------- |
+| **model request**      | `AgentInput` / `decideInput`           | The packet sent to the AI: task, page, history, tools, memory.                         |
+| **model answer**       | `AgentOutput` / `decision`             | What the AI sends back: actions, done flag, summary, memory, telemetry.                |
+| **ask the model**      | `runDecide(...)`                       | Calls the selected AI adapter with retry, timeout, and abort handling.                 |
+| **action player**      | `step-runner.ts` / `runActions(...)`   | Validates and plays the model's actions one by one.                                    |
+| **browser runner**     | `SessionRunner`                        | Owns the active page, latest page state, stale-element recovery, and action execution. |
+| **page state**         | `BrowserStateSummary` / `browserState` | Structured snapshot of the page after observe.                                         |
+| **page text for AI**   | `observation`                          | Compact text version of the page that the AI reads.                                    |
+| **element lookup map** | `selectorMap`                          | Hidden map from model-visible index to Chrome backend node ID.                         |
+| **action catalog**     | `ActionRegistry`                       | Known browser actions plus their schemas and descriptions.                             |
+| **Chrome wire client** | `CDPClient`                            | WebSocket client that sends raw Chrome DevTools Protocol messages.                     |
 
 Simple flow:
 

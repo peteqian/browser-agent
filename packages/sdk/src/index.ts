@@ -99,11 +99,19 @@ export type { OtelExport, OtelSpan, OtelMetric, OtelSpanStatus } from "./agent/o
 export { TraceRecorder, renderTimelineHtml } from "./agent/observe/trace";
 export type { TraceRecorderOptions, TraceManifest } from "./agent/observe/trace";
 export { planAutofill, autofillActions, AnswerBank } from "./agent/features/autofill";
-export type { ApplicantProfile, AutofillSuggestion, AutofillFieldKind } from "./agent/features/autofill";
+export type {
+  ApplicantProfile,
+  AutofillSuggestion,
+  AutofillFieldKind,
+} from "./agent/features/autofill";
 export { redactString, redactValue, redactReport } from "./agent/observe/redact";
 export type { RedactOptions } from "./agent/observe/redact";
 export { ProxyPool, resolveProxyLaunch } from "./browser/identity/proxy-pool";
-export type { ProxyEntry, ProxyPoolOptions, ProxyRotationStrategy } from "./browser/identity/proxy-pool";
+export type {
+  ProxyEntry,
+  ProxyPoolOptions,
+  ProxyRotationStrategy,
+} from "./browser/identity/proxy-pool";
 export { RateLimiter } from "./runtime/rate-limit";
 export type { RateLimitConfig } from "./runtime/rate-limit";
 export { checkPostCondition } from "./runtime/post-condition";

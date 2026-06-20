@@ -1,5 +1,9 @@
 import { CDPClient } from "../../cdp/client";
-import { launchBrowserFromProfile, type LaunchOptions, type LaunchedBrowser } from "../../cdp/launch";
+import {
+  launchBrowserFromProfile,
+  type LaunchOptions,
+  type LaunchedBrowser,
+} from "../../cdp/launch";
 import { BrowserProfile } from "../identity/profile";
 import { CaptchaWatchdog, type CaptchaWaitResult } from "../watchdogs/captcha";
 import { BrowserEventBus } from "../events";

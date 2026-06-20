@@ -5,12 +5,12 @@ description: Install the SDK, the CLI + MCP runtime, and the managed browser.
 
 Browser Agent ships as two npm packages. Install the one that matches how you'll use it.
 
-| Package | Install for | Bins |
-| ------- | ----------- | ---- |
-| `@peteqian/browser-agent-sdk` | Library use — `import` into your own TypeScript/JavaScript | — |
-| `@peteqian/browser-agent` | The `browser-agent` CLI and the `browser-agent-mcp` MCP server | `browser-agent`, `browser-agent-mcp` |
+| Package                       | Install for                                                    | Bins                                 |
+| ----------------------------- | -------------------------------------------------------------- | ------------------------------------ |
+| `@peteqian/browser-agent-sdk` | Library use — `import` into your own TypeScript/JavaScript     | —                                    |
+| `@peteqian/browser-agent`     | The `browser-agent` CLI and the `browser-agent-mcp` MCP server | `browser-agent`, `browser-agent-mcp` |
 
-The CLI/MCP package depends on the SDK internally. You only install both directly if you want the bins *and* import the library in the same project.
+The CLI/MCP package depends on the SDK internally. You only install both directly if you want the bins _and_ import the library in the same project.
 
 ## Requirements
 
@@ -76,7 +76,10 @@ Browser Agent talks to Chrome over the raw Chrome DevTools Protocol — no Puppe
 **The default managed browser is Chrome for Testing (CfT).** On first launch, if no suitable browser is discoverable, Browser Agent auto-installs CfT into `~/.browser-agent/browsers/` via `@puppeteer/browsers`. Using a dedicated CfT build keeps automation reproducible and keeps debug-mode Chrome separate from your everyday browser.
 
 <Callout type="info">
-Chrome for Testing is the default. A Playwright-managed Chromium build is only used as a fallback during discovery, or when you explicitly install a non-CfT channel (which installs via `playwright install chromium`). Don't confuse the two — the out-of-the-box managed browser is Chrome for Testing.
+  Chrome for Testing is the default. A Playwright-managed Chromium build is only used as a fallback
+  during discovery, or when you explicitly install a non-CfT channel (which installs via `playwright
+  install chromium`). Don't confuse the two — the out-of-the-box managed browser is Chrome for
+  Testing.
 </Callout>
 
 Check or install it explicitly:
@@ -103,6 +106,14 @@ Installing the managed browser does not remove cookie banners or persist logins 
 ## Next
 
 <Cards>
-  <Card title="Providers" href="/docs/getting-started/providers" description="Configure an LLM provider and verify auth with --probe." />
-  <Card title="First run" href="/docs/getting-started/first-run" description="Run your first task on the CLI, SDK, and MCP." />
+  <Card
+    title="Providers"
+    href="/docs/getting-started/providers"
+    description="Configure an LLM provider and verify auth with --probe."
+  />
+  <Card
+    title="First run"
+    href="/docs/getting-started/first-run"
+    description="Run your first task on the CLI, SDK, and MCP."
+  />
 </Cards>

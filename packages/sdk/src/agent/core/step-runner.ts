@@ -5,7 +5,13 @@ import type { Page } from "../../browser/session/session";
 import type { BrowserStateSummary } from "../../browser/state";
 import { shouldReobserve } from "../../runtime/executor";
 import type { SessionRunner } from "../../runtime/session-runner";
-import type { AgentAction, AgentInput, AgentOptions, AgentOutput, AgentResult } from "../decide/contracts";
+import type {
+  AgentAction,
+  AgentInput,
+  AgentOptions,
+  AgentOutput,
+  AgentResult,
+} from "../decide/contracts";
 import { emitEvent } from "../observe/emit";
 import { buildAbortedResult, buildStoppedResult, buildTerminalData } from "./terminal-result";
 import { combineSignals } from "./timeouts";

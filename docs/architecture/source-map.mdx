@@ -85,5 +85,7 @@ Raw Chrome DevTools Protocol: `launch.ts`, `discovery.ts`, the WebSocket `client
 `SessionRunner` (`session-runner.ts`) is the glue between the loop and the action layer — it executes actions, applies self-healing and rate limiting, and tracks page state. Also `post-condition.ts` and `rate-limit.ts`.
 
 <Callout type="info">
-Entry points live outside the SDK src tree: the public surface is `src/index.ts` (published as `@peteqian/browser-agent-sdk`), with the unstable internal surface at `src/internal.ts`. The CLI and MCP runtimes are in `packages/cli` (`bin/cli.ts`, `bin/mcp.ts`).
+  Entry points live outside the SDK src tree: the public surface is `src/index.ts` (published as
+  `@peteqian/browser-agent-sdk`), with the unstable internal surface at `src/internal.ts`. The CLI
+  and MCP runtimes are in `packages/cli` (`bin/cli.ts`, `bin/mcp.ts`).
 </Callout>

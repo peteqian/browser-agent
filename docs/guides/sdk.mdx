@@ -28,7 +28,8 @@ console.log(result.summary);
 By default the agent auto-resolves a local model transport (signed-in Codex → Claude → API-key providers) and launches managed Chrome with CDP debugging enabled. No separate debug-mode flag is needed for normal runs.
 
 <Callout type="info">
-  `result.success` is `true` only when `result.reason === "completed"`. Branch on `reason`, not `summary` — `summary` is human-readable, not for control flow.
+  `result.success` is `true` only when `result.reason === "completed"`. Branch on `reason`, not
+  `summary` — `summary` is human-readable, not for control flow.
 </Callout>
 
 ## Authenticated tasks via profiles
@@ -88,15 +89,15 @@ await runTask({
 
 For advanced callers, these factories build a `getNextAction`-compatible decide function for a specific backend:
 
-| Factory | Backend |
-| --- | --- |
-| `createOpenAIDecide` | OpenAI Chat Completions |
-| `createAnthropicDecide` | Anthropic Messages |
-| `createCodexCliDecide` | Codex CLI |
-| `createCodexSdkDecide` | Codex Agent SDK |
-| `createClaudeCliDecide` | Claude CLI |
-| `createClaudeSdkDecide` | Claude Agent SDK |
-| `createDecide` | Generic resolver across the above |
+| Factory                 | Backend                           |
+| ----------------------- | --------------------------------- |
+| `createOpenAIDecide`    | OpenAI Chat Completions           |
+| `createAnthropicDecide` | Anthropic Messages                |
+| `createCodexCliDecide`  | Codex CLI                         |
+| `createCodexSdkDecide`  | Codex Agent SDK                   |
+| `createClaudeCliDecide` | Claude CLI                        |
+| `createClaudeSdkDecide` | Claude Agent SDK                  |
+| `createDecide`          | Generic resolver across the above |
 
 ```ts
 import { createOpenAIDecide, runTask } from "@peteqian/browser-agent-sdk";
@@ -230,5 +231,6 @@ import { CDPClient, launchBrowser, executeAction } from "@peteqian/browser-agent
 ```
 
 <Callout type="warn">
-  Everything under `/internal` carries **no stability guarantee** and may change without a minor version bump. Build on the public surface where possible.
+  Everything under `/internal` carries **no stability guarantee** and may change without a minor
+  version bump. Build on the public surface where possible.
 </Callout>
