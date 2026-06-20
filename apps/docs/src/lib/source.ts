@@ -9,6 +9,12 @@ export const source = loader({
   plugins: [],
 });
 
+// `loader()` widens `page.data` to the base `PageData` (no `body`/`toc`/`getText`):
+// fumadocs-core's `Source` generic exposes the page-data type only through indexed
+// access, so TypeScript can't infer it back out. The collection entry carries the
+// real shape, so recover it here and cast `page.data` at the use sites.
+export type DocPageData = (typeof docs.docs)[number];
+
 export function getPageImage(page: (typeof source)["$inferPage"]) {
   const segments = [...page.slugs, "image.png"];
 
@@ -28,7 +34,7 @@ export function getPageMarkdownUrl(page: (typeof source)["$inferPage"]) {
 }
 
 export async function getLLMText(page: (typeof source)["$inferPage"]) {
-  const processed = await page.data.getText("processed");
+  const processed = await (page.data as DocPageData).getText("processed");
 
   return `# ${page.data.title} (${page.url})
 
